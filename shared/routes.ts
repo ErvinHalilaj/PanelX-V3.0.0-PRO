@@ -5,6 +5,15 @@ import {
   insertStreamSchema, 
   insertBouquetSchema, 
   insertLineSchema,
+  insertServerSchema,
+  insertEpgSourceSchema,
+  insertSeriesSchema,
+  insertEpisodeSchema,
+  insertVodInfoSchema,
+  insertBlockedIpSchema,
+  insertBlockedUserAgentSchema,
+  insertDeviceTemplateSchema,
+  insertTranscodeProfileSchema,
   users,
   categories,
   streams,
@@ -12,7 +21,16 @@ import {
   lines,
   activeConnections,
   activityLog,
-  creditTransactions
+  creditTransactions,
+  servers,
+  epgSources,
+  series,
+  episodes,
+  vodInfo,
+  blockedIps,
+  blockedUserAgents,
+  deviceTemplates,
+  transcodeProfiles
 } from './schema';
 
 // ============================================
@@ -356,6 +374,367 @@ export const api = {
           expiredLines: z.number(),
           trialLines: z.number(),
         }),
+      },
+    },
+  },
+
+  // === SERVERS (Multi-server load balancing) ===
+  servers: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/servers',
+      responses: {
+        200: z.array(z.custom<typeof servers.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/servers/:id',
+      responses: {
+        200: z.custom<typeof servers.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/servers',
+      input: insertServerSchema,
+      responses: {
+        201: z.custom<typeof servers.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/servers/:id',
+      input: insertServerSchema.partial(),
+      responses: {
+        200: z.custom<typeof servers.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/servers/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === EPG SOURCES ===
+  epgSources: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/epg-sources',
+      responses: {
+        200: z.array(z.custom<typeof epgSources.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/epg-sources/:id',
+      responses: {
+        200: z.custom<typeof epgSources.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/epg-sources',
+      input: insertEpgSourceSchema,
+      responses: {
+        201: z.custom<typeof epgSources.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/epg-sources/:id',
+      input: insertEpgSourceSchema.partial(),
+      responses: {
+        200: z.custom<typeof epgSources.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/epg-sources/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+    refresh: {
+      method: 'POST' as const,
+      path: '/api/epg-sources/:id/refresh',
+      responses: {
+        200: z.object({ message: z.string(), count: z.number() }),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === SERIES ===
+  series: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/series',
+      input: z.object({
+        categoryId: z.string().optional(),
+      }).optional(),
+      responses: {
+        200: z.array(z.custom<typeof series.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/series/:id',
+      responses: {
+        200: z.custom<typeof series.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/series',
+      input: insertSeriesSchema,
+      responses: {
+        201: z.custom<typeof series.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/series/:id',
+      input: insertSeriesSchema.partial(),
+      responses: {
+        200: z.custom<typeof series.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/series/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === EPISODES ===
+  episodes: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/series/:seriesId/episodes',
+      input: z.object({
+        seasonNum: z.string().optional(),
+      }).optional(),
+      responses: {
+        200: z.array(z.custom<typeof episodes.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/episodes/:id',
+      responses: {
+        200: z.custom<typeof episodes.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/series/:seriesId/episodes',
+      input: insertEpisodeSchema,
+      responses: {
+        201: z.custom<typeof episodes.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/episodes/:id',
+      input: insertEpisodeSchema.partial(),
+      responses: {
+        200: z.custom<typeof episodes.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/episodes/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === VOD INFO (Metadata) ===
+  vodInfo: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/streams/:streamId/info',
+      responses: {
+        200: z.custom<typeof vodInfo.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    createOrUpdate: {
+      method: 'PUT' as const,
+      path: '/api/streams/:streamId/info',
+      input: insertVodInfoSchema.omit({ streamId: true }),
+      responses: {
+        200: z.custom<typeof vodInfo.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+
+  // === BLOCKED IPS ===
+  blockedIps: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/blocked-ips',
+      responses: {
+        200: z.array(z.custom<typeof blockedIps.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/blocked-ips',
+      input: insertBlockedIpSchema,
+      responses: {
+        201: z.custom<typeof blockedIps.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/blocked-ips/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === BLOCKED USER AGENTS ===
+  blockedUserAgents: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/blocked-user-agents',
+      responses: {
+        200: z.array(z.custom<typeof blockedUserAgents.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/blocked-user-agents',
+      input: insertBlockedUserAgentSchema,
+      responses: {
+        201: z.custom<typeof blockedUserAgents.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/blocked-user-agents/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === DEVICE TEMPLATES (Playlist generation) ===
+  deviceTemplates: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/device-templates',
+      responses: {
+        200: z.array(z.custom<typeof deviceTemplates.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/device-templates/:id',
+      responses: {
+        200: z.custom<typeof deviceTemplates.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/device-templates',
+      input: insertDeviceTemplateSchema,
+      responses: {
+        201: z.custom<typeof deviceTemplates.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/device-templates/:id',
+      input: insertDeviceTemplateSchema.partial(),
+      responses: {
+        200: z.custom<typeof deviceTemplates.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/device-templates/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === TRANSCODE PROFILES (FFmpeg) ===
+  transcodeProfiles: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/transcode-profiles',
+      responses: {
+        200: z.array(z.custom<typeof transcodeProfiles.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/transcode-profiles/:id',
+      responses: {
+        200: z.custom<typeof transcodeProfiles.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/transcode-profiles',
+      input: insertTranscodeProfileSchema,
+      responses: {
+        201: z.custom<typeof transcodeProfiles.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/transcode-profiles/:id',
+      input: insertTranscodeProfileSchema.partial(),
+      responses: {
+        200: z.custom<typeof transcodeProfiles.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/transcode-profiles/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

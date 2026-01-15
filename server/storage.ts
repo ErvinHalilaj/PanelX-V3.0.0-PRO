@@ -1,11 +1,18 @@
 import { db } from "./db";
 import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
+  servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
+  deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
-  type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction
+  type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
+  type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
+  type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
+  type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
+  type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
+  type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob
 } from "@shared/schema";
-import { eq, count, and, lt, sql, desc } from "drizzle-orm";
+import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -73,6 +80,90 @@ export interface IStorage {
     expiredLines: number;
     trialLines: number;
   }>;
+
+  // Servers
+  getServers(): Promise<Server[]>;
+  getServer(id: number): Promise<Server | undefined>;
+  createServer(server: InsertServer): Promise<Server>;
+  updateServer(id: number, updates: Partial<InsertServer>): Promise<Server>;
+  deleteServer(id: number): Promise<void>;
+
+  // EPG Sources
+  getEpgSources(): Promise<EpgSource[]>;
+  getEpgSource(id: number): Promise<EpgSource | undefined>;
+  createEpgSource(source: InsertEpgSource): Promise<EpgSource>;
+  updateEpgSource(id: number, updates: Partial<InsertEpgSource>): Promise<EpgSource>;
+  deleteEpgSource(id: number): Promise<void>;
+
+  // EPG Data
+  getEpgData(channelId: string, startTime?: Date, endTime?: Date): Promise<EpgData[]>;
+  createEpgData(data: InsertEpgData): Promise<EpgData>;
+  clearEpgData(sourceId?: number): Promise<void>;
+
+  // Series
+  getSeries(categoryId?: number): Promise<Series[]>;
+  getSeriesById(id: number): Promise<Series | undefined>;
+  createSeries(s: InsertSeries): Promise<Series>;
+  updateSeries(id: number, updates: Partial<InsertSeries>): Promise<Series>;
+  deleteSeries(id: number): Promise<void>;
+
+  // Episodes
+  getEpisodes(seriesId: number, seasonNum?: number): Promise<Episode[]>;
+  getEpisode(id: number): Promise<Episode | undefined>;
+  createEpisode(episode: InsertEpisode): Promise<Episode>;
+  updateEpisode(id: number, updates: Partial<InsertEpisode>): Promise<Episode>;
+  deleteEpisode(id: number): Promise<void>;
+
+  // VOD Info
+  getVodInfo(streamId: number): Promise<VodInfo | undefined>;
+  createVodInfo(info: InsertVodInfo): Promise<VodInfo>;
+  updateVodInfo(id: number, updates: Partial<InsertVodInfo>): Promise<VodInfo>;
+
+  // TV Archive
+  getTvArchiveEntries(streamId: number, startTime?: Date, endTime?: Date): Promise<TvArchive[]>;
+  createTvArchiveEntry(entry: InsertTvArchive): Promise<TvArchive>;
+  deleteTvArchiveEntry(id: number): Promise<void>;
+
+  // Blocked IPs
+  getBlockedIps(): Promise<BlockedIp[]>;
+  isIpBlocked(ip: string): Promise<boolean>;
+  blockIp(ip: InsertBlockedIp): Promise<BlockedIp>;
+  unblockIp(id: number): Promise<void>;
+  incrementBlockedIpAttempts(ip: string): Promise<void>;
+
+  // Blocked User Agents
+  getBlockedUserAgents(): Promise<BlockedUserAgent[]>;
+  isUserAgentBlocked(userAgent: string): Promise<boolean>;
+  blockUserAgent(ua: InsertBlockedUserAgent): Promise<BlockedUserAgent>;
+  unblockUserAgent(id: number): Promise<void>;
+
+  // Device Templates
+  getDeviceTemplates(): Promise<DeviceTemplate[]>;
+  getDeviceTemplate(key: string): Promise<DeviceTemplate | undefined>;
+  createDeviceTemplate(template: InsertDeviceTemplate): Promise<DeviceTemplate>;
+  updateDeviceTemplate(id: number, updates: Partial<InsertDeviceTemplate>): Promise<DeviceTemplate>;
+  deleteDeviceTemplate(id: number): Promise<void>;
+
+  // Transcode Profiles
+  getTranscodeProfiles(): Promise<TranscodeProfile[]>;
+  getTranscodeProfile(id: number): Promise<TranscodeProfile | undefined>;
+  createTranscodeProfile(profile: InsertTranscodeProfile): Promise<TranscodeProfile>;
+  updateTranscodeProfile(id: number, updates: Partial<InsertTranscodeProfile>): Promise<TranscodeProfile>;
+  deleteTranscodeProfile(id: number): Promise<void>;
+
+  // Stream Errors
+  getStreamErrors(streamId?: number, limit?: number): Promise<StreamError[]>;
+  logStreamError(error: InsertStreamError): Promise<StreamError>;
+  clearStreamErrors(streamId?: number): Promise<void>;
+
+  // Client Logs
+  getClientLogs(lineId?: number, limit?: number): Promise<ClientLog[]>;
+  logClient(log: InsertClientLog): Promise<ClientLog>;
+
+  // Cron Jobs
+  getCronJobs(): Promise<CronJob[]>;
+  getCronJob(id: number): Promise<CronJob | undefined>;
+  updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -333,6 +424,328 @@ export class DatabaseStorage implements IStorage {
       expiredLines: expiredCount.count,
       trialLines: trialCount.count,
     };
+  }
+
+  // Servers
+  async getServers(): Promise<Server[]> {
+    return await db.select().from(servers);
+  }
+
+  async getServer(id: number): Promise<Server | undefined> {
+    const [server] = await db.select().from(servers).where(eq(servers.id, id));
+    return server;
+  }
+
+  async createServer(server: InsertServer): Promise<Server> {
+    const [newServer] = await db.insert(servers).values(server).returning();
+    return newServer;
+  }
+
+  async updateServer(id: number, updates: Partial<InsertServer>): Promise<Server> {
+    const [updated] = await db.update(servers).set(updates).where(eq(servers.id, id)).returning();
+    return updated;
+  }
+
+  async deleteServer(id: number): Promise<void> {
+    await db.delete(servers).where(eq(servers.id, id));
+  }
+
+  // EPG Sources
+  async getEpgSources(): Promise<EpgSource[]> {
+    return await db.select().from(epgSources);
+  }
+
+  async getEpgSource(id: number): Promise<EpgSource | undefined> {
+    const [source] = await db.select().from(epgSources).where(eq(epgSources.id, id));
+    return source;
+  }
+
+  async createEpgSource(source: InsertEpgSource): Promise<EpgSource> {
+    const [newSource] = await db.insert(epgSources).values(source).returning();
+    return newSource;
+  }
+
+  async updateEpgSource(id: number, updates: Partial<InsertEpgSource>): Promise<EpgSource> {
+    const [updated] = await db.update(epgSources).set(updates).where(eq(epgSources.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEpgSource(id: number): Promise<void> {
+    await db.delete(epgSources).where(eq(epgSources.id, id));
+  }
+
+  // EPG Data
+  async getEpgData(channelId: string, startTime?: Date, endTime?: Date): Promise<EpgData[]> {
+    let conditions = [eq(epgData.channelId, channelId)];
+    if (startTime) conditions.push(gte(epgData.startTime, startTime));
+    if (endTime) conditions.push(lte(epgData.endTime, endTime));
+    return await db.select().from(epgData).where(and(...conditions));
+  }
+
+  async createEpgData(data: InsertEpgData): Promise<EpgData> {
+    const [newData] = await db.insert(epgData).values(data).returning();
+    return newData;
+  }
+
+  async clearEpgData(sourceId?: number): Promise<void> {
+    if (sourceId) {
+      await db.delete(epgData).where(eq(epgData.sourceId, sourceId));
+    } else {
+      await db.delete(epgData);
+    }
+  }
+
+  // Series
+  async getSeries(categoryId?: number): Promise<Series[]> {
+    if (categoryId) {
+      return await db.select().from(series).where(eq(series.categoryId, categoryId));
+    }
+    return await db.select().from(series);
+  }
+
+  async getSeriesById(id: number): Promise<Series | undefined> {
+    const [s] = await db.select().from(series).where(eq(series.id, id));
+    return s;
+  }
+
+  async createSeries(s: InsertSeries): Promise<Series> {
+    const [newSeries] = await db.insert(series).values(s).returning();
+    return newSeries;
+  }
+
+  async updateSeries(id: number, updates: Partial<InsertSeries>): Promise<Series> {
+    const [updated] = await db.update(series).set(updates).where(eq(series.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSeries(id: number): Promise<void> {
+    await db.delete(episodes).where(eq(episodes.seriesId, id));
+    await db.delete(series).where(eq(series.id, id));
+  }
+
+  // Episodes
+  async getEpisodes(seriesId: number, seasonNum?: number): Promise<Episode[]> {
+    if (seasonNum !== undefined) {
+      return await db.select().from(episodes).where(
+        and(eq(episodes.seriesId, seriesId), eq(episodes.seasonNum, seasonNum))
+      );
+    }
+    return await db.select().from(episodes).where(eq(episodes.seriesId, seriesId));
+  }
+
+  async getEpisode(id: number): Promise<Episode | undefined> {
+    const [episode] = await db.select().from(episodes).where(eq(episodes.id, id));
+    return episode;
+  }
+
+  async createEpisode(episode: InsertEpisode): Promise<Episode> {
+    const [newEpisode] = await db.insert(episodes).values(episode).returning();
+    return newEpisode;
+  }
+
+  async updateEpisode(id: number, updates: Partial<InsertEpisode>): Promise<Episode> {
+    const [updated] = await db.update(episodes).set(updates).where(eq(episodes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEpisode(id: number): Promise<void> {
+    await db.delete(episodes).where(eq(episodes.id, id));
+  }
+
+  // VOD Info
+  async getVodInfo(streamId: number): Promise<VodInfo | undefined> {
+    const [info] = await db.select().from(vodInfo).where(eq(vodInfo.streamId, streamId));
+    return info;
+  }
+
+  async createVodInfo(info: InsertVodInfo): Promise<VodInfo> {
+    const [newInfo] = await db.insert(vodInfo).values(info).returning();
+    return newInfo;
+  }
+
+  async updateVodInfo(id: number, updates: Partial<InsertVodInfo>): Promise<VodInfo> {
+    const [updated] = await db.update(vodInfo).set(updates).where(eq(vodInfo.id, id)).returning();
+    return updated;
+  }
+
+  // TV Archive
+  async getTvArchiveEntries(streamId: number, startTime?: Date, endTime?: Date): Promise<TvArchive[]> {
+    let conditions = [eq(tvArchive.streamId, streamId)];
+    if (startTime) conditions.push(gte(tvArchive.startTime, startTime));
+    if (endTime) conditions.push(lte(tvArchive.endTime, endTime));
+    return await db.select().from(tvArchive).where(and(...conditions));
+  }
+
+  async createTvArchiveEntry(entry: InsertTvArchive): Promise<TvArchive> {
+    const [newEntry] = await db.insert(tvArchive).values(entry).returning();
+    return newEntry;
+  }
+
+  async deleteTvArchiveEntry(id: number): Promise<void> {
+    await db.delete(tvArchive).where(eq(tvArchive.id, id));
+  }
+
+  // Blocked IPs
+  async getBlockedIps(): Promise<BlockedIp[]> {
+    return await db.select().from(blockedIps);
+  }
+
+  async isIpBlocked(ip: string): Promise<boolean> {
+    const [blocked] = await db.select().from(blockedIps).where(
+      and(
+        eq(blockedIps.ipAddress, ip),
+        or(isNull(blockedIps.expiresAt), gte(blockedIps.expiresAt, new Date()))
+      )
+    );
+    return !!blocked;
+  }
+
+  async blockIp(ip: InsertBlockedIp): Promise<BlockedIp> {
+    const [newBlock] = await db.insert(blockedIps).values(ip).returning();
+    return newBlock;
+  }
+
+  async unblockIp(id: number): Promise<void> {
+    await db.delete(blockedIps).where(eq(blockedIps.id, id));
+  }
+
+  async incrementBlockedIpAttempts(ip: string): Promise<void> {
+    await db.update(blockedIps)
+      .set({ attemptsBlocked: sql`${blockedIps.attemptsBlocked} + 1` })
+      .where(eq(blockedIps.ipAddress, ip));
+  }
+
+  // Blocked User Agents
+  async getBlockedUserAgents(): Promise<BlockedUserAgent[]> {
+    return await db.select().from(blockedUserAgents);
+  }
+
+  async isUserAgentBlocked(userAgent: string): Promise<boolean> {
+    const agents = await db.select().from(blockedUserAgents);
+    for (const agent of agents) {
+      if (agent.exactMatch) {
+        if (userAgent === agent.userAgent) return true;
+      } else {
+        if (userAgent.toLowerCase().includes(agent.userAgent.toLowerCase())) return true;
+      }
+    }
+    return false;
+  }
+
+  async blockUserAgent(ua: InsertBlockedUserAgent): Promise<BlockedUserAgent> {
+    const [newBlock] = await db.insert(blockedUserAgents).values(ua).returning();
+    return newBlock;
+  }
+
+  async unblockUserAgent(id: number): Promise<void> {
+    await db.delete(blockedUserAgents).where(eq(blockedUserAgents.id, id));
+  }
+
+  // Device Templates
+  async getDeviceTemplates(): Promise<DeviceTemplate[]> {
+    return await db.select().from(deviceTemplates);
+  }
+
+  async getDeviceTemplate(key: string): Promise<DeviceTemplate | undefined> {
+    const [template] = await db.select().from(deviceTemplates).where(eq(deviceTemplates.deviceKey, key));
+    return template;
+  }
+
+  async createDeviceTemplate(template: InsertDeviceTemplate): Promise<DeviceTemplate> {
+    const [newTemplate] = await db.insert(deviceTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateDeviceTemplate(id: number, updates: Partial<InsertDeviceTemplate>): Promise<DeviceTemplate> {
+    const [updated] = await db.update(deviceTemplates).set(updates).where(eq(deviceTemplates.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDeviceTemplate(id: number): Promise<void> {
+    await db.delete(deviceTemplates).where(eq(deviceTemplates.id, id));
+  }
+
+  // Transcode Profiles
+  async getTranscodeProfiles(): Promise<TranscodeProfile[]> {
+    return await db.select().from(transcodeProfiles);
+  }
+
+  async getTranscodeProfile(id: number): Promise<TranscodeProfile | undefined> {
+    const [profile] = await db.select().from(transcodeProfiles).where(eq(transcodeProfiles.id, id));
+    return profile;
+  }
+
+  async createTranscodeProfile(profile: InsertTranscodeProfile): Promise<TranscodeProfile> {
+    const [newProfile] = await db.insert(transcodeProfiles).values(profile).returning();
+    return newProfile;
+  }
+
+  async updateTranscodeProfile(id: number, updates: Partial<InsertTranscodeProfile>): Promise<TranscodeProfile> {
+    const [updated] = await db.update(transcodeProfiles).set(updates).where(eq(transcodeProfiles.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTranscodeProfile(id: number): Promise<void> {
+    await db.delete(transcodeProfiles).where(eq(transcodeProfiles.id, id));
+  }
+
+  // Stream Errors
+  async getStreamErrors(streamId?: number, limit: number = 100): Promise<StreamError[]> {
+    if (streamId) {
+      return await db.select().from(streamErrors)
+        .where(eq(streamErrors.streamId, streamId))
+        .orderBy(desc(streamErrors.occurredAt))
+        .limit(limit);
+    }
+    return await db.select().from(streamErrors)
+      .orderBy(desc(streamErrors.occurredAt))
+      .limit(limit);
+  }
+
+  async logStreamError(error: InsertStreamError): Promise<StreamError> {
+    const [newError] = await db.insert(streamErrors).values(error).returning();
+    return newError;
+  }
+
+  async clearStreamErrors(streamId?: number): Promise<void> {
+    if (streamId) {
+      await db.delete(streamErrors).where(eq(streamErrors.streamId, streamId));
+    } else {
+      await db.delete(streamErrors);
+    }
+  }
+
+  // Client Logs
+  async getClientLogs(lineId?: number, limit: number = 100): Promise<ClientLog[]> {
+    if (lineId) {
+      return await db.select().from(clientLogs)
+        .where(eq(clientLogs.lineId, lineId))
+        .orderBy(desc(clientLogs.createdAt))
+        .limit(limit);
+    }
+    return await db.select().from(clientLogs)
+      .orderBy(desc(clientLogs.createdAt))
+      .limit(limit);
+  }
+
+  async logClient(log: InsertClientLog): Promise<ClientLog> {
+    const [newLog] = await db.insert(clientLogs).values(log).returning();
+    return newLog;
+  }
+
+  // Cron Jobs
+  async getCronJobs(): Promise<CronJob[]> {
+    return await db.select().from(cronJobs);
+  }
+
+  async getCronJob(id: number): Promise<CronJob | undefined> {
+    const [job] = await db.select().from(cronJobs).where(eq(cronJobs.id, id));
+    return job;
+  }
+
+  async updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob> {
+    const [updated] = await db.update(cronJobs).set(updates).where(eq(cronJobs.id, id)).returning();
+    return updated;
   }
 }
 

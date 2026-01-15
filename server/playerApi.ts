@@ -20,6 +20,22 @@ import type { XtreamUserInfo, XtreamServerInfo, XtreamCategory, XtreamChannel, L
  * 4. Use IP whitelisting where possible
  */
 
+// Helper for XML escaping
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Format date for XMLTV
+function formatXmltvDate(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())} +0000`;
+}
+
 // Get the server's base URL
 function getServerInfo(req: Request): XtreamServerInfo {
   const protocol = req.protocol;
@@ -206,11 +222,157 @@ export function registerPlayerApi(app: Express) {
 
       case 'get_series':
         const seriesCatId = req.query.category_id;
-        let series = await getAccessibleStreams(line, 'series');
-        if (seriesCatId) {
-          series = series.filter(s => s.categoryId === parseInt(seriesCatId as string));
+        let seriesList = await storage.getSeries(seriesCatId ? parseInt(seriesCatId as string) : undefined);
+        return res.json(seriesList.map(s => ({
+          series_id: s.id,
+          name: s.name,
+          cover: s.cover || '',
+          plot: s.plot || '',
+          cast: s.cast || '',
+          director: s.director || '',
+          genre: s.genre || '',
+          releaseDate: s.releaseDate || '',
+          last_modified: s.updatedAt ? new Date(s.updatedAt).toISOString() : '',
+          rating: s.rating || '0',
+          rating_5based: parseFloat(s.rating || '0') / 2,
+          backdrop_path: s.backdrop ? [s.backdrop] : [],
+          youtube_trailer: s.youtubeTrailer || '',
+          episode_run_time: s.episodeRunTime || '',
+          category_id: s.categoryId?.toString() || '',
+        })));
+
+      case 'get_series_info':
+        const seriesIdQuery = req.query.series_id;
+        if (!seriesIdQuery) {
+          return res.status(400).json({ error: 'Missing series_id' });
         }
-        return res.json(series.map((s, i) => streamToXtreamChannel(s, i)));
+        const seriesInfo = await storage.getSeriesById(parseInt(seriesIdQuery as string));
+        if (!seriesInfo) {
+          return res.status(404).json({ error: 'Series not found' });
+        }
+        const episodesList = await storage.getEpisodes(seriesInfo.id);
+        
+        // Group episodes by season
+        const seasons: Record<string, any[]> = {};
+        for (const ep of episodesList) {
+          const seasonKey = ep.seasonNum.toString();
+          if (!seasons[seasonKey]) seasons[seasonKey] = [];
+          seasons[seasonKey].push({
+            id: ep.id.toString(),
+            episode_num: ep.episodeNum,
+            title: ep.title,
+            container_extension: ep.containerExtension || 'mp4',
+            info: {
+              duration_secs: ep.durationSecs || 0,
+              duration: ep.duration || '',
+              movie_image: ep.movieImage || '',
+              plot: ep.plot || '',
+              releasedate: ep.releaseDate || '',
+              rating: ep.rating || 0,
+            },
+            custom_sid: '',
+            added: ep.createdAt ? Math.floor(new Date(ep.createdAt).getTime() / 1000).toString() : '',
+            season: ep.seasonNum,
+            direct_source: ep.directSource || '',
+          });
+        }
+
+        return res.json({
+          seasons: Object.keys(seasons).sort((a, b) => parseInt(a) - parseInt(b)),
+          info: {
+            name: seriesInfo.name,
+            cover: seriesInfo.cover || '',
+            plot: seriesInfo.plot || '',
+            cast: seriesInfo.cast || '',
+            director: seriesInfo.director || '',
+            genre: seriesInfo.genre || '',
+            releaseDate: seriesInfo.releaseDate || '',
+            rating: seriesInfo.rating || '0',
+            backdrop_path: seriesInfo.backdrop ? [seriesInfo.backdrop] : [],
+            youtube_trailer: seriesInfo.youtubeTrailer || '',
+            episode_run_time: seriesInfo.episodeRunTime || '',
+            category_id: seriesInfo.categoryId?.toString() || '',
+          },
+          episodes: seasons,
+        });
+
+      case 'get_vod_info':
+        const vodIdQuery = req.query.vod_id;
+        if (!vodIdQuery) {
+          return res.status(400).json({ error: 'Missing vod_id' });
+        }
+        const vodStreamId = parseInt(vodIdQuery as string);
+        const vodStream = await storage.getStream(vodStreamId);
+        if (!vodStream) {
+          return res.status(404).json({ error: 'VOD not found' });
+        }
+        const vodMeta = await storage.getVodInfo(vodStreamId);
+        
+        return res.json({
+          info: {
+            kinopoisk_url: '',
+            tmdb_id: vodMeta?.tmdbId || '',
+            name: vodStream.name,
+            o_name: vodStream.name,
+            cover_big: vodMeta?.backdrop || vodStream.streamIcon || '',
+            movie_image: vodStream.streamIcon || '',
+            releasedate: vodMeta?.releaseYear?.toString() || '',
+            episode_run_time: vodMeta?.duration || '',
+            youtube_trailer: vodMeta?.youtubeTrailer || '',
+            director: vodMeta?.director || '',
+            actors: vodMeta?.cast || '',
+            cast: vodMeta?.cast || '',
+            description: vodMeta?.plot || '',
+            plot: vodMeta?.plot || '',
+            genre: vodMeta?.genre || '',
+            rating: vodMeta?.rating?.toString() || '',
+            rating_5based: (vodMeta?.rating || 0) / 2,
+            country: vodMeta?.country || '',
+            duration_secs: vodMeta?.durationSecs || 0,
+            duration: vodMeta?.duration || '',
+            video: vodMeta?.videoInfo || {},
+            audio: vodMeta?.audioInfo || {},
+            bitrate: vodMeta?.bitrate || 0,
+            subtitles: vodMeta?.subtitles || [],
+          },
+          movie_data: {
+            stream_id: vodStream.id,
+            name: vodStream.name,
+            added: vodStream.createdAt ? Math.floor(new Date(vodStream.createdAt).getTime() / 1000).toString() : '',
+            category_id: vodStream.categoryId?.toString() || '',
+            container_extension: vodMeta?.containerExtension || 'mp4',
+            custom_sid: '',
+            direct_source: vodStream.sourceUrl,
+          },
+        });
+
+      case 'get_short_epg':
+      case 'get_simple_data_table':
+        const epgStreamId = req.query.stream_id;
+        const epgLimit = parseInt(req.query.limit as string) || 10;
+        if (!epgStreamId) {
+          return res.json({ epg_listings: [] });
+        }
+        const epgStream = await storage.getStream(parseInt(epgStreamId as string));
+        if (!epgStream || !epgStream.epgChannelId) {
+          return res.json({ epg_listings: [] });
+        }
+        const now = new Date();
+        const epgEntries = await storage.getEpgData(epgStream.epgChannelId, now);
+        return res.json({
+          epg_listings: epgEntries.slice(0, epgLimit).map(e => ({
+            id: e.id.toString(),
+            epg_id: e.channelId,
+            title: btoa(e.title || ''),
+            lang: e.language || 'en',
+            start: e.startTime ? new Date(e.startTime).toISOString().replace('T', ' ').split('.')[0] : '',
+            end: e.endTime ? new Date(e.endTime).toISOString().replace('T', ' ').split('.')[0] : '',
+            description: btoa(e.description || ''),
+            channel_id: epgStream.epgChannelId,
+            start_timestamp: e.startTime ? Math.floor(new Date(e.startTime).getTime() / 1000) : 0,
+            stop_timestamp: e.endTime ? Math.floor(new Date(e.endTime).getTime() / 1000) : 0,
+          })),
+        });
 
       default:
         // Default: Return user info and server info
@@ -372,6 +534,242 @@ export function registerPlayerApi(app: Express) {
     }
   });
 
+  // Movie/VOD stream endpoint
+  app.get('/movie/:username/:password/:streamId.:ext', async (req: Request, res: Response) => {
+    const { username, password, streamId } = req.params;
+    
+    const line = await authenticateLine(username, password);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // Check connection limit
+    const connections = await storage.getConnectionsByLine(line.id);
+    if (connections.length >= (line.maxConnections || 1)) {
+      return res.status(403).send('Max connections reached');
+    }
+
+    // Get the stream
+    const stream = await storage.getStream(parseInt(streamId));
+    
+    if (!stream || stream.streamType !== 'movie') {
+      return res.status(404).send('Movie not found');
+    }
+
+    // Check if user has access to this stream
+    const accessibleStreams = await getAccessibleStreams(line, 'movie');
+    if (!accessibleStreams.find(s => s.id === stream.id)) {
+      return res.status(403).send('Access denied');
+    }
+
+    // Create connection record
+    const connection = await storage.createConnection({
+      lineId: line.id,
+      streamId: stream.id,
+      userAgent: req.get('user-agent') || '',
+      ipAddress: req.ip || '',
+    });
+
+    // Log activity
+    await storage.logActivity({
+      lineId: line.id,
+      action: 'vod_start',
+      streamId: stream.id,
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
+
+    // Cleanup on disconnect
+    req.on('close', async () => {
+      await storage.deleteConnection(connection.id);
+    });
+
+    // Redirect to source
+    return res.redirect(stream.sourceUrl);
+  });
+
+  // Series episode stream endpoint
+  app.get('/series/:username/:password/:episodeId.:ext', async (req: Request, res: Response) => {
+    const { username, password, episodeId } = req.params;
+    
+    const line = await authenticateLine(username, password);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // Check connection limit
+    const connections = await storage.getConnectionsByLine(line.id);
+    if (connections.length >= (line.maxConnections || 1)) {
+      return res.status(403).send('Max connections reached');
+    }
+
+    // Get the episode
+    const episode = await storage.getEpisode(parseInt(episodeId));
+    
+    if (!episode) {
+      return res.status(404).send('Episode not found');
+    }
+
+    // Create connection record
+    const connection = await storage.createConnection({
+      lineId: line.id,
+      streamId: episode.seriesId, // Reference series
+      userAgent: req.get('user-agent') || '',
+      ipAddress: req.ip || '',
+    });
+
+    // Log activity
+    await storage.logActivity({
+      lineId: line.id,
+      action: 'series_start',
+      streamId: episode.seriesId,
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+      details: `Episode ${episode.seasonNum}x${episode.episodeNum}`,
+    });
+
+    // Cleanup on disconnect
+    req.on('close', async () => {
+      await storage.deleteConnection(connection.id);
+    });
+
+    // Redirect to source
+    return res.redirect(episode.directSource || '');
+  });
+
+  // XMLTV EPG endpoint
+  app.get('/xmltv.php', async (req: Request, res: Response) => {
+    const { username, password } = req.query;
+    
+    if (!username || !password) {
+      return res.status(401).send('Unauthorized');
+    }
+    
+    const line = await authenticateLine(username as string, password as string);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // Get accessible live streams
+    const liveStreams = await getAccessibleStreams(line, 'live');
+    const channelIds = liveStreams.filter(s => s.epgChannelId).map(s => s.epgChannelId!);
+    
+    // Generate XMLTV format
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<!DOCTYPE tv SYSTEM "xmltv.dtd">\n';
+    xml += '<tv generator-info-name="PanelX IPTV">\n';
+    
+    // Add channels
+    for (const stream of liveStreams) {
+      if (stream.epgChannelId) {
+        xml += `  <channel id="${stream.epgChannelId}">\n`;
+        xml += `    <display-name>${escapeXml(stream.name)}</display-name>\n`;
+        if (stream.streamIcon) {
+          xml += `    <icon src="${escapeXml(stream.streamIcon)}" />\n`;
+        }
+        xml += `  </channel>\n`;
+      }
+    }
+    
+    // Add programmes for each channel
+    for (const channelId of channelIds) {
+      const now = new Date();
+      const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const epgEntries = await storage.getEpgData(channelId, now, endDate);
+      
+      for (const entry of epgEntries) {
+        const start = entry.startTime ? formatXmltvDate(new Date(entry.startTime)) : '';
+        const stop = entry.endTime ? formatXmltvDate(new Date(entry.endTime)) : '';
+        
+        xml += `  <programme start="${start}" stop="${stop}" channel="${channelId}">\n`;
+        xml += `    <title lang="${entry.language || 'en'}">${escapeXml(entry.title || '')}</title>\n`;
+        if (entry.description) {
+          xml += `    <desc lang="${entry.language || 'en'}">${escapeXml(entry.description)}</desc>\n`;
+        }
+        if (entry.category) {
+          xml += `    <category>${escapeXml(entry.category)}</category>\n`;
+        }
+        xml += `  </programme>\n`;
+      }
+    }
+    
+    xml += '</tv>';
+    
+    res.setHeader('Content-Type', 'application/xml');
+    return res.send(xml);
+  });
+
+  // Timeshift/TV Archive endpoint
+  app.get('/timeshift/:username/:password/:duration/:start/:streamId.:ext', async (req: Request, res: Response) => {
+    const { username, password, duration, start, streamId } = req.params;
+    
+    const line = await authenticateLine(username, password);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    const stream = await storage.getStream(parseInt(streamId));
+    
+    if (!stream || !stream.tvArchiveEnabled) {
+      return res.status(404).send('Archive not available');
+    }
+
+    // Find archive entry
+    const startTime = new Date(parseInt(start) * 1000);
+    const archives = await storage.getTvArchiveEntries(stream.id, startTime);
+    
+    if (archives.length === 0) {
+      return res.status(404).send('Archive not found');
+    }
+
+    const archive = archives[0];
+    
+    // Log activity
+    await storage.logActivity({
+      lineId: line.id,
+      action: 'timeshift_start',
+      streamId: stream.id,
+      ipAddress: req.ip || '',
+      details: `Archive from ${startTime.toISOString()}`,
+    });
+
+    return res.redirect(archive.archiveUrl);
+  });
+
+  // Catchup endpoint (alternative format)
+  app.get('/streaming/timeshift.php', async (req: Request, res: Response) => {
+    const { username, password, stream, start, duration } = req.query;
+    
+    if (!username || !password || !stream) {
+      return res.status(400).send('Missing parameters');
+    }
+    
+    const line = await authenticateLine(username as string, password as string);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    const streamData = await storage.getStream(parseInt(stream as string));
+    
+    if (!streamData || !streamData.tvArchiveEnabled) {
+      return res.status(404).send('Archive not available');
+    }
+
+    const startTime = start ? new Date(parseInt(start as string) * 1000) : new Date();
+    const archives = await storage.getTvArchiveEntries(streamData.id, startTime);
+    
+    if (archives.length === 0) {
+      return res.status(404).send('Archive not found');
+    }
+
+    return res.redirect(archives[0].archiveUrl);
+  });
+
   // Panel info endpoint (for compatibility)
   app.get('/panel_api.php', async (req: Request, res: Response) => {
     const { username, password } = req.query;
@@ -398,5 +796,330 @@ export function registerPlayerApi(app: Express) {
       server_info: getServerInfo(req),
       stats,
     });
+  });
+
+  // ============================================
+  // STALKER PORTAL API (for MAG devices)
+  // ============================================
+  
+  app.all('/stalker_portal/c/', async (req: Request, res: Response) => {
+    return res.redirect('/stalker_portal/server/load.php');
+  });
+
+  app.all('/stalker_portal/server/load.php', async (req: Request, res: Response) => {
+    const { type, action, mac } = { ...req.query, ...req.body };
+    const serverInfo = getServerInfo(req);
+
+    // Handle handshake
+    if (type === 'stb' && action === 'handshake') {
+      return res.json({
+        js: {
+          token: Buffer.from(`${Date.now()}`).toString('base64'),
+          random: Math.random().toString(36).substring(7),
+        },
+      });
+    }
+
+    // Handle STB profile
+    if (type === 'stb' && action === 'get_profile') {
+      return res.json({
+        js: {
+          id: 1,
+          name: 'PanelX',
+          logo: '',
+          portal_url: `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}/stalker_portal/c/`,
+          mac: mac || '',
+          ip: '',
+          ls: true,
+          version: '1.0',
+          stb_type: 'MAG250',
+          num_banks: 0,
+          time_zone: serverInfo.timezone,
+          limit_id: '',
+        },
+      });
+    }
+
+    // Handle authorization
+    if (type === 'stb' && action === 'do_auth') {
+      const login = req.body.login || req.query.login;
+      const password = req.body.password || req.query.password;
+      
+      if (!login || !password) {
+        return res.json({ js: false, error: 'Missing credentials' });
+      }
+      
+      const line = await authenticateLine(login as string, password as string);
+      
+      if (!line) {
+        return res.json({ js: false, error: 'Invalid credentials' });
+      }
+      
+      return res.json({
+        js: {
+          id: line.id,
+          mac: mac || '',
+          login: line.username,
+          status: line.enabled ? 1 : 0,
+        },
+      });
+    }
+
+    // Handle IPTV categories
+    if (type === 'itv' && action === 'get_genres') {
+      const categories = await storage.getCategories();
+      const liveCategories = categories.filter(c => c.categoryType === 'live');
+      
+      return res.json({
+        js: liveCategories.map((c, i) => ({
+          id: c.id.toString(),
+          title: c.categoryName,
+          alias: c.categoryName.toLowerCase().replace(/\s+/g, '_'),
+          number: (i + 1).toString(),
+          censored: 0,
+        })),
+      });
+    }
+
+    // Handle IPTV channels
+    if (type === 'itv' && action === 'get_ordered_list') {
+      const genre = req.query.genre || req.body.genre;
+      const p = parseInt(req.query.p as string) || 1;
+      const limit = 50;
+      
+      let allStreams = await storage.getStreams(undefined, 'live');
+      
+      if (genre && genre !== '*') {
+        allStreams = allStreams.filter(s => s.categoryId === parseInt(genre as string));
+      }
+      
+      const total = allStreams.length;
+      const streams = allStreams.slice((p - 1) * limit, p * limit);
+      
+      return res.json({
+        js: {
+          total_items: total,
+          max_page_items: limit,
+          cur_page: p,
+          selected_item: 0,
+          data: streams.map((s, i) => ({
+            id: s.id.toString(),
+            name: s.name,
+            number: ((p - 1) * limit + i + 1).toString(),
+            cmd: `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}/live/portal/${s.id}.ts`,
+            logo: s.streamIcon || '',
+            genre_id: s.categoryId?.toString() || '',
+            tv_archive: s.tvArchiveEnabled ? 1 : 0,
+            tv_archive_duration: s.tvArchiveDuration || 0,
+          })),
+        },
+      });
+    }
+
+    // Handle VOD categories
+    if (type === 'vod' && action === 'get_categories') {
+      const categories = await storage.getCategories();
+      const vodCategories = categories.filter(c => c.categoryType === 'movie');
+      
+      return res.json({
+        js: vodCategories.map((c, i) => ({
+          id: c.id.toString(),
+          title: c.categoryName,
+          alias: c.categoryName.toLowerCase().replace(/\s+/g, '_'),
+          number: (i + 1).toString(),
+        })),
+      });
+    }
+
+    // Handle VOD list
+    if (type === 'vod' && action === 'get_ordered_list') {
+      const category = req.query.category || req.body.category;
+      const p = parseInt(req.query.p as string) || 1;
+      const limit = 50;
+      
+      let allStreams = await storage.getStreams(undefined, 'movie');
+      
+      if (category && category !== '*') {
+        allStreams = allStreams.filter(s => s.categoryId === parseInt(category as string));
+      }
+      
+      const total = allStreams.length;
+      const streams = allStreams.slice((p - 1) * limit, p * limit);
+      
+      return res.json({
+        js: {
+          total_items: total,
+          max_page_items: limit,
+          cur_page: p,
+          data: streams.map(s => ({
+            id: s.id.toString(),
+            name: s.name,
+            o_name: s.name,
+            screenshot_uri: s.streamIcon || '',
+            cmd: `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}/movie/portal/${s.id}.mp4`,
+          })),
+        },
+      });
+    }
+
+    // Default response
+    return res.json({ js: {} });
+  });
+
+  // Portal live stream
+  app.get('/live/portal/:streamId.:ext', async (req: Request, res: Response) => {
+    const { streamId } = req.params;
+    const stream = await storage.getStream(parseInt(streamId));
+    
+    if (!stream) {
+      return res.status(404).send('Stream not found');
+    }
+    
+    return res.redirect(stream.sourceUrl);
+  });
+
+  // Portal movie stream
+  app.get('/movie/portal/:streamId.:ext', async (req: Request, res: Response) => {
+    const { streamId } = req.params;
+    const stream = await storage.getStream(parseInt(streamId));
+    
+    if (!stream || stream.streamType !== 'movie') {
+      return res.status(404).send('Movie not found');
+    }
+    
+    return res.redirect(stream.sourceUrl);
+  });
+
+  // ============================================
+  // ENIGMA2 API (for Enigma2/Dreambox devices)
+  // ============================================
+  
+  app.get('/get.php', async (req: Request, res: Response) => {
+    const { username, password, type, output } = req.query;
+    
+    if (!username || !password) {
+      return res.status(401).send('Unauthorized');
+    }
+    
+    const line = await authenticateLine(username as string, password as string);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    const serverInfo = getServerInfo(req);
+    const baseUrl = `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}`;
+
+    // Enigma2 bouquet format
+    if (type === 'enigma2_bouquet' || type === 'enigma2') {
+      const streams = await getAccessibleStreams(line, 'live');
+      const categories = await storage.getCategories();
+      
+      let e2bouquet = '#NAME PanelX IPTV\n';
+      
+      for (const stream of streams) {
+        const category = categories.find(c => c.id === stream.categoryId);
+        const categoryName = category?.categoryName || 'Uncategorized';
+        const serviceName = `${stream.name} [${categoryName}]`;
+        const streamUrl = `${baseUrl}/live/${username}/${password}/${stream.id}.ts`;
+        
+        e2bouquet += `#SERVICE 4097:0:1:0:0:0:0:0:0:0:${encodeURIComponent(streamUrl)}:${serviceName}\n`;
+        e2bouquet += `#DESCRIPTION ${stream.name}\n`;
+      }
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="${username}_enigma2.tv"`);
+      return res.send(e2bouquet);
+    }
+    
+    // M3U playlist format
+    if (type === 'm3u_plus' || type === 'm3u') {
+      const streams = await getAccessibleStreams(line, 'live');
+      const categories = await storage.getCategories();
+      
+      let m3u = '#EXTM3U\n';
+      
+      for (const stream of streams) {
+        const category = categories.find(c => c.id === stream.categoryId);
+        const categoryName = category?.categoryName || 'Uncategorized';
+        
+        m3u += `#EXTINF:-1 tvg-id="${stream.epgChannelId || ''}" tvg-name="${stream.name}" tvg-logo="${stream.streamIcon || ''}" group-title="${categoryName}",${stream.name}\n`;
+        m3u += `${baseUrl}/live/${username}/${password}/${stream.id}.${output || 'ts'}\n`;
+      }
+      
+      res.setHeader('Content-Type', 'application/x-mpegurl');
+      res.setHeader('Content-Disposition', `attachment; filename="${username}.m3u"`);
+      return res.send(m3u);
+    }
+
+    return res.status(400).send('Invalid request');
+  });
+
+  // ============================================
+  // DEVICE PLAYLIST GENERATOR
+  // ============================================
+  
+  app.get('/playlist/:deviceKey/:username/:password', async (req: Request, res: Response) => {
+    const { deviceKey, username, password } = req.params;
+    
+    const line = await authenticateLine(username, password);
+    
+    if (!line) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    const template = await storage.getDeviceTemplate(deviceKey);
+    
+    if (!template) {
+      // Fall back to standard M3U
+      const serverInfo = getServerInfo(req);
+      const baseUrl = `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}`;
+      const streams = await getAccessibleStreams(line, 'live');
+      const categories = await storage.getCategories();
+      
+      let m3u = '#EXTM3U\n';
+      
+      for (const stream of streams) {
+        const category = categories.find(c => c.id === stream.categoryId);
+        const categoryName = category?.categoryName || 'Uncategorized';
+        
+        m3u += `#EXTINF:-1 tvg-id="${stream.epgChannelId || ''}" tvg-name="${stream.name}" tvg-logo="${stream.streamIcon || ''}" group-title="${categoryName}",${stream.name}\n`;
+        m3u += `${baseUrl}/live/${username}/${password}/${stream.id}.ts\n`;
+      }
+      
+      res.setHeader('Content-Type', 'application/x-mpegurl');
+      return res.send(m3u);
+    }
+
+    const serverInfo = getServerInfo(req);
+    const baseUrl = `${serverInfo.server_protocol}://${serverInfo.url}:${serverInfo.port}`;
+    const streams = await getAccessibleStreams(line, 'live');
+    const categories = await storage.getCategories();
+    
+    // Apply template
+    let playlist = template.header.replace(/{username}/g, username).replace(/{password}/g, password).replace(/{server}/g, baseUrl) + '\n';
+    
+    for (const stream of streams) {
+      const category = categories.find(c => c.id === stream.categoryId);
+      let line = template.lineTemplate
+        .replace(/{stream_id}/g, stream.id.toString())
+        .replace(/{stream_name}/g, stream.name)
+        .replace(/{stream_icon}/g, stream.streamIcon || '')
+        .replace(/{epg_channel_id}/g, stream.epgChannelId || '')
+        .replace(/{category_name}/g, category?.categoryName || 'Uncategorized')
+        .replace(/{username}/g, username)
+        .replace(/{password}/g, password)
+        .replace(/{server}/g, baseUrl)
+        .replace(/{extension}/g, template.extension);
+      
+      playlist += line + '\n';
+    }
+    
+    res.setHeader('Content-Type', template.contentType);
+    if (template.filenameTemplate) {
+      const filename = template.filenameTemplate.replace(/{username}/g, username);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    }
+    return res.send(playlist);
   });
 }

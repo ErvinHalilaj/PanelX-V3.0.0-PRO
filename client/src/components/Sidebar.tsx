@@ -7,26 +7,65 @@ import {
   Settings, 
   Server, 
   LogOut,
-  Clapperboard,
+  Film,
   UserCog,
   Wifi,
-  Code
+  Code,
+  Clapperboard,
+  Shield,
+  Smartphone,
+  Radio,
+  CalendarClock,
+  Ban
 } from "lucide-react";
 
 export function Sidebar() {
   const [location] = useLocation();
 
-  const navItems = [
+  const mainNav = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  ];
+
+  const contentNav = [
     { icon: Tv, label: "Live Streams", href: "/streams" },
+    { icon: Film, label: "Movies (VOD)", href: "/movies" },
+    { icon: Clapperboard, label: "Series", href: "/series" },
+    { icon: Layers, label: "Categories", href: "/categories" },
+    { icon: Layers, label: "Bouquets", href: "/bouquets" },
+    { icon: CalendarClock, label: "EPG Sources", href: "/epg" },
+  ];
+
+  const usersNav = [
     { icon: Users, label: "Lines", href: "/lines" },
     { icon: UserCog, label: "Users/Resellers", href: "/users" },
     { icon: Wifi, label: "Connections", href: "/connections" },
-    { icon: Layers, label: "Bouquets", href: "/bouquets" },
-    { icon: Layers, label: "Categories", href: "/categories" },
+  ];
+
+  const securityNav = [
+    { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
+    { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
+  ];
+
+  const systemNav = [
+    { icon: Server, label: "Servers", href: "/servers" },
+    { icon: Smartphone, label: "Device Templates", href: "/devices" },
+    { icon: Radio, label: "Transcode", href: "/transcode" },
     { icon: Code, label: "API Info", href: "/api" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
+
+  const renderNav = (items: typeof mainNav) => (
+    <>
+      {items.map((item) => (
+        <Link key={item.href} href={item.href}>
+          <div className={`nav-item cursor-pointer group ${location === item.href ? "active" : ""}`} data-testid={`nav-${item.href.replace('/', '') || 'dashboard'}`}>
+            <item.icon className="w-5 h-5 group-hover:text-primary transition-colors" />
+            <span>{item.label}</span>
+          </div>
+        </Link>
+      ))}
+    </>
+  );
 
   return (
     <aside className="w-64 bg-secondary/30 backdrop-blur-md border-r border-white/5 flex flex-col h-screen fixed left-0 top-0 z-50">
@@ -38,19 +77,34 @@ export function Sidebar() {
         <p className="text-xs text-muted-foreground mt-1 ml-4 font-mono">v3.0.0-PRO</p>
       </div>
 
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <div className={`nav-item cursor-pointer group ${location === item.href ? "active" : ""}`}>
-              <item.icon className="w-5 h-5 group-hover:text-primary transition-colors" />
-              <span>{item.label}</span>
-            </div>
-          </Link>
-        ))}
+      <nav className="flex-1 px-3 overflow-y-auto">
+        <div className="mb-4">
+          {renderNav(mainNav)}
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Content</p>
+          {renderNav(contentNav)}
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Users</p>
+          {renderNav(usersNav)}
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Security</p>
+          {renderNav(securityNav)}
+        </div>
+
+        <div className="mb-4">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">System</p>
+          {renderNav(systemNav)}
+        </div>
       </nav>
 
       <div className="p-4 border-t border-white/5">
-        <button className="flex items-center gap-3 px-3 py-2 w-full text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+        <button className="flex items-center gap-3 px-3 py-2 w-full text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" data-testid="button-signout">
           <LogOut className="w-5 h-5" />
           <span>Sign Out</span>
         </button>

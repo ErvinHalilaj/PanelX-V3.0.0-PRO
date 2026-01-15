@@ -151,7 +151,208 @@ async function seedDatabase() {
     enabled: true,
   });
 
+  // Create series category
+  await storage.createCategory({
+    categoryName: "TV Shows",
+    categoryType: "series",
+  });
+
+  // Seed device templates
+  const existingTemplates = await storage.getDeviceTemplates();
+  if (existingTemplates.length === 0) {
+    await seedDeviceTemplates();
+  }
+
   console.log("Database seeded successfully!");
+}
+
+async function seedDeviceTemplates() {
+  const templates = [
+    {
+      deviceKey: 'm3u_plus',
+      deviceName: 'M3U Plus (Universal)',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}.m3u',
+    },
+    {
+      deviceKey: 'vlc',
+      deviceName: 'VLC Media Player',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1,{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_vlc.m3u',
+    },
+    {
+      deviceKey: 'kodi',
+      deviceName: 'Kodi / XBMC',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_kodi.m3u',
+    },
+    {
+      deviceKey: 'tivimate',
+      deviceName: 'TiviMate',
+      header: '#EXTM3U x-tvg-url="{server}/xmltv.php?username={username}&password={password}"',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_tivimate.m3u',
+    },
+    {
+      deviceKey: 'smarters',
+      deviceName: 'IPTV Smarters Pro',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_smarters.m3u',
+    },
+    {
+      deviceKey: 'perfect_player',
+      deviceName: 'Perfect Player',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_pp.m3u',
+    },
+    {
+      deviceKey: 'gse',
+      deviceName: 'GSE Smart IPTV',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_gse.m3u',
+    },
+    {
+      deviceKey: 'ss_iptv',
+      deviceName: 'SS IPTV',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_ssiptv.m3u',
+    },
+    {
+      deviceKey: 'smart_iptv',
+      deviceName: 'Smart IPTV (Samsung/LG)',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_siptv.m3u',
+    },
+    {
+      deviceKey: 'enigma2',
+      deviceName: 'Enigma2 / Dreambox',
+      header: '#NAME PanelX IPTV',
+      lineTemplate: '#SERVICE 4097:0:1:0:0:0:0:0:0:0:{server}/live/{username}/{password}/{stream_id}.{extension}:{stream_name}\n#DESCRIPTION {stream_name}',
+      extension: 'ts',
+      contentType: 'text/plain',
+      filenameTemplate: '{username}.tv',
+    },
+    {
+      deviceKey: 'ottplayer',
+      deviceName: 'OTT Player',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_ott.m3u',
+    },
+    {
+      deviceKey: 'firestick',
+      deviceName: 'Amazon Fire TV / Firestick',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_fire.m3u',
+    },
+    {
+      deviceKey: 'android',
+      deviceName: 'Android Box / Phone',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_android.m3u',
+    },
+    {
+      deviceKey: 'ios',
+      deviceName: 'iPhone / iPad',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_ios.m3u',
+    },
+    {
+      deviceKey: 'roku',
+      deviceName: 'Roku',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_roku.m3u',
+    },
+    {
+      deviceKey: 'apple_tv',
+      deviceName: 'Apple TV',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_appletv.m3u',
+    },
+    {
+      deviceKey: 'xtream',
+      deviceName: 'Xtream Codes API',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_xtream.m3u',
+    },
+    {
+      deviceKey: 'xciptv',
+      deviceName: 'XCIPTV Player',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_xciptv.m3u',
+    },
+    {
+      deviceKey: 'duplex',
+      deviceName: 'Duplex IPTV',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.m3u8',
+      extension: 'm3u8',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_duplex.m3u',
+    },
+    {
+      deviceKey: 'stb_emu',
+      deviceName: 'STB Emulator',
+      header: '#EXTM3U',
+      lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.ts',
+      extension: 'ts',
+      contentType: 'audio/x-mpegurl',
+      filenameTemplate: '{username}_stbemu.m3u',
+    },
+  ];
+
+  for (const template of templates) {
+    await storage.createDeviceTemplate(template);
+  }
 }
 
 export async function registerRoutes(
@@ -486,6 +687,352 @@ export async function registerRoutes(
     const userId = req.query.userId ? Number(req.query.userId) : undefined;
     const transactions = await storage.getCreditTransactions(userId);
     res.json(transactions);
+  });
+
+  // === SERVERS ===
+  app.get(api.servers.list.path, async (_req, res) => {
+    const servers = await storage.getServers();
+    res.json(servers);
+  });
+
+  app.get(api.servers.get.path, async (req, res) => {
+    const server = await storage.getServer(Number(req.params.id));
+    if (!server) return res.status(404).json({ message: "Server not found" });
+    res.json(server);
+  });
+
+  app.post(api.servers.create.path, async (req, res) => {
+    try {
+      const input = api.servers.create.input.parse(req.body);
+      const server = await storage.createServer(input);
+      res.status(201).json(server);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.servers.update.path, async (req, res) => {
+    try {
+      const input = api.servers.update.input.parse(req.body);
+      const server = await storage.updateServer(Number(req.params.id), input);
+      res.json(server);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.servers.delete.path, async (req, res) => {
+    await storage.deleteServer(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === EPG SOURCES ===
+  app.get(api.epgSources.list.path, async (_req, res) => {
+    const sources = await storage.getEpgSources();
+    res.json(sources);
+  });
+
+  app.get(api.epgSources.get.path, async (req, res) => {
+    const source = await storage.getEpgSource(Number(req.params.id));
+    if (!source) return res.status(404).json({ message: "EPG source not found" });
+    res.json(source);
+  });
+
+  app.post(api.epgSources.create.path, async (req, res) => {
+    try {
+      const input = api.epgSources.create.input.parse(req.body);
+      const source = await storage.createEpgSource(input);
+      res.status(201).json(source);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.epgSources.update.path, async (req, res) => {
+    try {
+      const input = api.epgSources.update.input.parse(req.body);
+      const source = await storage.updateEpgSource(Number(req.params.id), input);
+      res.json(source);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.epgSources.delete.path, async (req, res) => {
+    await storage.deleteEpgSource(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post(api.epgSources.refresh.path, async (req, res) => {
+    const source = await storage.getEpgSource(Number(req.params.id));
+    if (!source) return res.status(404).json({ message: "EPG source not found" });
+    // EPG refresh logic would go here - for now just acknowledge
+    res.json({ message: "EPG refresh initiated", count: 0 });
+  });
+
+  // === SERIES ===
+  app.get(api.series.list.path, async (req, res) => {
+    const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
+    const seriesList = await storage.getSeries(categoryId);
+    res.json(seriesList);
+  });
+
+  app.get(api.series.get.path, async (req, res) => {
+    const s = await storage.getSeriesById(Number(req.params.id));
+    if (!s) return res.status(404).json({ message: "Series not found" });
+    res.json(s);
+  });
+
+  app.post(api.series.create.path, async (req, res) => {
+    try {
+      const input = api.series.create.input.parse(req.body);
+      const s = await storage.createSeries(input);
+      res.status(201).json(s);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.series.update.path, async (req, res) => {
+    try {
+      const input = api.series.update.input.parse(req.body);
+      const s = await storage.updateSeries(Number(req.params.id), input);
+      res.json(s);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.series.delete.path, async (req, res) => {
+    await storage.deleteSeries(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === EPISODES ===
+  app.get(api.episodes.list.path, async (req, res) => {
+    const seriesId = Number(req.params.seriesId);
+    const seasonNum = req.query.seasonNum ? Number(req.query.seasonNum) : undefined;
+    const episodeList = await storage.getEpisodes(seriesId, seasonNum);
+    res.json(episodeList);
+  });
+
+  app.get(api.episodes.get.path, async (req, res) => {
+    const episode = await storage.getEpisode(Number(req.params.id));
+    if (!episode) return res.status(404).json({ message: "Episode not found" });
+    res.json(episode);
+  });
+
+  app.post(api.episodes.create.path, async (req, res) => {
+    try {
+      const input = api.episodes.create.input.parse({
+        ...req.body,
+        seriesId: Number(req.params.seriesId),
+      });
+      const episode = await storage.createEpisode(input);
+      res.status(201).json(episode);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.episodes.update.path, async (req, res) => {
+    try {
+      const input = api.episodes.update.input.parse(req.body);
+      const episode = await storage.updateEpisode(Number(req.params.id), input);
+      res.json(episode);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.episodes.delete.path, async (req, res) => {
+    await storage.deleteEpisode(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === VOD INFO ===
+  app.get(api.vodInfo.get.path, async (req, res) => {
+    const info = await storage.getVodInfo(Number(req.params.streamId));
+    if (!info) return res.status(404).json({ message: "VOD info not found" });
+    res.json(info);
+  });
+
+  app.put(api.vodInfo.createOrUpdate.path, async (req, res) => {
+    try {
+      const streamId = Number(req.params.streamId);
+      const existing = await storage.getVodInfo(streamId);
+      
+      if (existing) {
+        const updated = await storage.updateVodInfo(existing.id, req.body);
+        res.json(updated);
+      } else {
+        const created = await storage.createVodInfo({ ...req.body, streamId });
+        res.json(created);
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // === BLOCKED IPS ===
+  app.get(api.blockedIps.list.path, async (_req, res) => {
+    const blocked = await storage.getBlockedIps();
+    res.json(blocked);
+  });
+
+  app.post(api.blockedIps.create.path, async (req, res) => {
+    try {
+      const input = api.blockedIps.create.input.parse(req.body);
+      const blocked = await storage.blockIp(input);
+      res.status(201).json(blocked);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.blockedIps.delete.path, async (req, res) => {
+    await storage.unblockIp(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === BLOCKED USER AGENTS ===
+  app.get(api.blockedUserAgents.list.path, async (_req, res) => {
+    const blocked = await storage.getBlockedUserAgents();
+    res.json(blocked);
+  });
+
+  app.post(api.blockedUserAgents.create.path, async (req, res) => {
+    try {
+      const input = api.blockedUserAgents.create.input.parse(req.body);
+      const blocked = await storage.blockUserAgent(input);
+      res.status(201).json(blocked);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.blockedUserAgents.delete.path, async (req, res) => {
+    await storage.unblockUserAgent(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === DEVICE TEMPLATES ===
+  app.get(api.deviceTemplates.list.path, async (_req, res) => {
+    const templates = await storage.getDeviceTemplates();
+    res.json(templates);
+  });
+
+  app.get(api.deviceTemplates.get.path, async (req, res) => {
+    const template = await storage.getDeviceTemplate(req.params.id);
+    if (!template) return res.status(404).json({ message: "Device template not found" });
+    res.json(template);
+  });
+
+  app.post(api.deviceTemplates.create.path, async (req, res) => {
+    try {
+      const input = api.deviceTemplates.create.input.parse(req.body);
+      const template = await storage.createDeviceTemplate(input);
+      res.status(201).json(template);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.deviceTemplates.update.path, async (req, res) => {
+    try {
+      const input = api.deviceTemplates.update.input.parse(req.body);
+      const template = await storage.updateDeviceTemplate(Number(req.params.id), input);
+      res.json(template);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.deviceTemplates.delete.path, async (req, res) => {
+    await storage.deleteDeviceTemplate(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === TRANSCODE PROFILES ===
+  app.get(api.transcodeProfiles.list.path, async (_req, res) => {
+    const profiles = await storage.getTranscodeProfiles();
+    res.json(profiles);
+  });
+
+  app.get(api.transcodeProfiles.get.path, async (req, res) => {
+    const profile = await storage.getTranscodeProfile(Number(req.params.id));
+    if (!profile) return res.status(404).json({ message: "Transcode profile not found" });
+    res.json(profile);
+  });
+
+  app.post(api.transcodeProfiles.create.path, async (req, res) => {
+    try {
+      const input = api.transcodeProfiles.create.input.parse(req.body);
+      const profile = await storage.createTranscodeProfile(input);
+      res.status(201).json(profile);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.transcodeProfiles.update.path, async (req, res) => {
+    try {
+      const input = api.transcodeProfiles.update.input.parse(req.body);
+      const profile = await storage.updateTranscodeProfile(Number(req.params.id), input);
+      res.json(profile);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.transcodeProfiles.delete.path, async (req, res) => {
+    await storage.deleteTranscodeProfile(Number(req.params.id));
+    res.status(204).send();
   });
 
   return httpServer;

@@ -2,7 +2,7 @@
 
 ## Overview
 
-PanelX is a full-stack IPTV management panel built for managing streaming content, user subscriptions (lines), and reseller operations. It provides an Xtream Codes compatible API for IPTV player applications, along with an administrative dashboard for content and user management.
+PanelX is a full-stack IPTV management panel built for managing streaming content, user subscriptions (lines), and reseller operations. It provides Xtream Codes v2.9 compatible APIs for IPTV player applications (Smarters, TiviMate, etc.), along with a comprehensive administrative dashboard.
 
 The application follows a monorepo structure with a React frontend, Express backend, and PostgreSQL database using Drizzle ORM.
 
@@ -26,7 +26,12 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript with ESM modules
 - **API Pattern**: RESTful JSON API at `/api/*` routes
-- **Player API**: Xtream Codes compatible endpoints (`/player_api.php`, `/get.php`) for IPTV player compatibility
+- **Player APIs**: Multiple player API formats:
+  - Xtream Codes API (`/player_api.php`, `/get.php`)
+  - XMLTV EPG (`/xmltv.php`)
+  - Stalker Portal API (`/stalker_portal/*`)
+  - Enigma2 API (via `/get.php?type=enigma2`)
+  - Device-specific playlists (`/playlist/:deviceKey/:username/:password`)
 - **Build Tool**: Vite for development, esbuild for production server bundling
 
 ### Data Storage
@@ -35,15 +40,29 @@ Preferred communication style: Simple, everyday language.
 - **Schema Location**: `shared/schema.ts` contains all table definitions
 - **Migrations**: Managed via `drizzle-kit push` command
 
-### Core Data Models
+### Core Data Models (22 Tables)
 - **Users**: Admin and reseller accounts with credit-based system
 - **Categories**: Content organization (live, movie, series types)
 - **Streams**: Live channels and VOD content with source URLs
 - **Bouquets**: Content packages grouping streams for subscription tiers
-- **Lines**: End-user subscriptions with credentials, expiration, and connection limits
+- **Lines**: End-user subscriptions with credentials, expiration, connection limits, device locking, and GeoIP
 - **Active Connections**: Real-time tracking of user sessions
 - **Activity Log**: Audit trail for user actions
 - **Credit Transactions**: Financial tracking for reseller operations
+- **Servers**: Multi-server load balancing configuration
+- **EPG Sources**: XMLTV sources for program guides
+- **EPG Data**: Electronic program guide entries
+- **Series**: TV series with metadata (TMDB-style)
+- **Episodes**: Series episodes with streaming sources
+- **VOD Info**: Movie metadata (plot, cast, etc.)
+- **TV Archive**: Catchup/timeshift recordings
+- **Blocked IPs**: IP-based access restrictions
+- **Blocked User Agents**: User agent blocking
+- **Device Templates**: 20+ device playlist formats
+- **Transcode Profiles**: FFmpeg transcoding configurations
+- **Stream Errors**: Error logging for streams
+- **Client Logs**: Client activity logging
+- **Cron Jobs**: Scheduled task management
 
 ### Project Structure
 ```
@@ -56,20 +75,58 @@ Preferred communication style: Simple, everyday language.
 ├── server/           # Express backend
 │   ├── index.ts      # Server entry point
 │   ├── routes.ts     # API route registration
-│   ├── storage.ts    # Database operations interface
-│   ├── playerApi.ts  # Xtream Codes compatible API
+│   ├── storage.ts    # Database operations interface (22 tables)
+│   ├── playerApi.ts  # Xtream Codes, Stalker Portal, Enigma2 APIs
 │   └── db.ts         # Database connection
 ├── shared/           # Shared code between client/server
-│   ├── schema.ts     # Drizzle table definitions
+│   ├── schema.ts     # Drizzle table definitions (22 tables)
 │   └── routes.ts     # API contract definitions with Zod schemas
 └── migrations/       # Database migration files
 ```
 
-### API Design
-- Type-safe API contracts defined in `shared/routes.ts`
-- Zod schemas for request/response validation
-- RESTful endpoints for CRUD operations on all entities
-- Xtream Codes API compatibility layer for player applications
+### API Endpoints
+
+#### Admin API (`/api/*`)
+- `/api/users` - Admin/Reseller management
+- `/api/categories` - Content categories
+- `/api/streams` - Live/VOD streams
+- `/api/bouquets` - Content packages
+- `/api/lines` - User subscriptions
+- `/api/connections` - Active connections
+- `/api/servers` - Server management
+- `/api/epg-sources` - EPG sources
+- `/api/series` - TV series
+- `/api/episodes` - Series episodes
+- `/api/blocked-ips` - IP blocking
+- `/api/blocked-user-agents` - UA blocking
+- `/api/device-templates` - Playlist templates
+- `/api/transcode-profiles` - FFmpeg profiles
+
+#### Player API (Xtream Codes Compatible)
+- `/player_api.php` - Main authentication and content listing
+- `/get.php` - M3U/M3U8 playlist generation
+- `/live/:user/:pass/:id.:ext` - Live stream proxy
+- `/movie/:user/:pass/:id.:ext` - VOD stream proxy
+- `/series/:user/:pass/:id.:ext` - Series episode proxy
+- `/xmltv.php` - XMLTV EPG guide
+- `/timeshift/:user/:pass/:dur/:start/:id.:ext` - TV Archive
+- `/streaming/timeshift.php` - Alternative catchup format
+
+#### Stalker Portal API (MAG Devices)
+- `/stalker_portal/c/` - Portal entry
+- `/stalker_portal/server/load.php` - Portal API
+
+#### Device Playlist Generator
+- `/playlist/:deviceKey/:username/:password` - Device-specific playlists
+
+### Security Features
+- IP blocking with expiration and attempt counting
+- User agent blocking (exact and partial match)
+- GeoIP country restrictions per line
+- Device locking (device ID and MAC address)
+- IP whitelist per line
+- Connection limit enforcement
+- Rate limiting support
 
 ## External Dependencies
 
@@ -95,3 +152,17 @@ Preferred communication style: Simple, everyday language.
 - Vite with React plugin for frontend development
 - tsx for TypeScript execution
 - Replit-specific plugins for development experience
+
+## Recent Changes
+
+- Added 14 new database tables for full Xtream Codes v2.9 feature parity
+- Implemented Stalker Portal API for MAG device support
+- Added XMLTV EPG endpoint for program guide
+- Created TV Archive/Catchup streaming endpoints
+- Added Series and Episodes management with full metadata
+- Added VOD Info for movie metadata (TMDB-style)
+- Implemented IP and User Agent blocking
+- Added device locking and GeoIP restrictions for lines
+- Created 20+ device templates for playlist generation
+- Added transcode profile management for FFmpeg
+- Implemented multi-server load balancing support
