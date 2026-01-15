@@ -7,7 +7,10 @@ import {
   Settings, 
   Server, 
   LogOut,
-  Clapperboard
+  Clapperboard,
+  UserCog,
+  Wifi,
+  Code
 } from "lucide-react";
 
 export function Sidebar() {
@@ -16,11 +19,12 @@ export function Sidebar() {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Tv, label: "Live Streams", href: "/streams" },
-    { icon: Clapperboard, label: "Movies & Series", href: "/movies" },
-    { icon: Users, label: "Users & Lines", href: "/lines" },
+    { icon: Users, label: "Lines", href: "/lines" },
+    { icon: UserCog, label: "Users/Resellers", href: "/users" },
+    { icon: Wifi, label: "Connections", href: "/connections" },
     { icon: Layers, label: "Bouquets", href: "/bouquets" },
     { icon: Layers, label: "Categories", href: "/categories" },
-    { icon: Server, label: "Manage Servers", href: "/servers" },
+    { icon: Code, label: "API Info", href: "/api" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 

@@ -9,6 +9,9 @@ import Streams from "@/pages/Streams";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
 import Bouquets from "@/pages/Bouquets";
+import Users from "@/pages/Users";
+import Connections from "@/pages/Connections";
+import ApiInfo from "@/pages/ApiInfo";
 
 function Router() {
   return (
@@ -16,8 +19,11 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/streams" component={Streams} />
       <Route path="/lines" component={Lines} />
+      <Route path="/users" component={Users} />
+      <Route path="/connections" component={Connections} />
       <Route path="/categories" component={Categories} />
       <Route path="/bouquets" component={Bouquets} />
+      <Route path="/api" component={ApiInfo} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />
