@@ -2,9 +2,23 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Background cleanup interval for stale connections (every 30 seconds)
+const CLEANUP_INTERVAL = 30000;
+setInterval(async () => {
+  try {
+    const cleanedCount = await storage.cleanupStaleConnections();
+    if (cleanedCount > 0) {
+      console.log(`[cleanup] Removed ${cleanedCount} stale connections`);
+    }
+  } catch (err) {
+    console.error('[cleanup] Error cleaning stale connections:', err);
+  }
+}, CLEANUP_INTERVAL);
 
 declare module "http" {
   interface IncomingMessage {

@@ -53,7 +53,7 @@ export interface IStorage {
   createConnection(connection: InsertActiveConnection): Promise<ActiveConnection>;
   updateConnectionPing(id: number): Promise<void>;
   deleteConnection(id: number): Promise<void>;
-  cleanupStaleConnections(): Promise<void>;
+  cleanupStaleConnections(): Promise<number>;
 
   // Activity Log
   getActivityLog(lineId?: number, limit?: number): Promise<ActivityLog[]>;
@@ -272,9 +272,12 @@ export class DatabaseStorage implements IStorage {
     await db.delete(activeConnections).where(eq(activeConnections.id, id));
   }
 
-  async cleanupStaleConnections(): Promise<void> {
+  async cleanupStaleConnections(): Promise<number> {
     const staleThreshold = new Date(Date.now() - 60000); // 1 minute ago
-    await db.delete(activeConnections).where(lt(activeConnections.lastPing, staleThreshold));
+    const result = await db.delete(activeConnections)
+      .where(lt(activeConnections.lastPing, staleThreshold))
+      .returning();
+    return result.length;
   }
 
   // Activity Log

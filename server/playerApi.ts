@@ -2,6 +2,24 @@ import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import type { XtreamUserInfo, XtreamServerInfo, XtreamCategory, XtreamChannel, Line, Stream, Bouquet } from "@shared/schema";
 
+/**
+ * SECURITY NOTE ON PASSWORD HANDLING:
+ * 
+ * Xtream Codes API requires plain-text password transmission for compatibility 
+ * with IPTV apps like TiviMate, IPTV Smarters, etc. These apps send raw 
+ * username/password in API requests and expect the server to validate them.
+ * 
+ * While password hashing is security best practice, implementing it would break
+ * compatibility with the entire Xtream Codes ecosystem. The passwords in this
+ * system should be treated as API tokens rather than user passwords.
+ * 
+ * Recommendations for production:
+ * 1. Use HTTPS to encrypt traffic
+ * 2. Generate random, high-entropy passwords/tokens for lines
+ * 3. Implement rate limiting on auth endpoints
+ * 4. Use IP whitelisting where possible
+ */
+
 // Get the server's base URL
 function getServerInfo(req: Request): XtreamServerInfo {
   const protocol = req.protocol;
