@@ -27,14 +27,8 @@ export default function BlockedIps() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { ipAddress: string; reason: string; expiresAt?: string }) => 
-      apiRequest("/api/blocked-ips", { 
-        method: "POST", 
-        body: JSON.stringify({
-          ...data,
-          expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-        })
-      }),
+    mutationFn: (data: { ipAddress: string; reason?: string; expiresAt?: Date | null }) => 
+      apiRequest("POST", "/api/blocked-ips", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-ips"] });
       setIsOpen(false);
@@ -45,12 +39,21 @@ export default function BlockedIps() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/blocked-ips/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/blocked-ips/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-ips"] });
       toast({ title: "IP unblocked" });
     },
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMutation.mutate({
+      ipAddress: formData.ipAddress,
+      reason: formData.reason || undefined,
+      expiresAt: formData.expiresAt ? new Date(formData.expiresAt) : null,
+    });
+  };
 
   return (
     <div className="flex">
@@ -74,7 +77,7 @@ export default function BlockedIps() {
               <DialogHeader>
                 <DialogTitle>Block IP Address</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>IP Address</Label>
                   <Input value={formData.ipAddress} onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })} placeholder="192.168.1.100" required data-testid="input-ip-address" />
@@ -128,7 +131,7 @@ export default function BlockedIps() {
                     <TableRow key={ip.id} data-testid={`row-blocked-ip-${ip.id}`}>
                       <TableCell className="font-mono text-destructive">{ip.ipAddress}</TableCell>
                       <TableCell>{ip.reason || "-"}</TableCell>
-                      <TableCell>{ip.createdAt ? format(new Date(ip.createdAt), "PPp") : "-"}</TableCell>
+                      <TableCell>{ip.blockedAt ? format(new Date(ip.blockedAt), "PPp") : "-"}</TableCell>
                       <TableCell>{ip.expiresAt ? format(new Date(ip.expiresAt), "PPp") : "Never"}</TableCell>
                       <TableCell>{ip.attemptsBlocked || 0}</TableCell>
                       <TableCell className="text-right">

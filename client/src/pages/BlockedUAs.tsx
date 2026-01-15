@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Shield, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { format } from "date-fns";
 import type { BlockedUserAgent } from "@shared/schema";
 
 export default function BlockedUAs() {
@@ -20,7 +19,6 @@ export default function BlockedUAs() {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     userAgent: "",
-    reason: "",
     exactMatch: false,
   });
 
@@ -29,18 +27,18 @@ export default function BlockedUAs() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/blocked-user-agents", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/blocked-user-agents", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-user-agents"] });
       setIsOpen(false);
-      setFormData({ userAgent: "", reason: "", exactMatch: false });
+      setFormData({ userAgent: "", exactMatch: false });
       toast({ title: "User agent blocked successfully" });
     },
     onError: () => toast({ title: "Failed to block user agent", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/blocked-user-agents/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/blocked-user-agents/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-user-agents"] });
       toast({ title: "User agent unblocked" });
@@ -75,10 +73,6 @@ export default function BlockedUAs() {
                   <Input value={formData.userAgent} onChange={(e) => setFormData({ ...formData, userAgent: e.target.value })} placeholder="VLC/3.0.16 LibVLC" required data-testid="input-user-agent" />
                   <p className="text-xs text-muted-foreground">Enter the user agent string to block</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Reason</Label>
-                  <Input value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="Unauthorized client" data-testid="input-reason" />
-                </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={formData.exactMatch} onCheckedChange={(checked) => setFormData({ ...formData, exactMatch: checked })} data-testid="switch-exact-match" />
                   <Label>Exact match only</Label>
@@ -110,8 +104,7 @@ export default function BlockedUAs() {
                   <TableRow>
                     <TableHead>User Agent</TableHead>
                     <TableHead>Match Type</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Blocked At</TableHead>
+                    <TableHead>Attempts Blocked</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -124,8 +117,7 @@ export default function BlockedUAs() {
                           {ua.exactMatch ? "Exact" : "Contains"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{ua.reason || "-"}</TableCell>
-                      <TableCell>{ua.createdAt ? format(new Date(ua.createdAt), "PPp") : "-"}</TableCell>
+                      <TableCell>{ua.attemptsBlocked || 0}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(ua.id)} data-testid={`button-unblock-ua-${ua.id}`}>
                           <Trash2 className="w-4 h-4 text-destructive" />

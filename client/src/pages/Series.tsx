@@ -43,7 +43,7 @@ export default function Series() {
   const seriesCategories = categories.filter(c => c.categoryType === "series");
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/series", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/series", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/series"] });
       setIsOpen(false);
@@ -54,7 +54,7 @@ export default function Series() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/series/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/series/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/series"] });
       toast({ title: "Series deleted" });

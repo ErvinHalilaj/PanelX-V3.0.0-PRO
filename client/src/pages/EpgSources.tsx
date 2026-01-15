@@ -19,8 +19,9 @@ export default function EpgSources() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    url: "",
+    sourceName: "",
+    sourceUrl: "",
+    updateInterval: 24,
     enabled: true,
   });
 
@@ -29,18 +30,18 @@ export default function EpgSources() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/epg-sources", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/epg-sources", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/epg-sources"] });
       setIsOpen(false);
-      setFormData({ name: "", url: "", enabled: true });
+      setFormData({ sourceName: "", sourceUrl: "", updateInterval: 24, enabled: true });
       toast({ title: "EPG source added successfully" });
     },
     onError: () => toast({ title: "Failed to add EPG source", variant: "destructive" }),
   });
 
   const refreshMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/epg-sources/${id}/refresh`, { method: "POST" }),
+    mutationFn: (id: number) => apiRequest("POST", `/api/epg-sources/${id}/refresh`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/epg-sources"] });
       toast({ title: "EPG refresh initiated" });
@@ -49,7 +50,7 @@ export default function EpgSources() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/epg-sources/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/epg-sources/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/epg-sources"] });
       toast({ title: "EPG source deleted" });
@@ -81,11 +82,15 @@ export default function EpgSources() {
               <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Source Name</Label>
-                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="EPG Provider" required data-testid="input-epg-name" />
+                  <Input value={formData.sourceName} onChange={(e) => setFormData({ ...formData, sourceName: e.target.value })} placeholder="EPG Provider" required data-testid="input-epg-name" />
                 </div>
                 <div className="space-y-2">
                   <Label>XMLTV URL</Label>
-                  <Input value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} placeholder="https://example.com/epg.xml" required data-testid="input-epg-url" />
+                  <Input value={formData.sourceUrl} onChange={(e) => setFormData({ ...formData, sourceUrl: e.target.value })} placeholder="https://example.com/epg.xml" required data-testid="input-epg-url" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Update Interval (hours)</Label>
+                  <Input type="number" value={formData.updateInterval} onChange={(e) => setFormData({ ...formData, updateInterval: parseInt(e.target.value) || 24 })} data-testid="input-update-interval" />
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={formData.enabled} onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })} data-testid="switch-enabled" />
@@ -126,10 +131,10 @@ export default function EpgSources() {
                 <TableBody>
                   {sources.map((source) => (
                     <TableRow key={source.id} data-testid={`row-epg-source-${source.id}`}>
-                      <TableCell className="font-medium">{source.name}</TableCell>
+                      <TableCell className="font-medium">{source.sourceName}</TableCell>
                       <TableCell className="max-w-xs truncate text-muted-foreground">
-                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary">
-                          {source.url.substring(0, 40)}...
+                        <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary">
+                          {source.sourceUrl.substring(0, 40)}...
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </TableCell>
@@ -138,7 +143,7 @@ export default function EpgSources() {
                           {source.enabled ? "Active" : "Disabled"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{source.lastUpdated ? format(new Date(source.lastUpdated), "PPp") : "Never"}</TableCell>
+                      <TableCell>{source.lastUpdate ? format(new Date(source.lastUpdate), "PPp") : "Never"}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => refreshMutation.mutate(source.id)} disabled={refreshMutation.isPending} data-testid={`button-refresh-epg-${source.id}`}>
                           <RefreshCw className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />

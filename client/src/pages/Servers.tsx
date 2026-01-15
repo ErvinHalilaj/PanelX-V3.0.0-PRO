@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Server as ServerIcon, Plus, Trash2, Activity, Globe } from "lucide-react";
+import { Server as ServerIcon, Plus, Trash2, Globe } from "lucide-react";
 import { useState } from "react";
 import type { Server as ServerType } from "@shared/schema";
 
@@ -19,12 +19,11 @@ export default function Servers() {
   const [formData, setFormData] = useState({
     serverName: "",
     serverUrl: "",
-    httpPort: 80,
-    httpsPort: 443,
+    serverPort: 80,
     rtmpPort: 1935,
-    serverProtocol: "http",
-    weight: 1,
-    isMain: false,
+    httpBroadcastPort: 25461,
+    isMainServer: false,
+    maxClients: 1000,
     enabled: true,
   });
 
@@ -33,18 +32,18 @@ export default function Servers() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/servers", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/servers", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       setIsOpen(false);
-      setFormData({ serverName: "", serverUrl: "", httpPort: 80, httpsPort: 443, rtmpPort: 1935, serverProtocol: "http", weight: 1, isMain: false, enabled: true });
+      setFormData({ serverName: "", serverUrl: "", serverPort: 80, rtmpPort: 1935, httpBroadcastPort: 25461, isMainServer: false, maxClients: 1000, enabled: true });
       toast({ title: "Server created successfully" });
     },
     onError: () => toast({ title: "Failed to create server", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/servers/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/servers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       toast({ title: "Server deleted" });
@@ -85,20 +84,20 @@ export default function Servers() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>HTTP Port</Label>
-                    <Input type="number" value={formData.httpPort} onChange={(e) => setFormData({ ...formData, httpPort: parseInt(e.target.value) })} data-testid="input-http-port" />
+                    <Input type="number" value={formData.serverPort} onChange={(e) => setFormData({ ...formData, serverPort: parseInt(e.target.value) || 80 })} data-testid="input-server-port" />
                   </div>
                   <div className="space-y-2">
-                    <Label>HTTPS Port</Label>
-                    <Input type="number" value={formData.httpsPort} onChange={(e) => setFormData({ ...formData, httpsPort: parseInt(e.target.value) })} data-testid="input-https-port" />
+                    <Label>RTMP Port</Label>
+                    <Input type="number" value={formData.rtmpPort} onChange={(e) => setFormData({ ...formData, rtmpPort: parseInt(e.target.value) || 1935 })} data-testid="input-rtmp-port" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Weight</Label>
-                    <Input type="number" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: parseInt(e.target.value) })} data-testid="input-weight" />
+                    <Label>Max Clients</Label>
+                    <Input type="number" value={formData.maxClients} onChange={(e) => setFormData({ ...formData, maxClients: parseInt(e.target.value) || 1000 })} data-testid="input-max-clients" />
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Switch checked={formData.isMain} onCheckedChange={(checked) => setFormData({ ...formData, isMain: checked })} data-testid="switch-main-server" />
+                    <Switch checked={formData.isMainServer} onCheckedChange={(checked) => setFormData({ ...formData, isMainServer: checked })} data-testid="switch-main-server" />
                     <Label>Main Server</Label>
                   </div>
                   <div className="flex items-center gap-2">
@@ -134,7 +133,7 @@ export default function Servers() {
                     {server.serverName}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {server.isMain && <Badge variant="secondary">Main</Badge>}
+                    {server.isMainServer && <Badge variant="secondary">Main</Badge>}
                     <Badge variant={server.enabled ? "default" : "outline"}>
                       {server.enabled ? "Active" : "Disabled"}
                     </Badge>
@@ -142,9 +141,9 @@ export default function Servers() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    <p className="text-muted-foreground">{server.serverUrl}:{server.httpPort}</p>
+                    <p className="text-muted-foreground">{server.serverUrl}:{server.serverPort}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Weight: {server.weight}</span>
+                      <span className="text-muted-foreground">Max: {server.maxClients} clients</span>
                       <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(server.id)} className="text-destructive hover:text-destructive" data-testid={`button-delete-server-${server.id}`}>
                         <Trash2 className="w-4 h-4" />
                       </Button>

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Smartphone, Plus, Trash2, Copy, ExternalLink } from "lucide-react";
+import { Smartphone, Plus, Trash2, Copy } from "lucide-react";
 import { useState } from "react";
 import type { DeviceTemplate } from "@shared/schema";
 
@@ -20,11 +20,11 @@ export default function DeviceTemplates() {
   const [formData, setFormData] = useState({
     deviceKey: "",
     deviceName: "",
-    header: "#EXTM3U",
+    headerTemplate: "#EXTM3U",
     lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}',
-    extension: "ts",
-    contentType: "audio/x-mpegurl",
-    filenameTemplate: "{username}.m3u",
+    footerTemplate: "",
+    fileExtension: "m3u",
+    defaultOutput: "ts",
   });
 
   const { data: templates = [], isLoading } = useQuery<DeviceTemplate[]>({
@@ -32,18 +32,18 @@ export default function DeviceTemplates() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/device-templates", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/device-templates", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/device-templates"] });
       setIsOpen(false);
-      setFormData({ deviceKey: "", deviceName: "", header: "#EXTM3U", lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}', extension: "ts", contentType: "audio/x-mpegurl", filenameTemplate: "{username}.m3u" });
+      setFormData({ deviceKey: "", deviceName: "", headerTemplate: "#EXTM3U", lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}', footerTemplate: "", fileExtension: "m3u", defaultOutput: "ts" });
       toast({ title: "Device template created successfully" });
     },
     onError: () => toast({ title: "Failed to create template", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/device-templates/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/device-templates/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/device-templates"] });
       toast({ title: "Template deleted" });
@@ -91,8 +91,8 @@ export default function DeviceTemplates() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Playlist Header</Label>
-                  <Textarea value={formData.header} onChange={(e) => setFormData({ ...formData, header: e.target.value })} rows={2} data-testid="input-header" />
+                  <Label>Header Template</Label>
+                  <Textarea value={formData.headerTemplate} onChange={(e) => setFormData({ ...formData, headerTemplate: e.target.value })} rows={2} data-testid="input-header" />
                 </div>
                 <div className="space-y-2">
                   <Label>Line Template</Label>
@@ -101,18 +101,14 @@ export default function DeviceTemplates() {
                     Variables: {'{stream_id}'}, {'{stream_name}'}, {'{stream_icon}'}, {'{epg_channel_id}'}, {'{category_name}'}, {'{username}'}, {'{password}'}, {'{server}'}, {'{extension}'}
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Extension</Label>
-                    <Input value={formData.extension} onChange={(e) => setFormData({ ...formData, extension: e.target.value })} placeholder="ts" data-testid="input-extension" />
+                    <Label>File Extension</Label>
+                    <Input value={formData.fileExtension} onChange={(e) => setFormData({ ...formData, fileExtension: e.target.value })} placeholder="m3u" data-testid="input-file-extension" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Content Type</Label>
-                    <Input value={formData.contentType} onChange={(e) => setFormData({ ...formData, contentType: e.target.value })} placeholder="audio/x-mpegurl" data-testid="input-content-type" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Filename</Label>
-                    <Input value={formData.filenameTemplate} onChange={(e) => setFormData({ ...formData, filenameTemplate: e.target.value })} placeholder="{username}.m3u" data-testid="input-filename" />
+                    <Label>Default Output</Label>
+                    <Input value={formData.defaultOutput} onChange={(e) => setFormData({ ...formData, defaultOutput: e.target.value })} placeholder="ts" data-testid="input-default-output" />
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-template">
@@ -143,7 +139,7 @@ export default function DeviceTemplates() {
                     <TableHead>Device</TableHead>
                     <TableHead>Key</TableHead>
                     <TableHead>Extension</TableHead>
-                    <TableHead>Content Type</TableHead>
+                    <TableHead>Output</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -154,8 +150,8 @@ export default function DeviceTemplates() {
                       <TableCell>
                         <Badge variant="outline" className="font-mono">{template.deviceKey}</Badge>
                       </TableCell>
-                      <TableCell>.{template.extension}</TableCell>
-                      <TableCell className="text-muted-foreground">{template.contentType}</TableCell>
+                      <TableCell>.{template.fileExtension}</TableCell>
+                      <TableCell className="text-muted-foreground">{template.defaultOutput}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => copyPlaylistUrl(template)} data-testid={`button-copy-url-${template.id}`}>
                           <Copy className="w-4 h-4" />

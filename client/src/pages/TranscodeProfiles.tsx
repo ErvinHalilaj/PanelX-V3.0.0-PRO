@@ -22,13 +22,11 @@ export default function TranscodeProfiles() {
     profileName: "",
     videoCodec: "libx264",
     audioCodec: "aac",
-    container: "mpegts",
     videoBitrate: "4000k",
     audioBitrate: "128k",
     resolution: "1920x1080",
     preset: "fast",
-    hwAccel: "",
-    additionalParams: "",
+    customParams: "",
     enabled: true,
   });
 
@@ -37,18 +35,18 @@ export default function TranscodeProfiles() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/transcode-profiles", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/transcode-profiles", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transcode-profiles"] });
       setIsOpen(false);
-      setFormData({ profileName: "", videoCodec: "libx264", audioCodec: "aac", container: "mpegts", videoBitrate: "4000k", audioBitrate: "128k", resolution: "1920x1080", preset: "fast", hwAccel: "", additionalParams: "", enabled: true });
+      setFormData({ profileName: "", videoCodec: "libx264", audioCodec: "aac", videoBitrate: "4000k", audioBitrate: "128k", resolution: "1920x1080", preset: "fast", customParams: "", enabled: true });
       toast({ title: "Transcode profile created successfully" });
     },
     onError: () => toast({ title: "Failed to create profile", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/transcode-profiles/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/transcode-profiles/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transcode-profiles"] });
       toast({ title: "Profile deleted" });
@@ -82,7 +80,7 @@ export default function TranscodeProfiles() {
                   <Label>Profile Name</Label>
                   <Input value={formData.profileName} onChange={(e) => setFormData({ ...formData, profileName: e.target.value })} placeholder="HD 1080p" required data-testid="input-profile-name" />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Video Codec</Label>
                     <Select value={formData.videoCodec} onValueChange={(val) => setFormData({ ...formData, videoCodec: val })}>
@@ -90,9 +88,9 @@ export default function TranscodeProfiles() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="copy">Copy (no transcode)</SelectItem>
                         <SelectItem value="libx264">H.264 (libx264)</SelectItem>
                         <SelectItem value="libx265">H.265 (libx265)</SelectItem>
-                        <SelectItem value="copy">Copy (no transcode)</SelectItem>
                         <SelectItem value="h264_nvenc">NVENC H.264</SelectItem>
                         <SelectItem value="hevc_nvenc">NVENC H.265</SelectItem>
                       </SelectContent>
@@ -105,24 +103,10 @@ export default function TranscodeProfiles() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="copy">Copy</SelectItem>
                         <SelectItem value="aac">AAC</SelectItem>
                         <SelectItem value="ac3">AC3</SelectItem>
                         <SelectItem value="mp3">MP3</SelectItem>
-                        <SelectItem value="copy">Copy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Container</Label>
-                    <Select value={formData.container} onValueChange={(val) => setFormData({ ...formData, container: val })}>
-                      <SelectTrigger data-testid="select-container">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mpegts">MPEG-TS</SelectItem>
-                        <SelectItem value="hls">HLS</SelectItem>
-                        <SelectItem value="mp4">MP4</SelectItem>
-                        <SelectItem value="flv">FLV</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -147,46 +131,29 @@ export default function TranscodeProfiles() {
                         <SelectItem value="1920x1080">1080p (1920x1080)</SelectItem>
                         <SelectItem value="1280x720">720p (1280x720)</SelectItem>
                         <SelectItem value="854x480">480p (854x480)</SelectItem>
-                        <SelectItem value="original">Original</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Preset</Label>
-                    <Select value={formData.preset} onValueChange={(val) => setFormData({ ...formData, preset: val })}>
-                      <SelectTrigger data-testid="select-preset">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ultrafast">Ultra Fast</SelectItem>
-                        <SelectItem value="superfast">Super Fast</SelectItem>
-                        <SelectItem value="veryfast">Very Fast</SelectItem>
-                        <SelectItem value="fast">Fast</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="slow">Slow</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Hardware Acceleration</Label>
-                    <Select value={formData.hwAccel || "none"} onValueChange={(val) => setFormData({ ...formData, hwAccel: val === "none" ? "" : val })}>
-                      <SelectTrigger data-testid="select-hwaccel">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None (CPU)</SelectItem>
-                        <SelectItem value="cuda">NVIDIA CUDA</SelectItem>
-                        <SelectItem value="vaapi">VAAPI (Intel/AMD)</SelectItem>
-                        <SelectItem value="qsv">Intel QuickSync</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Additional FFmpeg Parameters</Label>
-                  <Textarea value={formData.additionalParams} onChange={(e) => setFormData({ ...formData, additionalParams: e.target.value })} placeholder="-threads 4 -g 50" rows={2} data-testid="input-additional-params" />
+                  <Label>Preset</Label>
+                  <Select value={formData.preset} onValueChange={(val) => setFormData({ ...formData, preset: val })}>
+                    <SelectTrigger data-testid="select-preset">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ultrafast">Ultra Fast</SelectItem>
+                      <SelectItem value="superfast">Super Fast</SelectItem>
+                      <SelectItem value="veryfast">Very Fast</SelectItem>
+                      <SelectItem value="fast">Fast</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="slow">Slow</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Custom FFmpeg Parameters</Label>
+                  <Textarea value={formData.customParams} onChange={(e) => setFormData({ ...formData, customParams: e.target.value })} placeholder="-threads 4 -g 50" rows={2} data-testid="input-custom-params" />
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={formData.enabled} onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })} data-testid="switch-enabled" />
@@ -241,12 +208,6 @@ export default function TranscodeProfiles() {
                       <span className="text-muted-foreground">Preset:</span>
                       <span>{profile.preset}</span>
                     </div>
-                    {profile.hwAccel && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">HW Accel:</span>
-                        <span>{profile.hwAccel}</span>
-                      </div>
-                    )}
                   </div>
                   <div className="flex justify-end mt-4">
                     <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(profile.id)} className="text-destructive" data-testid={`button-delete-profile-${profile.id}`}>

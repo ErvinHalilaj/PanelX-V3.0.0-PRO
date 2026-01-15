@@ -39,7 +39,7 @@ export default function Movies() {
   const movieCategories = categories.filter(c => c.categoryType === "movie");
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData & { streamType: string }) => apiRequest("/api/streams", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: typeof formData & { streamType: string }) => apiRequest("POST", "/api/streams", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
       setIsOpen(false);
@@ -50,7 +50,7 @@ export default function Movies() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/streams/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/streams/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
       toast({ title: "Movie deleted" });
