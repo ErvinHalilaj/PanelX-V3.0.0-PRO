@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Clapperboard, Plus, Trash2, Calendar, Star } from "lucide-react";
+import { Clapperboard, Plus, Trash2, Calendar, Star, List } from "lucide-react";
 import { useState } from "react";
 import type { Series as SeriesType, Category } from "@shared/schema";
 
@@ -193,7 +194,14 @@ export default function Series() {
                       </span>
                     )}
                   </div>
-                  {series.genre && <Badge variant="secondary" className="mt-2">{series.genre.split(",")[0]}</Badge>}
+                  <div className="flex items-center gap-2 mt-3">
+                    {series.genre && <Badge variant="secondary">{series.genre.split(",")[0]}</Badge>}
+                    <Link href={`/series/${series.id}/episodes`}>
+                      <Button variant="outline" size="sm" className="gap-1" data-testid={`button-episodes-${series.id}`}>
+                        <List className="w-3 h-3" /> Episodes
+                      </Button>
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             ))}

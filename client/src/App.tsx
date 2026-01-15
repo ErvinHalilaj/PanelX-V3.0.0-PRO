@@ -20,6 +20,9 @@ import BlockedUAs from "@/pages/BlockedUAs";
 import DeviceTemplates from "@/pages/DeviceTemplates";
 import EpgSources from "@/pages/EpgSources";
 import TranscodeProfiles from "@/pages/TranscodeProfiles";
+import Episodes from "@/pages/Episodes";
+import Settings from "@/pages/Settings";
+import ClientPortal from "@/pages/ClientPortal";
 
 function Router() {
   return (
@@ -28,6 +31,7 @@ function Router() {
       <Route path="/streams" component={Streams} />
       <Route path="/movies" component={Movies} />
       <Route path="/series" component={Series} />
+      <Route path="/series/:seriesId/episodes" component={Episodes} />
       <Route path="/lines" component={Lines} />
       <Route path="/users" component={Users} />
       <Route path="/connections" component={Connections} />
@@ -39,7 +43,9 @@ function Router() {
       <Route path="/blocked-uas" component={BlockedUAs} />
       <Route path="/devices" component={DeviceTemplates} />
       <Route path="/transcode" component={TranscodeProfiles} />
+      <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
+      <Route path="/portal" component={ClientPortal} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />
