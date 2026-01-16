@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import Hls from "hls.js";
 import { Layout } from "@/components/Layout";
 import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-streams";
 import { useCategories } from "@/hooks/use-categories";
@@ -82,10 +83,12 @@ interface VideoPlayerProps {
 
 function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [videoInfo, setVideoInfo] = useState({
     resolution: "—",
     codec: "—",
@@ -97,6 +100,8 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    let hls: Hls | null = null;
 
     const updateVideoInfo = () => {
       if (video.videoWidth && video.videoHeight) {
@@ -125,21 +130,62 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     video.addEventListener("pause", handlePause);
     video.addEventListener("progress", handleProgress);
 
-    video.play().catch(() => {});
+    const sourceUrl = stream.sourceUrl;
+    const isHls = sourceUrl.includes(".m3u8") || sourceUrl.includes("m3u8");
+
+    if (isHls && Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+      hls.loadSource(sourceUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+        video.play().catch(() => {});
+      });
+      hls.on(Hls.Events.LEVEL_LOADED, (_event, data) => {
+        setVideoInfo(prev => ({
+          ...prev,
+          bitrate: data.details.averagetargetduration ? `${Math.round(data.details.averagetargetduration)}s` : "—",
+        }));
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          setIsLoading(false);
+          setError(data.type === Hls.ErrorTypes.NETWORK_ERROR 
+            ? "Network error - Stream may be unavailable or blocked by CORS"
+            : `Playback error: ${data.details}`);
+        }
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = sourceUrl;
+      video.addEventListener("canplay", () => setIsLoading(false));
+      video.addEventListener("error", () => setError("Failed to load stream"));
+      video.play().catch(() => {});
+    } else {
+      video.src = sourceUrl;
+      video.addEventListener("canplay", () => setIsLoading(false));
+      video.addEventListener("error", () => setError("Failed to load stream"));
+      video.play().catch(() => {});
+    }
 
     return () => {
       video.removeEventListener("loadedmetadata", updateVideoInfo);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
       video.removeEventListener("progress", handleProgress);
+      if (hls) {
+        hls.destroy();
+      }
     };
-  }, []);
+  }, [stream.sourceUrl]);
 
   const toggleFullscreen = async () => {
-    if (!containerRef.current) return;
+    if (!playerRef.current) return;
     
     if (!document.fullscreenElement) {
-      await containerRef.current.requestFullscreen();
+      await playerRef.current.requestFullscreen();
       setIsFullscreen(true);
     } else {
       await document.exitFullscreen();
@@ -172,101 +218,134 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.fullscreenElement) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
   return (
     <div 
-      ref={containerRef}
-      className="fixed inset-0 z-50 bg-black/95 flex flex-col"
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       data-testid="video-player-overlay"
     >
-      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-            {stream.streamType === "live" ? <Tv className="w-5 h-5 text-primary" /> : <Film className="w-5 h-5 text-primary" />}
-          </div>
-          <div>
-            <h3 className="text-white font-semibold">{stream.name}</h3>
-            <p className="text-xs text-muted-foreground">
-              {stream.streamType === "live" ? "Live Stream" : "Video on Demand"}
-            </p>
-          </div>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onClose}
-          className="text-white hover:bg-white/10"
-          data-testid="button-close-player"
-        >
-          <X className="w-5 h-5" />
-        </Button>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center">
-        <video
-          ref={videoRef}
-          src={stream.sourceUrl}
-          className="max-w-full max-h-full"
-          onClick={togglePlay}
-          data-testid="video-element"
-        />
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-        {stream.streamType === "live" && (
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
-              <Gauge className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-white">Resolution: <span className="text-blue-400">{videoInfo.resolution}</span></span>
+      <div 
+        ref={playerRef}
+        className={`bg-black rounded-xl overflow-hidden shadow-2xl flex flex-col ${isFullscreen ? "w-full h-full rounded-none" : "w-[900px] max-w-[90vw] max-h-[85vh]"}`}
+      >
+        <div className="flex items-center justify-between p-3 bg-gradient-to-b from-zinc-900 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+              {stream.streamType === "live" ? <Tv className="w-4 h-4 text-primary" /> : <Film className="w-4 h-4 text-primary" />}
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
-              <Wifi className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-white">Buffered: <span className="text-green-400">{videoInfo.buffered}%</span></span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
-              <Radio className="w-4 h-4 text-red-400 animate-pulse" />
-              <span className="text-xs text-white">LIVE</span>
+            <div>
+              <h3 className="text-white font-semibold text-sm">{stream.name}</h3>
+              <p className="text-xs text-muted-foreground">
+                {stream.streamType === "live" ? "Live Stream" : "Video on Demand"}
+              </p>
             </div>
           </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={togglePlay}
-              className="text-white hover:bg-white/10"
-              data-testid="button-play-pause"
-            >
-              {isPlaying ? (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <rect x="6" y="4" width="4" height="16" />
-                  <rect x="14" y="4" width="4" height="16" />
-                </svg>
-              ) : (
-                <Play className="w-5 h-5" />
-              )}
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={toggleMute}
-              className="text-white hover:bg-white/10"
-              data-testid="button-mute"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </Button>
-          </div>
-          
           <Button 
             variant="ghost" 
-            size="icon"
-            onClick={toggleFullscreen}
-            className="text-white hover:bg-white/10"
-            data-testid="button-fullscreen"
+            size="icon" 
+            onClick={onClose}
+            className="text-white hover:bg-white/10 h-8 w-8"
+            data-testid="button-close-player"
           >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            <X className="w-4 h-4" />
           </Button>
+        </div>
+
+        <div className="flex-1 bg-black flex items-center justify-center min-h-[300px] relative">
+          {isLoading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-white text-sm">Loading stream...</span>
+              </div>
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+              <div className="flex flex-col items-center gap-3 text-center px-4">
+                <AlertCircle className="w-10 h-10 text-red-500" />
+                <span className="text-white text-sm max-w-md">{error}</span>
+                <p className="text-xs text-muted-foreground">The stream source may be unavailable or blocked.</p>
+              </div>
+            </div>
+          )}
+          <video
+            ref={videoRef}
+            className="w-full h-full object-contain"
+            onClick={togglePlay}
+            autoPlay
+            playsInline
+            data-testid="video-element"
+          />
+        </div>
+
+        <div className="bg-gradient-to-t from-zinc-900 to-transparent p-3">
+          {stream.streamType === "live" && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded-md">
+                <Gauge className="w-3 h-3 text-blue-400" />
+                <span className="text-xs text-white">Resolution: <span className="text-blue-400">{videoInfo.resolution}</span></span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded-md">
+                <Wifi className="w-3 h-3 text-green-400" />
+                <span className="text-xs text-white">Buffer: <span className="text-green-400">{videoInfo.buffered}%</span></span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/20 rounded-md">
+                <Radio className="w-3 h-3 text-red-400 animate-pulse" />
+                <span className="text-xs text-red-400 font-medium">LIVE</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={togglePlay}
+                className="text-white hover:bg-white/10 h-8 w-8"
+                data-testid="button-play-pause"
+              >
+                {isPlaying ? (
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={toggleMute}
+                className="text-white hover:bg-white/10 h-8 w-8"
+                data-testid="button-mute"
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={toggleFullscreen}
+              className="text-white hover:bg-white/10 h-8 w-8"
+              data-testid="button-fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
