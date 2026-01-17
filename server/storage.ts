@@ -3,17 +3,17 @@ import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
-  tickets, ticketReplies,
+  tickets, ticketReplies, backups,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
   type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
-  type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply,
+  type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply, type InsertBackup,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
-  type ResellerGroup, type Package, type Ticket, type TicketReply
+  type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -197,6 +197,13 @@ export interface IStorage {
   // Ticket Replies
   getTicketReplies(ticketId: number): Promise<TicketReply[]>;
   createTicketReply(reply: InsertTicketReply): Promise<TicketReply>;
+  
+  // Backups
+  getBackups(): Promise<Backup[]>;
+  getBackup(id: number): Promise<Backup | undefined>;
+  createBackup(backup: InsertBackup): Promise<Backup>;
+  updateBackup(id: number, updates: Partial<InsertBackup>): Promise<Backup>;
+  deleteBackup(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -894,6 +901,30 @@ export class DatabaseStorage implements IStorage {
       await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, reply.ticketId));
     }
     return newReply;
+  }
+
+  // Backups
+  async getBackups(): Promise<Backup[]> {
+    return await db.select().from(backups).orderBy(desc(backups.createdAt));
+  }
+
+  async getBackup(id: number): Promise<Backup | undefined> {
+    const [backup] = await db.select().from(backups).where(eq(backups.id, id));
+    return backup;
+  }
+
+  async createBackup(backup: InsertBackup): Promise<Backup> {
+    const [newBackup] = await db.insert(backups).values(backup).returning();
+    return newBackup;
+  }
+
+  async updateBackup(id: number, updates: Partial<InsertBackup>): Promise<Backup> {
+    const [updated] = await db.update(backups).set(updates).where(eq(backups.id, id)).returning();
+    return updated;
+  }
+
+  async deleteBackup(id: number): Promise<void> {
+    await db.delete(backups).where(eq(backups.id, id));
   }
 }
 

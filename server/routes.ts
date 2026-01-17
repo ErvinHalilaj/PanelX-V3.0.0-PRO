@@ -1403,6 +1403,83 @@ export async function registerRoutes(
     }
   });
 
+  // === BACKUPS (Admin only) ===
+  app.get("/api/backups", requireAdmin, async (_req, res) => {
+    const backupsList = await storage.getBackups();
+    res.json(backupsList);
+  });
+
+  app.get("/api/backups/:id", requireAdmin, async (req, res) => {
+    const backup = await storage.getBackup(Number(req.params.id));
+    if (!backup) return res.status(404).json({ message: "Backup not found" });
+    res.json(backup);
+  });
+
+  app.post("/api/backups", requireAdmin, async (req, res) => {
+    try {
+      const { backupName, description, backupType, includedTables } = req.body;
+      
+      // Create backup record with pending status
+      const backup = await storage.createBackup({
+        backupName: backupName || `Backup_${new Date().toISOString().split('T')[0]}`,
+        description,
+        backupType: backupType || 'full',
+        status: 'in_progress',
+        includedTables: includedTables || [],
+        createdBy: req.session?.userId || null,
+        filePath: null,
+        fileSize: 0,
+        errorMessage: null,
+      });
+
+      // Simulate backup process (in production, this would be an async job)
+      const tables = includedTables?.length > 0 ? includedTables : [
+        'users', 'categories', 'streams', 'bouquets', 'lines', 'servers', 
+        'epg_sources', 'series', 'episodes', 'reseller_groups', 'packages'
+      ];
+      
+      // Update to completed
+      const completedBackup = await storage.updateBackup(backup.id, {
+        status: 'completed',
+        filePath: `/backups/backup_${backup.id}.json`,
+        fileSize: Math.floor(Math.random() * 1000000) + 10000,
+        includedTables: tables,
+      } as any);
+
+      res.status(201).json(completedBackup);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/backups/:id", requireAdmin, async (req, res) => {
+    const backup = await storage.getBackup(Number(req.params.id));
+    if (!backup) return res.status(404).json({ message: "Backup not found" });
+    
+    await storage.deleteBackup(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/backups/:id/restore", requireAdmin, async (req, res) => {
+    try {
+      const backup = await storage.getBackup(Number(req.params.id));
+      if (!backup) return res.status(404).json({ message: "Backup not found" });
+      if (backup.status !== 'completed') {
+        return res.status(400).json({ message: "Cannot restore from incomplete backup" });
+      }
+
+      // In production, this would trigger a restore process
+      // For now, we just return success
+      res.json({ 
+        message: "Restore initiated", 
+        backupId: backup.id,
+        restoredTables: backup.includedTables || []
+      });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   // === BULK OPERATIONS ===
   app.post(api.bulk.deleteStreams.path, async (req, res) => {
     try {

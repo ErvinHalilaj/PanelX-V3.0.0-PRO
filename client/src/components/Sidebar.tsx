@@ -20,7 +20,8 @@ import {
   Package,
   UsersRound,
   MessageSquare,
-  TrendingUp
+  TrendingUp,
+  Archive
 } from "lucide-react";
 
 export function Sidebar() {
@@ -58,6 +59,7 @@ export function Sidebar() {
     { icon: Server, label: "Servers", href: "/servers" },
     { icon: Smartphone, label: "Device Templates", href: "/devices" },
     { icon: Radio, label: "Transcode", href: "/transcode" },
+    { icon: Archive, label: "Backups", href: "/backups" },
     { icon: Code, label: "API Info", href: "/api" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];

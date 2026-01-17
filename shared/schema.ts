@@ -206,6 +206,22 @@ export const cronJobs = pgTable("cron_jobs", {
   status: text("status").default("idle"), // idle, running, error
 });
 
+// Backups (System backup management)
+export const backups = pgTable("backups", {
+  id: serial("id").primaryKey(),
+  backupName: text("backup_name").notNull(),
+  description: text("description"),
+  backupType: text("backup_type").default("full"), // full, settings, users, streams
+  status: text("status").default("pending"), // pending, in_progress, completed, failed
+  fileSize: integer("file_size").default(0), // bytes
+  filePath: text("file_path"),
+  includedTables: jsonb("included_tables").$type<string[]>().default([]),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+});
+
 // Support Tickets (admin-reseller communication)
 export const tickets = pgTable("tickets", {
   id: serial("id").primaryKey(),
@@ -461,6 +477,7 @@ export const insertTranscodeProfileSchema = createInsertSchema(transcodeProfiles
 export const insertStreamErrorSchema = createInsertSchema(streamErrors).omit({ id: true, occurredAt: true });
 export const insertClientLogSchema = createInsertSchema(clientLogs).omit({ id: true, createdAt: true });
 export const insertCronJobSchema = createInsertSchema(cronJobs).omit({ id: true });
+export const insertBackupSchema = createInsertSchema(backups).omit({ id: true, createdAt: true, completedAt: true });
 export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit({ id: true });
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true, closedAt: true });
@@ -535,6 +552,9 @@ export type InsertClientLog = z.infer<typeof insertClientLogSchema>;
 
 export type CronJob = typeof cronJobs.$inferSelect;
 export type InsertCronJob = z.infer<typeof insertCronJobSchema>;
+
+export type Backup = typeof backups.$inferSelect;
+export type InsertBackup = z.infer<typeof insertBackupSchema>;
 
 export type ResellerGroup = typeof resellerGroups.$inferSelect;
 export type InsertResellerGroup = z.infer<typeof insertResellerGroupSchema>;
