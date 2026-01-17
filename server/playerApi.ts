@@ -476,38 +476,53 @@ export function registerPlayerApi(app: Express) {
       userAgent: req.get('user-agent') || '',
     });
 
-    // For now, redirect to source URL (basic proxy)
-    // In production, you'd pipe through FFmpeg here
-    if (stream.isDirect) {
-      return res.redirect(stream.sourceUrl);
+    const ext = req.params.ext?.toLowerCase() || 'ts';
+    const sourceUrl = stream.sourceUrl;
+    const isHlsSource = sourceUrl.includes('.m3u8') || sourceUrl.includes('m3u8');
+
+    // Cleanup on client disconnect
+    req.on('close', async () => {
+      await storage.deleteConnection(connection.id);
+      await storage.logActivity({
+        lineId: line.id,
+        action: 'stream_stop',
+        streamId: stream.id,
+        ipAddress: req.ip || '',
+      });
+    });
+
+    // For direct streams or HLS sources, redirect to the actual source
+    // VLC and most players can handle HLS natively
+    if (stream.isDirect || isHlsSource) {
+      // For HLS sources, always redirect to the m3u8 regardless of requested extension
+      // Most modern players (VLC, ffplay, etc.) handle HLS natively
+      await storage.deleteConnection(connection.id); // Clean up since we're redirecting
+      return res.redirect(sourceUrl);
     }
 
-    // Simple proxy - fetch and pipe
+    // For non-HLS sources, proxy the stream
     try {
-      const response = await fetch(stream.sourceUrl);
+      const response = await fetch(sourceUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
+      
       if (!response.ok) {
         await storage.deleteConnection(connection.id);
         return res.status(502).send('Stream unavailable');
       }
 
-      res.setHeader('Content-Type', 'video/mp2t');
+      // Set appropriate content type
+      const contentType = response.headers.get('content-type') || 'video/mp2t';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Transfer-Encoding', 'chunked');
       
       const reader = response.body?.getReader();
       if (!reader) {
         await storage.deleteConnection(connection.id);
         return res.status(502).send('Stream unavailable');
       }
-
-      // Cleanup on client disconnect
-      req.on('close', async () => {
-        await storage.deleteConnection(connection.id);
-        await storage.logActivity({
-          lineId: line.id,
-          action: 'stream_stop',
-          streamId: stream.id,
-          ipAddress: req.ip || '',
-        });
-      });
 
       // Pipe the stream
       const pump = async () => {
@@ -516,7 +531,7 @@ export function registerPlayerApi(app: Express) {
             const { done, value } = await reader.read();
             if (done) break;
             res.write(value);
-            // Update ping
+            // Update ping periodically
             await storage.updateConnectionPing(connection.id);
           }
           res.end();
