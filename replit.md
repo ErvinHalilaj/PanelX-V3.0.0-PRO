@@ -166,3 +166,72 @@ Preferred communication style: Simple, everyday language.
 - Created 20+ device templates for playlist generation
 - Added transcode profile management for FFmpeg
 - Implemented multi-server load balancing support
+- Added HLS.js video player with volume slider
+- Fixed stream proxy for VLC/player compatibility
+- **Added Packages management page** - Full CRUD for subscription packages with trial/enabled flags, duration, credits
+- **Added Reseller Groups management page** - Granular permissions (add/edit/delete/view), max lines limits, color coding
+- **Added M3U import wizard** - Parse EXTINF metadata, tvg-logo, tvg-id and bulk create streams
+- **Added Xtream API import** - Import streams from another Xtream Codes panel with SSRF protection
+- **Added advanced stream options UI** - on-demand, auto-restart, delay minutes, RTMP output, read native, stream all, remove subtitles, generate timestamps, allow recording, custom FFmpeg
+- **Added Lines advanced options** - ISP lock, forced server routing, allowed user agents whitelist, package assignment
+- **Added bulk operations** - Multi-select checkboxes and batch delete for streams
+- Added use-servers hook for server data fetching
+
+## Feature Roadmap (Xtream Codes v2.9 Parity)
+
+### CRITICAL Priority
+1. **Stream Options**
+   - [ ] Multiple source URLs (backup/failover)
+   - [x] On-demand mode (sleep/wake)
+   - [x] Stream import from M3U
+   - [x] Stream import from Xtream API
+   - [x] Auto-restart timer
+   - [x] Delay minutes (timeshift)
+   - [x] RTMP output
+   - [ ] External push to CDN
+   - [x] Custom FFmpeg mapping
+
+2. **Restreaming/Encoding**
+   - [ ] Live transcoding pipeline
+   - [ ] HLS segment generation
+   - [ ] Created live channels (RTMP→HLS)
+   - [ ] Encoding queue management
+   - [ ] Stream health monitoring
+
+### HIGH Priority
+3. **Lines Advanced Options**
+   - [x] ISP locking
+   - [x] Forced server routing
+   - [x] Allowed user agents whitelist
+   - [x] Package assignment
+   - [ ] Play token security
+   - [ ] Parent reseller hierarchy
+
+4. **Reseller System**
+   - [x] Reseller groups with permissions
+   - [x] Package management (pricing, duration)
+   - [ ] Ticket system
+   - [ ] Reseller dashboard
+
+### MEDIUM Priority
+5. **Admin Panel Enhancements**
+   - [x] Mass operations (bulk edit/delete)
+   - [x] M3U import wizard
+   - [x] Xtream panel import
+   - [ ] Backup/restore system
+   - [ ] MAG device management
+   - [ ] Enigma2 plugin management
+   - [ ] Real-time stats graphs
+
+6. **Security**
+   - [ ] Rate limiting
+   - [ ] Auto-block after failed attempts
+   - [ ] Connection speed monitor
+   - [ ] Flood protection
+
+### LOW Priority
+7. **Additional APIs**
+   - [ ] get_vod_info full implementation
+   - [ ] get_simple_data_table
+   - [ ] Panel management API
+   - [ ] Webhooks for events

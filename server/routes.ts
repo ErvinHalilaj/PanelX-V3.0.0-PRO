@@ -995,5 +995,311 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === RESELLER GROUPS ===
+  app.get(api.resellerGroups.list.path, async (_req, res) => {
+    const groups = await storage.getResellerGroups();
+    res.json(groups);
+  });
+
+  app.get(api.resellerGroups.get.path, async (req, res) => {
+    const group = await storage.getResellerGroup(Number(req.params.id));
+    if (!group) return res.status(404).json({ message: "Reseller group not found" });
+    res.json(group);
+  });
+
+  app.post(api.resellerGroups.create.path, async (req, res) => {
+    try {
+      const input = api.resellerGroups.create.input.parse(req.body);
+      const group = await storage.createResellerGroup(input);
+      res.status(201).json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.resellerGroups.update.path, async (req, res) => {
+    try {
+      const input = api.resellerGroups.update.input.parse(req.body);
+      const group = await storage.updateResellerGroup(Number(req.params.id), input);
+      res.json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.resellerGroups.delete.path, async (req, res) => {
+    await storage.deleteResellerGroup(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === PACKAGES ===
+  app.get(api.packages.list.path, async (_req, res) => {
+    const pkgs = await storage.getPackages();
+    res.json(pkgs);
+  });
+
+  app.get(api.packages.get.path, async (req, res) => {
+    const pkg = await storage.getPackage(Number(req.params.id));
+    if (!pkg) return res.status(404).json({ message: "Package not found" });
+    res.json(pkg);
+  });
+
+  app.post(api.packages.create.path, async (req, res) => {
+    try {
+      const input = api.packages.create.input.parse(req.body);
+      const pkg = await storage.createPackage(input);
+      res.status(201).json(pkg);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.packages.update.path, async (req, res) => {
+    try {
+      const input = api.packages.update.input.parse(req.body);
+      const pkg = await storage.updatePackage(Number(req.params.id), input);
+      res.json(pkg);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.packages.delete.path, async (req, res) => {
+    await storage.deletePackage(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === BULK OPERATIONS ===
+  app.post(api.bulk.deleteStreams.path, async (req, res) => {
+    try {
+      const { ids } = api.bulk.deleteStreams.input.parse(req.body);
+      await storage.bulkDeleteStreams(ids);
+      res.json({ deleted: ids.length });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.post(api.bulk.deleteLines.path, async (req, res) => {
+    try {
+      const { ids } = api.bulk.deleteLines.input.parse(req.body);
+      await storage.bulkDeleteLines(ids);
+      res.json({ deleted: ids.length });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // === M3U IMPORT ===
+  app.post(api.bulk.importM3U.path, async (req, res) => {
+    try {
+      const { content, categoryId, streamType } = api.bulk.importM3U.input.parse(req.body);
+      
+      // Parse M3U content
+      const lines = content.split('\n');
+      const streamList: Array<{
+        name: string;
+        sourceUrl: string;
+        streamIcon?: string;
+        epgChannelId?: string;
+      }> = [];
+      
+      let currentName = '';
+      let currentIcon = '';
+      let currentEpgId = '';
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (line.startsWith('#EXTINF:')) {
+          // Parse EXTINF line
+          const nameMatch = line.match(/,(.+)$/);
+          currentName = nameMatch ? nameMatch[1].trim() : `Stream ${streamList.length + 1}`;
+          
+          const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+          currentIcon = logoMatch ? logoMatch[1] : '';
+          
+          const epgMatch = line.match(/tvg-id="([^"]+)"/);
+          currentEpgId = epgMatch ? epgMatch[1] : '';
+        } else if (line && !line.startsWith('#') && (line.startsWith('http') || line.startsWith('rtmp'))) {
+          // This is a URL line
+          if (currentName) {
+            streamList.push({
+              name: currentName,
+              sourceUrl: line,
+              streamIcon: currentIcon || undefined,
+              epgChannelId: currentEpgId || undefined,
+            });
+          }
+          currentName = '';
+          currentIcon = '';
+          currentEpgId = '';
+        }
+      }
+      
+      // Create streams
+      const createdStreams = await storage.bulkCreateStreams(
+        streamList.map(s => ({
+          name: s.name,
+          sourceUrl: s.sourceUrl,
+          streamType,
+          categoryId: categoryId || null,
+          streamIcon: s.streamIcon || null,
+          epgChannelId: s.epgChannelId || null,
+          isDirect: false,
+          isMonitored: true,
+          monitorStatus: 'unknown',
+        }))
+      );
+      
+      res.json({ imported: createdStreams.length, streams: createdStreams });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // === XTREAM API IMPORT ===
+  // Security note: This endpoint has basic SSRF protection (hostname validation, redirect blocking, timeouts)
+  // but full DNS rebinding protection would require resolving hostnames to IPs before requests.
+  // This endpoint should only be accessible to trusted admin users.
+  app.post("/api/streams/import-xtream", async (req, res) => {
+    try {
+      const schema = z.object({
+        url: z.string().url().refine((u) => {
+          try {
+            const parsed = new URL(u);
+            // Block internal/private IPs
+            const hostname = parsed.hostname.toLowerCase();
+            if (hostname === 'localhost' || 
+                hostname === '127.0.0.1' ||
+                hostname.startsWith('192.168.') ||
+                hostname.startsWith('10.') ||
+                hostname.startsWith('172.') ||
+                hostname.endsWith('.local') ||
+                hostname === '0.0.0.0' ||
+                hostname.includes('169.254.')) {
+              return false;
+            }
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        }, { message: "Invalid URL or internal network address not allowed" }),
+        username: z.string().min(1),
+        password: z.string().min(1),
+        categoryId: z.number().optional(),
+        streamType: z.enum(["live", "movie"]).default("live"),
+      });
+
+      const { url, username, password, categoryId, streamType } = schema.parse(req.body);
+
+      // Normalize the URL
+      const baseUrl = url.replace(/\/$/, "");
+      
+      // Fetch streams from Xtream API
+      const action = streamType === "live" ? "get_live_streams" : "get_vod_streams";
+      const apiUrl = `${baseUrl}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&action=${action}`;
+      
+      let response;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        response = await fetch(apiUrl, { 
+          signal: controller.signal,
+          redirect: "manual", // Block redirects to prevent SSRF via redirect chains
+        });
+        clearTimeout(timeoutId);
+        
+        // If we got a redirect, reject it
+        if (response.status >= 300 && response.status < 400) {
+          throw new Error("Redirects are not allowed for security reasons");
+        }
+      } catch (fetchErr: any) {
+        if (fetchErr.name === 'AbortError') {
+          throw new Error("Connection timed out - panel may be unreachable");
+        }
+        throw new Error(`Network error: ${fetchErr.message || "Failed to connect"}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to connect to Xtream panel: ${response.status} ${response.statusText}`);
+      }
+      
+      let streams;
+      try {
+        streams = await response.json() as Array<{
+          stream_id: number;
+          name: string;
+          stream_icon?: string;
+          epg_channel_id?: string;
+          category_id?: string;
+          container_extension?: string;
+        }>;
+      } catch {
+        throw new Error("Invalid JSON response from Xtream panel");
+      }
+
+      if (!Array.isArray(streams)) {
+        throw new Error("Invalid response format from Xtream panel - expected array");
+      }
+      
+      if (streams.length === 0) {
+        return res.json({ imported: 0, streams: [], message: "No streams found in panel" });
+      }
+
+      // Build stream source URLs
+      const streamList = streams.map(s => {
+        const ext = s.container_extension || (streamType === "live" ? "ts" : "mp4");
+        const streamPath = streamType === "live" 
+          ? `${baseUrl}/live/${username}/${password}/${s.stream_id}.${ext}`
+          : `${baseUrl}/movie/${username}/${password}/${s.stream_id}.${ext}`;
+        
+        return {
+          name: s.name || `Stream ${s.stream_id}`,
+          sourceUrl: streamPath,
+          streamType,
+          categoryId: categoryId || null,
+          streamIcon: s.stream_icon || null,
+          epgChannelId: s.epg_channel_id || null,
+          isDirect: false,
+          isMonitored: true,
+          monitorStatus: 'unknown' as const,
+        };
+      });
+
+      // Create streams in bulk
+      const createdStreams = await storage.bulkCreateStreams(streamList);
+      
+      res.json({ imported: createdStreams.length, streams: createdStreams });
+    } catch (err: any) {
+      console.error("Xtream import error:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message || "Failed to import from Xtream" });
+    }
+  });
+
   return httpServer;
 }

@@ -14,6 +14,8 @@ import {
   insertBlockedUserAgentSchema,
   insertDeviceTemplateSchema,
   insertTranscodeProfileSchema,
+  insertResellerGroupSchema,
+  insertPackageSchema,
   users,
   categories,
   streams,
@@ -30,7 +32,9 @@ import {
   blockedIps,
   blockedUserAgents,
   deviceTemplates,
-  transcodeProfiles
+  transcodeProfiles,
+  resellerGroups,
+  packages
 } from './schema';
 
 // ============================================
@@ -735,6 +739,146 @@ export const api = {
       responses: {
         204: z.void(),
         404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === RESELLER GROUPS ===
+  resellerGroups: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/reseller-groups',
+      responses: {
+        200: z.array(z.custom<typeof resellerGroups.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/reseller-groups/:id',
+      responses: {
+        200: z.custom<typeof resellerGroups.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/reseller-groups',
+      input: insertResellerGroupSchema,
+      responses: {
+        201: z.custom<typeof resellerGroups.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/reseller-groups/:id',
+      input: insertResellerGroupSchema.partial(),
+      responses: {
+        200: z.custom<typeof resellerGroups.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/reseller-groups/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === PACKAGES ===
+  packages: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/packages',
+      responses: {
+        200: z.array(z.custom<typeof packages.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/packages/:id',
+      responses: {
+        200: z.custom<typeof packages.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/packages',
+      input: insertPackageSchema,
+      responses: {
+        201: z.custom<typeof packages.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/packages/:id',
+      input: insertPackageSchema.partial(),
+      responses: {
+        200: z.custom<typeof packages.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/packages/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  // === BULK OPERATIONS ===
+  bulk: {
+    deleteStreams: {
+      method: 'POST' as const,
+      path: '/api/bulk/streams/delete',
+      input: z.object({ ids: z.array(z.number()) }),
+      responses: {
+        200: z.object({ deleted: z.number() }),
+        400: errorSchemas.validation,
+      },
+    },
+    deleteLines: {
+      method: 'POST' as const,
+      path: '/api/bulk/lines/delete',
+      input: z.object({ ids: z.array(z.number()) }),
+      responses: {
+        200: z.object({ deleted: z.number() }),
+        400: errorSchemas.validation,
+      },
+    },
+    importM3U: {
+      method: 'POST' as const,
+      path: '/api/bulk/import/m3u',
+      input: z.object({ 
+        content: z.string(),
+        categoryId: z.number().optional(),
+        streamType: z.enum(['live', 'movie']).default('live'),
+      }),
+      responses: {
+        200: z.object({ imported: z.number(), streams: z.array(z.custom<typeof streams.$inferSelect>()) }),
+        400: errorSchemas.validation,
+      },
+    },
+    importXtream: {
+      method: 'POST' as const,
+      path: '/api/streams/import-xtream',
+      input: z.object({
+        url: z.string().url(),
+        username: z.string().min(1),
+        password: z.string().min(1),
+        categoryId: z.number().optional(),
+        streamType: z.enum(['live', 'movie']).default('live'),
+      }),
+      responses: {
+        200: z.object({ imported: z.number(), streams: z.array(z.custom<typeof streams.$inferSelect>()), message: z.string().optional() }),
+        400: errorSchemas.validation,
       },
     },
   },

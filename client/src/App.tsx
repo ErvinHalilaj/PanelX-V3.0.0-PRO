@@ -23,6 +23,8 @@ import TranscodeProfiles from "@/pages/TranscodeProfiles";
 import Episodes from "@/pages/Episodes";
 import Settings from "@/pages/Settings";
 import ClientPortal from "@/pages/ClientPortal";
+import Packages from "@/pages/Packages";
+import ResellerGroups from "@/pages/ResellerGroups";
 
 function Router() {
   return (
@@ -43,6 +45,8 @@ function Router() {
       <Route path="/blocked-uas" component={BlockedUAs} />
       <Route path="/devices" component={DeviceTemplates} />
       <Route path="/transcode" component={TranscodeProfiles} />
+      <Route path="/packages" component={Packages} />
+      <Route path="/reseller-groups" component={ResellerGroups} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route path="/portal" component={ClientPortal} />

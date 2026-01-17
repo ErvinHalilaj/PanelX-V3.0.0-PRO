@@ -220,6 +220,8 @@ export const streams = pgTable("streams", {
   name: text("name").notNull(),
   streamType: text("stream_type").default("live"), // live, movie, created_live
   sourceUrl: text("source_url").notNull(),
+  // Multiple backup source URLs for failover
+  backupUrls: jsonb("backup_urls").$type<string[]>().default([]),
   categoryId: integer("category_id").references(() => categories.id),
   transcodeProfileId: integer("transcode_profile_id").references(() => transcodeProfiles.id),
   serverId: integer("server_id").references(() => servers.id),
@@ -239,6 +241,21 @@ export const streams = pgTable("streams", {
   autoRestart: boolean("auto_restart").default(true),
   restartAttempts: integer("restart_attempts").default(0),
   lastRestartAt: timestamp("last_restart_at"),
+  // Advanced stream options
+  onDemand: boolean("on_demand").default(false), // Stream sleeps when not in use
+  autoRestartHours: integer("auto_restart_hours").default(0), // Restart after X hours (0 = disabled)
+  delayMinutes: integer("delay_minutes").default(0), // Timeshift delay
+  rtmpOutput: text("rtmp_output"), // Push to RTMP destination
+  externalPush: text("external_push"), // Push to external CDN
+  customFfmpeg: text("custom_ffmpeg"), // Custom FFmpeg mapping
+  readNative: boolean("read_native").default(false),
+  streamAll: boolean("stream_all").default(false),
+  removeSubtitles: boolean("remove_subtitles").default(false),
+  genTimestamps: boolean("gen_timestamps").default(false),
+  probesizeOndemand: integer("probesize_ondemand").default(0),
+  allowRecord: boolean("allow_record").default(true),
+  customSid: text("custom_sid"), // Custom service ID
+  streamOrder: integer("stream_order").default(0), // Display order
 });
 
 // Bouquets (Packages of streams)
@@ -248,6 +265,33 @@ export const bouquets = pgTable("bouquets", {
   bouquetChannels: jsonb("bouquet_channels").$type<number[]>().default([]),
   bouquetMovies: jsonb("bouquet_movies").$type<number[]>().default([]),
   bouquetSeries: jsonb("bouquet_series").$type<number[]>().default([]),
+});
+
+// Reseller Groups (Permission groups)
+export const resellerGroups = pgTable("reseller_groups", {
+  id: serial("id").primaryKey(),
+  groupName: text("group_name").notNull(),
+  canDeleteLines: boolean("can_delete_lines").default(true),
+  canEditLines: boolean("can_edit_lines").default(true),
+  canAddLines: boolean("can_add_lines").default(true),
+  canViewCredentials: boolean("can_view_credentials").default(true),
+  allowedBouquets: jsonb("allowed_bouquets").$type<number[]>().default([]), // Empty = all
+  maxLines: integer("max_lines").default(0), // 0 = unlimited
+  colorCode: text("color_code").default("#6366f1"),
+});
+
+// Packages (Subscription packages for resellers)
+export const packages = pgTable("packages", {
+  id: serial("id").primaryKey(),
+  packageName: text("package_name").notNull(),
+  durationDays: integer("duration_days").notNull(), // 30, 90, 365, etc.
+  credits: integer("credits").notNull(), // Cost in credits
+  maxConnections: integer("max_connections").default(1),
+  isTrial: boolean("is_trial").default(false),
+  bouquets: jsonb("bouquets").$type<number[]>().default([]),
+  allowedOutputs: jsonb("allowed_outputs").$type<string[]>().default(["m3u8", "ts"]),
+  enabled: boolean("enabled").default(true),
+  description: text("description"),
 });
 
 // Lines (The end-user subscriptions)
@@ -273,6 +317,15 @@ export const lines = pgTable("lines", {
   lockedMac: text("locked_mac"),
   // GeoIP restrictions
   allowedCountries: jsonb("allowed_countries").$type<string[]>().default([]),
+  // Advanced options
+  ispLock: text("isp_lock"), // Lock to specific ISP
+  forcedServerId: integer("forced_server_id").references(() => servers.id), // Route to specific server
+  allowedUserAgents: jsonb("allowed_user_agents").$type<string[]>().default([]), // Whitelist UAs
+  bypassUaCheck: boolean("bypass_ua_check").default(false),
+  packageId: integer("package_id").references(() => packages.id),
+  playToken: text("play_token"), // Secure playback token
+  parentResellerIdd: integer("parent_reseller_id"), // Hierarchy
+  adminEnabled: boolean("admin_enabled").default(true), // Separate admin toggle
 });
 
 // Active Connections (Real-time tracking)
@@ -367,6 +420,8 @@ export const insertTranscodeProfileSchema = createInsertSchema(transcodeProfiles
 export const insertStreamErrorSchema = createInsertSchema(streamErrors).omit({ id: true, occurredAt: true });
 export const insertClientLogSchema = createInsertSchema(clientLogs).omit({ id: true, createdAt: true });
 export const insertCronJobSchema = createInsertSchema(cronJobs).omit({ id: true });
+export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit({ id: true });
+export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
@@ -435,6 +490,12 @@ export type InsertClientLog = z.infer<typeof insertClientLogSchema>;
 
 export type CronJob = typeof cronJobs.$inferSelect;
 export type InsertCronJob = z.infer<typeof insertCronJobSchema>;
+
+export type ResellerGroup = typeof resellerGroups.$inferSelect;
+export type InsertResellerGroup = z.infer<typeof insertResellerGroupSchema>;
+
+export type Package = typeof packages.$inferSelect;
+export type InsertPackage = z.infer<typeof insertPackageSchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

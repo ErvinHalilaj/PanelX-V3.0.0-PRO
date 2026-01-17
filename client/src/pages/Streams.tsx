@@ -3,7 +3,9 @@ import Hls from "hls.js";
 import { Layout } from "@/components/Layout";
 import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-streams";
 import { useCategories } from "@/hooks/use-categories";
-import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi } from "lucide-react";
+import { useImportM3U, useBulkDeleteStreams } from "@/hooks/use-bulk";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,22 +13,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertStreamSchema, type InsertStream, type Stream } from "@shared/schema";
 
 function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: InsertStream) => void, categories: any[], isLoading: boolean }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const form = useForm<InsertStream>({
     resolver: zodResolver(insertStreamSchema),
     defaultValues: {
       streamType: "live",
       isDirect: false,
+      onDemand: false,
+      autoRestartHours: 0,
+      delayMinutes: 0,
+      rtmpOutput: "",
+      readNative: false,
+      streamAll: false,
+      removeSubtitles: false,
+      genTimestamps: false,
+      allowRecord: true,
     }
   });
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
       <div className="space-y-2">
         <Label htmlFor="name">Stream Name</Label>
         <Input id="name" {...form.register("name")} placeholder="e.g. Sky Sports 1 HD" data-testid="input-stream-name" />
@@ -66,6 +80,131 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
           </Select>
         </div>
       </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="text-xs text-muted-foreground"
+        data-testid="button-toggle-advanced"
+      >
+        {showAdvanced ? "Hide" : "Show"} Advanced Options
+      </Button>
+
+      {showAdvanced && (
+        <div className="space-y-4 border border-white/10 rounded-lg p-4">
+          <h4 className="font-medium text-sm text-muted-foreground">Advanced Stream Options</h4>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Auto-Restart (hours)</Label>
+              <Input
+                type="number"
+                {...form.register("autoRestartHours", { valueAsNumber: true })}
+                placeholder="0 = disabled"
+                data-testid="input-auto-restart"
+              />
+              <p className="text-xs text-muted-foreground">Restart stream every N hours</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Delay Minutes</Label>
+              <Input
+                type="number"
+                {...form.register("delayMinutes", { valueAsNumber: true })}
+                placeholder="0"
+                data-testid="input-delay"
+              />
+              <p className="text-xs text-muted-foreground">Add delay for timeshift</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="onDemand"
+                checked={form.watch("onDemand") || false}
+                onCheckedChange={(v) => form.setValue("onDemand", !!v)}
+                data-testid="checkbox-on-demand"
+              />
+              <Label htmlFor="onDemand" className="text-sm">On-Demand Mode</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="isDirect"
+                checked={!!form.watch("isDirect")}
+                onCheckedChange={(v) => form.setValue("isDirect", !!v)}
+                data-testid="checkbox-direct"
+              />
+              <Label htmlFor="isDirect" className="text-sm">Direct Source</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="readNative"
+                checked={form.watch("readNative") || false}
+                onCheckedChange={(v) => form.setValue("readNative", !!v)}
+                data-testid="checkbox-read-native"
+              />
+              <Label htmlFor="readNative" className="text-sm">Read Native</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="streamAll"
+                checked={form.watch("streamAll") || false}
+                onCheckedChange={(v) => form.setValue("streamAll", !!v)}
+                data-testid="checkbox-stream-all"
+              />
+              <Label htmlFor="streamAll" className="text-sm">Stream All</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="removeSubtitles"
+                checked={form.watch("removeSubtitles") || false}
+                onCheckedChange={(v) => form.setValue("removeSubtitles", !!v)}
+                data-testid="checkbox-remove-subs"
+              />
+              <Label htmlFor="removeSubtitles" className="text-sm">Remove Subtitles</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="genTimestamps"
+                checked={form.watch("genTimestamps") || false}
+                onCheckedChange={(v) => form.setValue("genTimestamps", !!v)}
+                data-testid="checkbox-timestamps"
+              />
+              <Label htmlFor="genTimestamps" className="text-sm">Generate Timestamps</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="allowRecord"
+                checked={form.watch("allowRecord") !== false}
+                onCheckedChange={(v) => form.setValue("allowRecord", !!v)}
+                data-testid="checkbox-allow-record"
+              />
+              <Label htmlFor="allowRecord" className="text-sm">Allow Recording</Label>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>RTMP Output URL</Label>
+            <Input
+              {...form.register("rtmpOutput")}
+              placeholder="rtmp://server/app/stream_key"
+              data-testid="input-rtmp-output"
+            />
+            <p className="text-xs text-muted-foreground">Push stream to external RTMP destination</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Custom FFmpeg Command</Label>
+            <Input
+              {...form.register("customFfmpeg")}
+              placeholder="-vcodec copy -acodec copy"
+              data-testid="input-custom-ffmpeg"
+            />
+          </div>
+        </div>
+      )}
 
       <DialogFooter>
         <Button type="submit" disabled={isLoading} className="w-full btn-primary" data-testid="button-submit-stream">
@@ -437,13 +576,25 @@ function StreamInfoBadges({ stream }: { stream: Stream }) {
 
 export default function Streams() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isXtreamImportOpen, setIsXtreamImportOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [playingStream, setPlayingStream] = useState<Stream | null>(null);
+  const [selectedStreams, setSelectedStreams] = useState<Set<number>>(new Set());
+  const [m3uContent, setM3uContent] = useState("");
+  const [importCategory, setImportCategory] = useState<number | undefined>();
+  const [importType, setImportType] = useState<"live" | "movie">("live");
+  const [xtreamUrl, setXtreamUrl] = useState("");
+  const [xtreamUsername, setXtreamUsername] = useState("");
+  const [xtreamPassword, setXtreamPassword] = useState("");
+  const [xtreamImportPending, setXtreamImportPending] = useState(false);
   
   const { data: streams, isLoading } = useStreams(selectedCategory);
   const { data: categories } = useCategories();
   const createStream = useCreateStream();
   const deleteStream = useDeleteStream();
+  const importM3U = useImportM3U();
+  const bulkDelete = useBulkDeleteStreams();
 
   const handleCreate = async (data: InsertStream) => {
     try {
@@ -466,23 +617,263 @@ export default function Streams() {
     setPlayingStream(stream);
   };
 
+  const handleImportM3U = async () => {
+    try {
+      const result = await importM3U.mutateAsync({
+        content: m3uContent,
+        categoryId: importCategory,
+        streamType: importType,
+      });
+      toast({ title: "Success", description: `Imported ${result.imported} streams` });
+      setIsImportOpen(false);
+      setM3uContent("");
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to import M3U", variant: "destructive" });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStreams.size === 0) return;
+    if (!confirm(`Delete ${selectedStreams.size} selected streams?`)) return;
+    try {
+      await bulkDelete.mutateAsync(Array.from(selectedStreams));
+      toast({ title: "Deleted", description: `Removed ${selectedStreams.size} streams` });
+      setSelectedStreams(new Set());
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
+  const handleXtreamImport = async () => {
+    if (!xtreamUrl || !xtreamUsername || !xtreamPassword) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    setXtreamImportPending(true);
+    try {
+      const response = await apiRequest("POST", "/api/streams/import-xtream", {
+        url: xtreamUrl,
+        username: xtreamUsername,
+        password: xtreamPassword,
+        categoryId: importCategory,
+        streamType: importType,
+      });
+      const result = await response.json();
+      toast({ title: "Success", description: `Imported ${result.imported} streams from Xtream panel` });
+      setIsXtreamImportOpen(false);
+      setXtreamUrl("");
+      setXtreamUsername("");
+      setXtreamPassword("");
+      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to import from Xtream", variant: "destructive" });
+    } finally {
+      setXtreamImportPending(false);
+    }
+  };
+
+  const toggleStreamSelection = (id: number) => {
+    setSelectedStreams(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!streams) return;
+    if (selectedStreams.size === streams.length) {
+      setSelectedStreams(new Set());
+    } else {
+      setSelectedStreams(new Set(streams.map(s => s.id)));
+    }
+  };
+
   return (
     <Layout 
       title="Manage Streams"
       actions={
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="btn-primary gap-2" data-testid="button-add-stream">
-              <Plus className="w-4 h-4" /> Add Stream
+        <div className="flex gap-2">
+          {selectedStreams.size > 0 && (
+            <Button 
+              variant="destructive" 
+              className="gap-2" 
+              onClick={handleBulkDelete}
+              disabled={bulkDelete.isPending}
+              data-testid="button-bulk-delete"
+            >
+              <Trash2 className="w-4 h-4" /> Delete ({selectedStreams.size})
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white">
-            <DialogHeader>
-              <DialogTitle>Add New Stream</DialogTitle>
-            </DialogHeader>
-            <StreamForm onSubmit={handleCreate} categories={categories || []} isLoading={createStream.isPending} />
-          </DialogContent>
-        </Dialog>
+          )}
+          <Dialog open={isXtreamImportOpen} onOpenChange={setIsXtreamImportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-import-xtream">
+                <Globe className="w-4 h-4" /> Import Xtream
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Globe className="w-5 h-5" /> Import from Xtream Panel
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                  Import streams from another Xtream Codes compatible panel. Enter the panel URL and credentials.
+                </p>
+                <div className="space-y-2">
+                  <Label>Panel URL</Label>
+                  <Input
+                    data-testid="input-xtream-url"
+                    value={xtreamUrl}
+                    onChange={(e) => setXtreamUrl(e.target.value)}
+                    placeholder="http://panel.example.com:8080"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Username</Label>
+                    <Input
+                      data-testid="input-xtream-username"
+                      value={xtreamUsername}
+                      onChange={(e) => setXtreamUsername(e.target.value)}
+                      placeholder="username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Password</Label>
+                    <Input
+                      data-testid="input-xtream-password"
+                      type="password"
+                      value={xtreamPassword}
+                      onChange={(e) => setXtreamPassword(e.target.value)}
+                      placeholder="password"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Target Category</Label>
+                    <Select onValueChange={(val) => setImportCategory(val === "none" ? undefined : parseInt(val))}>
+                      <SelectTrigger data-testid="select-xtream-category">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Auto-create</SelectItem>
+                        {categories?.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stream Type</Label>
+                    <Select value={importType} onValueChange={(v) => setImportType(v as "live" | "movie")}>
+                      <SelectTrigger data-testid="select-xtream-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="live">Live Streams</SelectItem>
+                        <SelectItem value="movie">Movies (VOD)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={handleXtreamImport} 
+                  disabled={xtreamImportPending || !xtreamUrl.trim()} 
+                  className="w-full btn-primary"
+                  data-testid="button-submit-xtream-import"
+                >
+                  {xtreamImportPending ? "Importing..." : "Import from Xtream"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-import-m3u">
+                <Upload className="w-4 h-4" /> Import M3U
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" /> Import M3U Playlist
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>M3U Content</Label>
+                  <Textarea
+                    data-testid="input-m3u-content"
+                    value={m3uContent}
+                    onChange={(e) => setM3uContent(e.target.value)}
+                    placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-id=&quot;channel1&quot; tvg-name=&quot;Channel 1&quot;,Channel 1&#10;http://example.com/stream1.m3u8"
+                    className="min-h-[200px] font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste your M3U content here or paste the URL from your M3U file
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Assign to Category</Label>
+                    <Select value={importCategory?.toString()} onValueChange={(v) => setImportCategory(v ? parseInt(v) : undefined)}>
+                      <SelectTrigger data-testid="select-import-category">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {categories?.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stream Type</Label>
+                    <Select value={importType} onValueChange={(v) => setImportType(v as "live" | "movie")}>
+                      <SelectTrigger data-testid="select-import-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="live">Live Streams</SelectItem>
+                        <SelectItem value="movie">Movies (VOD)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={handleImportM3U} 
+                  disabled={importM3U.isPending || !m3uContent.trim()} 
+                  className="w-full btn-primary"
+                  data-testid="button-submit-import"
+                >
+                  {importM3U.isPending ? "Importing..." : "Import Streams"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="btn-primary gap-2" data-testid="button-add-stream">
+                <Plus className="w-4 h-4" /> Add Stream
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle>Add New Stream</DialogTitle>
+              </DialogHeader>
+              <StreamForm onSubmit={handleCreate} categories={categories || []} isLoading={createStream.isPending} />
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
       {playingStream && (
@@ -522,6 +913,13 @@ export default function Streams() {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 text-muted-foreground font-medium uppercase text-xs">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <Checkbox
+                    data-testid="checkbox-select-all"
+                    checked={streams && streams.length > 0 && selectedStreams.size === streams.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
                 <th className="px-4 py-3 w-10"></th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Stream Name</th>
@@ -532,7 +930,14 @@ export default function Streams() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {streams?.map((stream) => (
-                <tr key={stream.id} className="hover:bg-white/5 transition-colors group" data-testid={`row-stream-${stream.id}`}>
+                <tr key={stream.id} className={`hover:bg-white/5 transition-colors group ${selectedStreams.has(stream.id) ? "bg-primary/5" : ""}`} data-testid={`row-stream-${stream.id}`}>
+                  <td className="px-4 py-3">
+                    <Checkbox
+                      data-testid={`checkbox-stream-${stream.id}`}
+                      checked={selectedStreams.has(stream.id)}
+                      onCheckedChange={() => toggleStreamSelection(stream.id)}
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <Tooltip>
                       <TooltipTrigger asChild>

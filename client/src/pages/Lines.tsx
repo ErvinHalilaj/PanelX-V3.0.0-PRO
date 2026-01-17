@@ -2,13 +2,16 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useLines, useCreateLine, useDeleteLine } from "@/hooks/use-lines";
 import { useBouquets } from "@/hooks/use-bouquets";
-import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { useServers } from "@/hooks/use-servers";
+import { usePackages } from "@/hooks/use-packages";
+import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -17,7 +20,13 @@ import { useForm } from "react-hook-form";
 import { insertLineSchema, type InsertLine } from "@shared/schema";
 import { format } from "date-fns";
 
-function LineForm({ onSubmit, bouquets, isLoading }: { onSubmit: (data: InsertLine) => void, bouquets: any[], isLoading: boolean }) {
+function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: { 
+  onSubmit: (data: InsertLine) => void, 
+  bouquets: any[], 
+  servers: any[],
+  packages: any[],
+  isLoading: boolean 
+}) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const form = useForm<InsertLine>({
     resolver: zodResolver(insertLineSchema),
@@ -27,6 +36,7 @@ function LineForm({ onSubmit, bouquets, isLoading }: { onSubmit: (data: InsertLi
       isTrial: false,
       allowedIps: [],
       allowedCountries: [],
+      allowedUserAgents: [],
       bouquets: [],
     }
   });
@@ -34,6 +44,7 @@ function LineForm({ onSubmit, bouquets, isLoading }: { onSubmit: (data: InsertLi
   const [selectedBouquets, setSelectedBouquets] = useState<number[]>([]);
   const [allowedIpsText, setAllowedIpsText] = useState("");
   const [allowedCountriesText, setAllowedCountriesText] = useState("");
+  const [allowedUserAgentsText, setAllowedUserAgentsText] = useState("");
 
   const handleFormSubmit = (data: InsertLine) => {
     const formData = {
@@ -41,6 +52,7 @@ function LineForm({ onSubmit, bouquets, isLoading }: { onSubmit: (data: InsertLi
       bouquets: selectedBouquets,
       allowedIps: allowedIpsText.split(',').map(s => s.trim()).filter(Boolean),
       allowedCountries: allowedCountriesText.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
+      allowedUserAgents: allowedUserAgentsText.split('\n').map(s => s.trim()).filter(Boolean),
     };
     onSubmit(formData);
   };
@@ -190,6 +202,79 @@ function LineForm({ onSubmit, bouquets, isLoading }: { onSubmit: (data: InsertLi
         <TabsContent value="advanced" className="space-y-4 mt-4">
           <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
+              <Package className="w-5 h-5 text-blue-500" />
+              <h4 className="font-medium text-blue-500">Package & Routing</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">Assign package and server routing</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Assigned Package
+              </Label>
+              <Select onValueChange={(val) => form.setValue("packageId", val === "none" ? undefined : parseInt(val))}>
+                <SelectTrigger data-testid="select-package">
+                  <SelectValue placeholder="No package" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No package</SelectItem>
+                  {packages?.map((pkg: any) => (
+                    <SelectItem key={pkg.id} value={pkg.id.toString()}>
+                      {pkg.packageName} ({pkg.duration} days, {pkg.credits} credits)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Package determines bouquets and pricing</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Server className="w-4 h-4" />
+                Forced Server
+              </Label>
+              <Select onValueChange={(val) => form.setValue("forcedServerId", val === "none" ? undefined : parseInt(val))}>
+                <SelectTrigger data-testid="select-forced-server">
+                  <SelectValue placeholder="Auto (load balanced)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Auto (load balanced)</SelectItem>
+                  {servers?.map((srv: any) => (
+                    <SelectItem key={srv.id} value={srv.id.toString()}>
+                      {srv.serverName} ({srv.serverUrl})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Route all streams through specific server</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>ISP Lock</Label>
+            <Input 
+              {...form.register("ispLock")}
+              placeholder="Comcast, AT&T (ISP name to restrict access)"
+              data-testid="input-isp-lock"
+            />
+            <p className="text-xs text-muted-foreground">Only allow connections from this ISP</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Allowed User Agents (Whitelist)</Label>
+            <Textarea 
+              value={allowedUserAgentsText}
+              onChange={(e) => setAllowedUserAgentsText(e.target.value)}
+              placeholder="VLC/3.0.16&#10;TiviMate/4.0&#10;Smarters&#10;(one per line)"
+              rows={3}
+              data-testid="input-allowed-user-agents"
+            />
+            <p className="text-xs text-muted-foreground">Leave empty to allow all. Only listed user agents can connect.</p>
+          </div>
+
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mt-4">
+            <div className="flex items-center gap-2 mb-2">
               <Smartphone className="w-5 h-5 text-blue-500" />
               <h4 className="font-medium text-blue-500">Device Locking</h4>
             </div>
@@ -237,6 +322,8 @@ export default function Lines() {
   const [searchTerm, setSearchTerm] = useState("");
   const { data: lines, isLoading } = useLines();
   const { data: bouquets } = useBouquets();
+  const { data: servers } = useServers();
+  const { data: packages } = usePackages();
   const createLine = useCreateLine();
   const deleteLine = useDeleteLine();
 
@@ -276,7 +363,7 @@ export default function Lines() {
             <DialogHeader>
               <DialogTitle>Create New Line</DialogTitle>
             </DialogHeader>
-            <LineForm onSubmit={handleCreate} bouquets={bouquets || []} isLoading={createLine.isPending} />
+            <LineForm onSubmit={handleCreate} bouquets={bouquets || []} servers={servers || []} packages={packages || []} isLoading={createLine.isPending} />
           </DialogContent>
         </Dialog>
       }

@@ -2,15 +2,17 @@ import { db } from "./db";
 import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
-  deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs,
+  deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
   type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
+  type InsertResellerGroup, type InsertPackage,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
-  type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob
+  type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
+  type ResellerGroup, type Package
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -164,6 +166,25 @@ export interface IStorage {
   getCronJobs(): Promise<CronJob[]>;
   getCronJob(id: number): Promise<CronJob | undefined>;
   updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob>;
+
+  // Reseller Groups
+  getResellerGroups(): Promise<ResellerGroup[]>;
+  getResellerGroup(id: number): Promise<ResellerGroup | undefined>;
+  createResellerGroup(group: InsertResellerGroup): Promise<ResellerGroup>;
+  updateResellerGroup(id: number, updates: Partial<InsertResellerGroup>): Promise<ResellerGroup>;
+  deleteResellerGroup(id: number): Promise<void>;
+
+  // Packages
+  getPackages(): Promise<Package[]>;
+  getPackage(id: number): Promise<Package | undefined>;
+  createPackage(pkg: InsertPackage): Promise<Package>;
+  updatePackage(id: number, updates: Partial<InsertPackage>): Promise<Package>;
+  deletePackage(id: number): Promise<void>;
+
+  // Bulk Operations
+  bulkCreateStreams(streamList: InsertStream[]): Promise<Stream[]>;
+  bulkDeleteStreams(ids: number[]): Promise<void>;
+  bulkDeleteLines(ids: number[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -746,6 +767,71 @@ export class DatabaseStorage implements IStorage {
   async updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob> {
     const [updated] = await db.update(cronJobs).set(updates).where(eq(cronJobs.id, id)).returning();
     return updated;
+  }
+
+  // Reseller Groups
+  async getResellerGroups(): Promise<ResellerGroup[]> {
+    return await db.select().from(resellerGroups);
+  }
+
+  async getResellerGroup(id: number): Promise<ResellerGroup | undefined> {
+    const [group] = await db.select().from(resellerGroups).where(eq(resellerGroups.id, id));
+    return group;
+  }
+
+  async createResellerGroup(group: InsertResellerGroup): Promise<ResellerGroup> {
+    const [newGroup] = await db.insert(resellerGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async updateResellerGroup(id: number, updates: Partial<InsertResellerGroup>): Promise<ResellerGroup> {
+    const [updated] = await db.update(resellerGroups).set(updates).where(eq(resellerGroups.id, id)).returning();
+    return updated;
+  }
+
+  async deleteResellerGroup(id: number): Promise<void> {
+    await db.delete(resellerGroups).where(eq(resellerGroups.id, id));
+  }
+
+  // Packages
+  async getPackages(): Promise<Package[]> {
+    return await db.select().from(packages);
+  }
+
+  async getPackage(id: number): Promise<Package | undefined> {
+    const [pkg] = await db.select().from(packages).where(eq(packages.id, id));
+    return pkg;
+  }
+
+  async createPackage(pkg: InsertPackage): Promise<Package> {
+    const [newPkg] = await db.insert(packages).values(pkg).returning();
+    return newPkg;
+  }
+
+  async updatePackage(id: number, updates: Partial<InsertPackage>): Promise<Package> {
+    const [updated] = await db.update(packages).set(updates).where(eq(packages.id, id)).returning();
+    return updated;
+  }
+
+  async deletePackage(id: number): Promise<void> {
+    await db.delete(packages).where(eq(packages.id, id));
+  }
+
+  // Bulk Operations
+  async bulkCreateStreams(streamList: InsertStream[]): Promise<Stream[]> {
+    if (streamList.length === 0) return [];
+    const newStreams = await db.insert(streams).values(streamList).returning();
+    return newStreams;
+  }
+
+  async bulkDeleteStreams(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.delete(streams).where(sql`${streams.id} = ANY(${ids})`);
+  }
+
+  async bulkDeleteLines(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.delete(lines).where(sql`${lines.id} = ANY(${ids})`);
   }
 }
 

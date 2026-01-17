@@ -16,7 +16,9 @@ import {
   Smartphone,
   Radio,
   CalendarClock,
-  Ban
+  Ban,
+  Package,
+  UsersRound
 } from "lucide-react";
 
 export function Sidebar() {
@@ -38,6 +40,8 @@ export function Sidebar() {
   const usersNav = [
     { icon: Users, label: "Lines", href: "/lines" },
     { icon: UserCog, label: "Users/Resellers", href: "/users" },
+    { icon: UsersRound, label: "Reseller Groups", href: "/reseller-groups" },
+    { icon: Package, label: "Packages", href: "/packages" },
     { icon: Wifi, label: "Connections", href: "/connections" },
   ];
 
