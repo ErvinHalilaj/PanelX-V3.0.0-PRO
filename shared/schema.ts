@@ -391,6 +391,24 @@ export const serverSettings = pgTable("server_settings", {
   settingValue: text("setting_value"),
 });
 
+// IP Rate Limiting / Login Attempts
+export const loginAttempts = pgTable("login_attempts", {
+  id: serial("id").primaryKey(),
+  ipAddress: text("ip_address").notNull(),
+  username: text("username"),
+  success: boolean("success").default(false),
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+});
+
+// Rate Limit Settings
+export const rateLimitSettings = pgTable("rate_limit_settings", {
+  id: serial("id").primaryKey(),
+  maxFailedAttempts: integer("max_failed_attempts").default(10),
+  lockoutDurationMinutes: integer("lockout_duration_minutes").default(60),
+  attemptWindowMinutes: integer("attempt_window_minutes").default(15),
+  enabled: boolean("enabled").default(true),
+});
+
 // === RELATIONS ===
 export const streamsRelations = relations(streams, ({ one }) => ({
   category: one(categories, {
@@ -447,6 +465,8 @@ export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true, closedAt: true });
 export const insertTicketReplySchema = createInsertSchema(ticketReplies).omit({ id: true, createdAt: true });
+export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({ id: true, attemptedAt: true });
+export const insertRateLimitSettingsSchema = createInsertSchema(rateLimitSettings).omit({ id: true });
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
@@ -527,6 +547,12 @@ export type InsertTicket = z.infer<typeof insertTicketSchema>;
 
 export type TicketReply = typeof ticketReplies.$inferSelect;
 export type InsertTicketReply = z.infer<typeof insertTicketReplySchema>;
+
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
+
+export type RateLimitSettings = typeof rateLimitSettings.$inferSelect;
+export type InsertRateLimitSettings = z.infer<typeof insertRateLimitSettingsSchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

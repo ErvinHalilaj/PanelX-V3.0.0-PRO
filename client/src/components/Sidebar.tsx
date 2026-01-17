@@ -19,7 +19,8 @@ import {
   Ban,
   Package,
   UsersRound,
-  MessageSquare
+  MessageSquare,
+  TrendingUp
 } from "lucide-react";
 
 export function Sidebar() {
@@ -45,6 +46,7 @@ export function Sidebar() {
     { icon: Package, label: "Packages", href: "/packages" },
     { icon: Wifi, label: "Connections", href: "/connections" },
     { icon: MessageSquare, label: "Tickets", href: "/tickets" },
+    { icon: TrendingUp, label: "Reseller Panel", href: "/reseller" },
   ];
 
   const securityNav = [

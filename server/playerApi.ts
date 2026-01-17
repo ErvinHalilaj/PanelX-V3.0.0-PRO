@@ -97,9 +97,96 @@ function streamToXtreamChannel(stream: Stream, index: number): XtreamChannel {
   };
 }
 
-// Authenticate a line
-async function authenticateLine(username: string, password: string): Promise<Line | null> {
+// Rate limiting configuration (in-memory cache for fast lookups)
+const rateLimitCache: Map<string, { count: number; firstAttempt: number }> = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_FAILED_ATTEMPTS = 10;
+const LOCKOUT_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+// Check if IP is rate limited
+async function isRateLimited(ipAddress: string): Promise<boolean> {
+  // Check if IP is already blocked using optimized method
+  const isBlocked = await storage.isIpBlocked(ipAddress);
+  if (isBlocked) {
+    return true;
+  }
+  
+  // Check in-memory rate limit cache
+  const cached = rateLimitCache.get(ipAddress);
+  if (cached) {
+    const now = Date.now();
+    if (now - cached.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+      // Window expired, reset
+      rateLimitCache.delete(ipAddress);
+      return false;
+    }
+    if (cached.count >= MAX_FAILED_ATTEMPTS) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Record a login attempt
+async function recordLoginAttempt(ipAddress: string, username: string, success: boolean): Promise<void> {
+  // Log to database for analytics
+  try {
+    await storage.logActivity({
+      action: success ? 'auth_success' : 'auth_fail',
+      ipAddress,
+      details: `Username: ${username}`,
+    });
+  } catch (e) {
+    // Ignore logging errors
+  }
+  
+  if (success) {
+    // Clear rate limit on successful auth
+    rateLimitCache.delete(ipAddress);
+    return;
+  }
+  
+  // Track failed attempts in memory
+  const cached = rateLimitCache.get(ipAddress);
+  const now = Date.now();
+  
+  if (cached) {
+    if (now - cached.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+      // Window expired, reset
+      rateLimitCache.set(ipAddress, { count: 1, firstAttempt: now });
+    } else {
+      cached.count++;
+      
+      // Auto-block if exceeded
+      if (cached.count >= MAX_FAILED_ATTEMPTS) {
+        const expiresAt = new Date(Date.now() + LOCKOUT_DURATION_MS);
+        try {
+          await storage.blockIp({
+            ipAddress,
+            reason: `Auto-blocked: ${cached.count} failed login attempts`,
+            expiresAt,
+            autoBlocked: true,
+          });
+          console.log(`[Rate Limit] Auto-blocked IP ${ipAddress} for excessive failed attempts`);
+        } catch (e) {
+          // IP might already be blocked
+        }
+      }
+    }
+  } else {
+    rateLimitCache.set(ipAddress, { count: 1, firstAttempt: now });
+  }
+}
+
+// Authenticate a line with rate limiting
+async function authenticateLine(username: string, password: string, ipAddress?: string): Promise<Line | null> {
   const line = await storage.getLineByCredentials(username, password);
+  
+  // Record attempt
+  if (ipAddress) {
+    await recordLoginAttempt(ipAddress, username, !!line);
+  }
   
   if (!line) return null;
   if (!line.enabled) return null;
@@ -163,22 +250,24 @@ export function registerPlayerApi(app: Express) {
   // player_api.php - Main API endpoint
   app.get('/player_api.php', async (req: Request, res: Response) => {
     const { username, password, action } = req.query;
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    
+    // Check rate limiting before processing
+    if (await isRateLimited(clientIp)) {
+      console.log(`[Rate Limit] Blocked request from rate-limited IP: ${clientIp}`);
+      return res.status(429).json({ 
+        user_info: { auth: 0 },
+        error: 'Too many failed attempts. Please try again later.'
+      });
+    }
     
     if (!username || !password) {
       return res.status(401).json({ user_info: { auth: 0 } });
     }
     
-    const line = await authenticateLine(username as string, password as string);
+    const line = await authenticateLine(username as string, password as string, clientIp);
     
     if (!line) {
-      // Log failed auth attempt
-      await storage.logActivity({
-        lineId: null,
-        action: 'auth_fail',
-        ipAddress: req.ip || '',
-        userAgent: req.get('user-agent') || '',
-        details: `Failed login for user: ${username}`,
-      });
       return res.status(401).json({ user_info: { auth: 0 } });
     }
 
@@ -393,12 +482,18 @@ export function registerPlayerApi(app: Express) {
   // GET.php - Stream URL endpoint (for M3U playlist generation)
   app.get('/get.php', async (req: Request, res: Response) => {
     const { username, password, type, output } = req.query;
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    
+    // Check rate limiting
+    if (await isRateLimited(clientIp)) {
+      return res.status(429).send('Too many failed attempts');
+    }
     
     if (!username || !password) {
       return res.status(401).send('Unauthorized');
     }
     
-    const line = await authenticateLine(username as string, password as string);
+    const line = await authenticateLine(username as string, password as string, clientIp);
     
     if (!line) {
       return res.status(401).send('Unauthorized');

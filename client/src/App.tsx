@@ -26,6 +26,7 @@ import ClientPortal from "@/pages/ClientPortal";
 import Packages from "@/pages/Packages";
 import ResellerGroups from "@/pages/ResellerGroups";
 import Tickets from "@/pages/Tickets";
+import ResellerDashboard from "@/pages/ResellerDashboard";
 
 function Router() {
   return (
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/packages" component={Packages} />
       <Route path="/reseller-groups" component={ResellerGroups} />
       <Route path="/tickets" component={Tickets} />
+      <Route path="/reseller" component={ResellerDashboard} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route path="/portal" component={ClientPortal} />
