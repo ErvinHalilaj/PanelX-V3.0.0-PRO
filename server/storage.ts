@@ -3,17 +3,18 @@ import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
-  tickets, ticketReplies, backups,
+  tickets, ticketReplies, backups, webhooks, webhookLogs,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
   type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
   type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply, type InsertBackup,
+  type InsertWebhook, type InsertWebhookLog,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
-  type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup
+  type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -204,6 +205,18 @@ export interface IStorage {
   createBackup(backup: InsertBackup): Promise<Backup>;
   updateBackup(id: number, updates: Partial<InsertBackup>): Promise<Backup>;
   deleteBackup(id: number): Promise<void>;
+  
+  // Webhooks
+  getWebhooks(): Promise<Webhook[]>;
+  getWebhook(id: number): Promise<Webhook | undefined>;
+  getWebhooksByEvent(event: string): Promise<Webhook[]>;
+  createWebhook(webhook: InsertWebhook): Promise<Webhook>;
+  updateWebhook(id: number, updates: Partial<InsertWebhook>): Promise<Webhook>;
+  deleteWebhook(id: number): Promise<void>;
+  
+  // Webhook Logs
+  getWebhookLogs(webhookId?: number, limit?: number): Promise<WebhookLog[]>;
+  logWebhook(log: InsertWebhookLog): Promise<WebhookLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -925,6 +938,55 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBackup(id: number): Promise<void> {
     await db.delete(backups).where(eq(backups.id, id));
+  }
+
+  // Webhooks
+  async getWebhooks(): Promise<Webhook[]> {
+    return await db.select().from(webhooks).orderBy(desc(webhooks.createdAt));
+  }
+
+  async getWebhook(id: number): Promise<Webhook | undefined> {
+    const [webhook] = await db.select().from(webhooks).where(eq(webhooks.id, id));
+    return webhook;
+  }
+
+  async getWebhooksByEvent(event: string): Promise<Webhook[]> {
+    const allWebhooks = await db.select().from(webhooks).where(eq(webhooks.enabled, true));
+    return allWebhooks.filter(wh => {
+      const events = wh.events as string[] || [];
+      return events.includes(event) || events.includes('*');
+    });
+  }
+
+  async createWebhook(webhook: InsertWebhook): Promise<Webhook> {
+    const [newWebhook] = await db.insert(webhooks).values(webhook).returning();
+    return newWebhook;
+  }
+
+  async updateWebhook(id: number, updates: Partial<InsertWebhook>): Promise<Webhook> {
+    const [updated] = await db.update(webhooks).set(updates).where(eq(webhooks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteWebhook(id: number): Promise<void> {
+    await db.delete(webhookLogs).where(eq(webhookLogs.webhookId, id));
+    await db.delete(webhooks).where(eq(webhooks.id, id));
+  }
+
+  // Webhook Logs
+  async getWebhookLogs(webhookId?: number, limit: number = 100): Promise<WebhookLog[]> {
+    if (webhookId) {
+      return await db.select().from(webhookLogs)
+        .where(eq(webhookLogs.webhookId, webhookId))
+        .orderBy(desc(webhookLogs.createdAt))
+        .limit(limit);
+    }
+    return await db.select().from(webhookLogs).orderBy(desc(webhookLogs.createdAt)).limit(limit);
+  }
+
+  async logWebhook(log: InsertWebhookLog): Promise<WebhookLog> {
+    const [newLog] = await db.insert(webhookLogs).values(log).returning();
+    return newLog;
   }
 }
 

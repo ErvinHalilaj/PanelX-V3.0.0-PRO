@@ -1480,6 +1480,151 @@ export async function registerRoutes(
     }
   });
 
+  // === WEBHOOKS (Admin only) ===
+  app.get("/api/webhooks", requireAdmin, async (_req, res) => {
+    const webhooksList = await storage.getWebhooks();
+    res.json(webhooksList);
+  });
+
+  app.get("/api/webhooks/:id", requireAdmin, async (req, res) => {
+    const webhook = await storage.getWebhook(Number(req.params.id));
+    if (!webhook) return res.status(404).json({ message: "Webhook not found" });
+    res.json(webhook);
+  });
+
+  app.post("/api/webhooks", requireAdmin, async (req, res) => {
+    try {
+      const { name, url, secret, events, enabled, retries, timeoutSeconds } = req.body;
+      
+      if (!name || !url) {
+        return res.status(400).json({ message: "Name and URL are required" });
+      }
+
+      const webhook = await storage.createWebhook({
+        name,
+        url,
+        secret: secret || null,
+        events: events || [],
+        enabled: enabled ?? true,
+        retries: retries ?? 3,
+        timeoutSeconds: timeoutSeconds ?? 30,
+        lastStatus: null,
+        failureCount: 0,
+      });
+
+      res.status(201).json(webhook);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/webhooks/:id", requireAdmin, async (req, res) => {
+    try {
+      const webhook = await storage.updateWebhook(Number(req.params.id), req.body);
+      res.json(webhook);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/webhooks/:id", requireAdmin, async (req, res) => {
+    const webhook = await storage.getWebhook(Number(req.params.id));
+    if (!webhook) return res.status(404).json({ message: "Webhook not found" });
+    
+    await storage.deleteWebhook(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/webhooks/:id/logs", requireAdmin, async (req, res) => {
+    const logs = await storage.getWebhookLogs(Number(req.params.id), 50);
+    res.json(logs);
+  });
+
+  app.post("/api/webhooks/:id/test", requireAdmin, async (req, res) => {
+    try {
+      const webhook = await storage.getWebhook(Number(req.params.id));
+      if (!webhook) return res.status(404).json({ message: "Webhook not found" });
+
+      // Send test payload to webhook URL
+      const testPayload = {
+        event: 'test',
+        timestamp: new Date().toISOString(),
+        data: { message: 'This is a test webhook delivery' }
+      };
+
+      try {
+        const response = await fetch(webhook.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Webhook-Event': 'test',
+            ...(webhook.secret ? { 'X-Webhook-Signature': webhook.secret } : {})
+          },
+          body: JSON.stringify(testPayload),
+          signal: AbortSignal.timeout((webhook.timeoutSeconds || 30) * 1000)
+        });
+
+        const responseText = await response.text();
+        
+        // Log the webhook attempt
+        await storage.logWebhook({
+          webhookId: webhook.id,
+          event: 'test',
+          payload: testPayload,
+          responseStatus: response.status,
+          responseBody: responseText.substring(0, 1000),
+          success: response.ok,
+          errorMessage: response.ok ? null : `HTTP ${response.status}`,
+        });
+
+        // Update webhook last status
+        await storage.updateWebhook(webhook.id, {
+          lastStatus: response.status,
+          failureCount: response.ok ? 0 : (webhook.failureCount || 0) + 1,
+        } as any);
+
+        res.json({ 
+          success: response.ok, 
+          status: response.status,
+          response: responseText.substring(0, 500)
+        });
+      } catch (fetchErr: any) {
+        // Log the failure
+        await storage.logWebhook({
+          webhookId: webhook.id,
+          event: 'test',
+          payload: testPayload,
+          responseStatus: null,
+          responseBody: null,
+          success: false,
+          errorMessage: fetchErr.message,
+        });
+
+        res.json({ success: false, error: fetchErr.message });
+      }
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Webhook events list (for UI)
+  app.get("/api/webhooks/events/list", requireAdmin, async (_req, res) => {
+    res.json([
+      { value: '*', label: 'All Events' },
+      { value: 'line.created', label: 'Line Created' },
+      { value: 'line.expired', label: 'Line Expired' },
+      { value: 'line.deleted', label: 'Line Deleted' },
+      { value: 'stream.offline', label: 'Stream Offline' },
+      { value: 'stream.online', label: 'Stream Online' },
+      { value: 'stream.created', label: 'Stream Created' },
+      { value: 'connection.started', label: 'Connection Started' },
+      { value: 'connection.ended', label: 'Connection Ended' },
+      { value: 'user.created', label: 'User Created' },
+      { value: 'ticket.created', label: 'Ticket Created' },
+      { value: 'backup.completed', label: 'Backup Completed' },
+    ]);
+  });
+
   // === BULK OPERATIONS ===
   app.post(api.bulk.deleteStreams.path, async (req, res) => {
     try {

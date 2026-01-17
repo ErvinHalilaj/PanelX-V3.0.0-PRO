@@ -28,8 +28,11 @@ import ResellerGroups from "@/pages/ResellerGroups";
 import Tickets from "@/pages/Tickets";
 import ResellerDashboard from "@/pages/ResellerDashboard";
 import Backups from "@/pages/Backups";
+import Webhooks from "@/pages/Webhooks";
+import { AdminAuthProvider } from "@/components/AdminAuthProvider";
+import { Sidebar } from "@/components/Sidebar";
 
-function Router() {
+function AdminRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -51,15 +54,25 @@ function Router() {
       <Route path="/packages" component={Packages} />
       <Route path="/reseller-groups" component={ResellerGroups} />
       <Route path="/tickets" component={Tickets} />
-      <Route path="/reseller" component={ResellerDashboard} />
       <Route path="/backups" component={Backups} />
+      <Route path="/webhooks" component={Webhooks} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
-      <Route path="/portal" component={ClientPortal} />
-      
-      {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function AdminPanel() {
+  return (
+    <AdminAuthProvider>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 ml-64 p-0">
+          <AdminRouter />
+        </main>
+      </div>
+    </AdminAuthProvider>
   );
 }
 
@@ -68,7 +81,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <Switch>
+          <Route path="/portal" component={ClientPortal} />
+          <Route path="/reseller" component={ResellerDashboard} />
+          <Route>
+            <AdminPanel />
+          </Route>
+        </Switch>
       </TooltipProvider>
     </QueryClientProvider>
   );

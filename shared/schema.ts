@@ -222,6 +222,35 @@ export const backups = pgTable("backups", {
   errorMessage: text("error_message"),
 });
 
+// Webhooks (Event notifications)
+export const webhooks = pgTable("webhooks", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  secret: text("secret"), // For signing payloads
+  events: jsonb("events").$type<string[]>().default([]), // line.created, line.expired, stream.offline, etc.
+  enabled: boolean("enabled").default(true),
+  retries: integer("retries").default(3),
+  timeoutSeconds: integer("timeout_seconds").default(30),
+  lastTriggered: timestamp("last_triggered"),
+  lastStatus: integer("last_status"), // HTTP status code
+  failureCount: integer("failure_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Webhook Logs
+export const webhookLogs = pgTable("webhook_logs", {
+  id: serial("id").primaryKey(),
+  webhookId: integer("webhook_id").references(() => webhooks.id),
+  event: text("event").notNull(),
+  payload: jsonb("payload"),
+  responseStatus: integer("response_status"),
+  responseBody: text("response_body"),
+  success: boolean("success").default(false),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Support Tickets (admin-reseller communication)
 export const tickets = pgTable("tickets", {
   id: serial("id").primaryKey(),
@@ -478,6 +507,8 @@ export const insertStreamErrorSchema = createInsertSchema(streamErrors).omit({ i
 export const insertClientLogSchema = createInsertSchema(clientLogs).omit({ id: true, createdAt: true });
 export const insertCronJobSchema = createInsertSchema(cronJobs).omit({ id: true });
 export const insertBackupSchema = createInsertSchema(backups).omit({ id: true, createdAt: true, completedAt: true });
+export const insertWebhookSchema = createInsertSchema(webhooks).omit({ id: true, createdAt: true, lastTriggered: true });
+export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({ id: true, createdAt: true });
 export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit({ id: true });
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true, closedAt: true });
@@ -555,6 +586,12 @@ export type InsertCronJob = z.infer<typeof insertCronJobSchema>;
 
 export type Backup = typeof backups.$inferSelect;
 export type InsertBackup = z.infer<typeof insertBackupSchema>;
+
+export type Webhook = typeof webhooks.$inferSelect;
+export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
 
 export type ResellerGroup = typeof resellerGroups.$inferSelect;
 export type InsertResellerGroup = z.infer<typeof insertResellerGroupSchema>;
