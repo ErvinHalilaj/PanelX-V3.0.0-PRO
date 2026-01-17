@@ -3,7 +3,7 @@ import Hls from "hls.js";
 import { Layout } from "@/components/Layout";
 import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-streams";
 import { useCategories } from "@/hooks/use-categories";
-import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi } from "lucide-react";
+import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +86,7 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +198,20 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     if (videoRef.current) {
       videoRef.current.muted = !videoRef.current.muted;
       setIsMuted(!isMuted);
+    }
+  };
+
+  const handleVolumeChange = (newVolume: number) => {
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      setVolume(newVolume);
+      if (newVolume === 0) {
+        setIsMuted(true);
+        videoRef.current.muted = true;
+      } else if (isMuted) {
+        setIsMuted(false);
+        videoRef.current.muted = false;
+      }
     }
   };
 
@@ -325,15 +340,45 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
                   <Play className="w-4 h-4" />
                 )}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={toggleMute}
-                className="text-white hover:bg-white/10 h-8 w-8"
-                data-testid="button-mute"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </Button>
+              <div className="flex items-center gap-2 group">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={toggleMute}
+                  className="text-white hover:bg-white/10 h-8 w-8"
+                  data-testid="button-mute"
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-4 h-4" />
+                  ) : volume < 0.5 ? (
+                    <Volume1 className="w-4 h-4" />
+                  ) : (
+                    <Volume2 className="w-4 h-4" />
+                  )}
+                </Button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                  className="w-20 h-1 bg-white/30 rounded-full appearance-none cursor-pointer
+                    [&::-webkit-slider-thumb]:appearance-none 
+                    [&::-webkit-slider-thumb]:w-3 
+                    [&::-webkit-slider-thumb]:h-3 
+                    [&::-webkit-slider-thumb]:bg-white 
+                    [&::-webkit-slider-thumb]:rounded-full 
+                    [&::-webkit-slider-thumb]:cursor-pointer
+                    [&::-moz-range-thumb]:w-3 
+                    [&::-moz-range-thumb]:h-3 
+                    [&::-moz-range-thumb]:bg-white 
+                    [&::-moz-range-thumb]:rounded-full 
+                    [&::-moz-range-thumb]:border-0
+                    [&::-moz-range-thumb]:cursor-pointer"
+                  data-testid="slider-volume"
+                />
+              </div>
             </div>
             
             <Button 
