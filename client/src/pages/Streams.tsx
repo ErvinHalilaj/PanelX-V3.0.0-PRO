@@ -22,6 +22,9 @@ import { insertStreamSchema, type InsertStream, type Stream } from "@shared/sche
 
 function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: InsertStream) => void, categories: any[], isLoading: boolean }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [backupUrls, setBackupUrls] = useState<string[]>([]);
+  const [newBackupUrl, setNewBackupUrl] = useState("");
+  
   const form = useForm<InsertStream>({
     resolver: zodResolver(insertStreamSchema),
     defaultValues: {
@@ -36,8 +39,24 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
       removeSubtitles: false,
       genTimestamps: false,
       allowRecord: true,
+      backupUrls: [],
     }
   });
+
+  const addBackupUrl = () => {
+    if (newBackupUrl.trim() && !backupUrls.includes(newBackupUrl.trim())) {
+      const updated = [...backupUrls, newBackupUrl.trim()];
+      setBackupUrls(updated);
+      form.setValue("backupUrls", updated);
+      setNewBackupUrl("");
+    }
+  };
+
+  const removeBackupUrl = (index: number) => {
+    const updated = backupUrls.filter((_, i) => i !== index);
+    setBackupUrls(updated);
+    form.setValue("backupUrls", updated);
+  };
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
@@ -193,6 +212,36 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
               data-testid="input-rtmp-output"
             />
             <p className="text-xs text-muted-foreground">Push stream to external RTMP destination</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Backup URLs (Failover Sources)</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newBackupUrl}
+                onChange={(e) => setNewBackupUrl(e.target.value)}
+                placeholder="http://backup-source/stream"
+                data-testid="input-backup-url"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addBackupUrl(); } }}
+              />
+              <Button type="button" size="sm" onClick={addBackupUrl} data-testid="button-add-backup">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {backupUrls.length > 0 && (
+              <div className="space-y-1 mt-2">
+                {backupUrls.map((url, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm bg-white/5 rounded px-2 py-1">
+                    <span className="text-muted-foreground">#{index + 1}</span>
+                    <span className="flex-1 truncate">{url}</span>
+                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeBackupUrl(index)} data-testid={`button-remove-backup-${index}`}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Add backup sources that will be tried if primary fails</p>
           </div>
 
           <div className="space-y-2">

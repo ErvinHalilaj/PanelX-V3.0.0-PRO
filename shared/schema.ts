@@ -206,6 +206,29 @@ export const cronJobs = pgTable("cron_jobs", {
   status: text("status").default("idle"), // idle, running, error
 });
 
+// Support Tickets (admin-reseller communication)
+export const tickets = pgTable("tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Reseller who created ticket
+  subject: text("subject").notNull(),
+  status: text("status").default("open"), // open, pending, closed
+  priority: text("priority").default("normal"), // low, normal, high, urgent
+  category: text("category").default("general"), // general, billing, technical, account
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  closedAt: timestamp("closed_at"),
+});
+
+// Ticket Replies
+export const ticketReplies = pgTable("ticket_replies", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").references(() => tickets.id),
+  userId: integer("user_id").references(() => users.id), // Who replied
+  message: text("message").notNull(),
+  isAdminReply: boolean("is_admin_reply").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Content Categories (e.g., "Sports", "Movies")
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -422,6 +445,8 @@ export const insertClientLogSchema = createInsertSchema(clientLogs).omit({ id: t
 export const insertCronJobSchema = createInsertSchema(cronJobs).omit({ id: true });
 export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit({ id: true });
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
+export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true, closedAt: true });
+export const insertTicketReplySchema = createInsertSchema(ticketReplies).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
@@ -496,6 +521,12 @@ export type InsertResellerGroup = z.infer<typeof insertResellerGroupSchema>;
 
 export type Package = typeof packages.$inferSelect;
 export type InsertPackage = z.infer<typeof insertPackageSchema>;
+
+export type Ticket = typeof tickets.$inferSelect;
+export type InsertTicket = z.infer<typeof insertTicketSchema>;
+
+export type TicketReply = typeof ticketReplies.$inferSelect;
+export type InsertTicketReply = z.infer<typeof insertTicketReplySchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

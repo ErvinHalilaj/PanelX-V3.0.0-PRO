@@ -3,16 +3,17 @@ import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
+  tickets, ticketReplies,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
   type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
-  type InsertResellerGroup, type InsertPackage,
+  type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
-  type ResellerGroup, type Package
+  type ResellerGroup, type Package, type Ticket, type TicketReply
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -185,6 +186,17 @@ export interface IStorage {
   bulkCreateStreams(streamList: InsertStream[]): Promise<Stream[]>;
   bulkDeleteStreams(ids: number[]): Promise<void>;
   bulkDeleteLines(ids: number[]): Promise<void>;
+
+  // Tickets
+  getTickets(userId?: number, status?: string): Promise<Ticket[]>;
+  getTicket(id: number): Promise<Ticket | undefined>;
+  createTicket(ticket: InsertTicket): Promise<Ticket>;
+  updateTicket(id: number, updates: Partial<InsertTicket>): Promise<Ticket>;
+  deleteTicket(id: number): Promise<void>;
+  
+  // Ticket Replies
+  getTicketReplies(ticketId: number): Promise<TicketReply[]>;
+  createTicketReply(reply: InsertTicketReply): Promise<TicketReply>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -832,6 +844,56 @@ export class DatabaseStorage implements IStorage {
   async bulkDeleteLines(ids: number[]): Promise<void> {
     if (ids.length === 0) return;
     await db.delete(lines).where(sql`${lines.id} = ANY(${ids})`);
+  }
+
+  // Tickets
+  async getTickets(userId?: number, status?: string): Promise<Ticket[]> {
+    const conditions = [];
+    if (userId) conditions.push(eq(tickets.userId, userId));
+    if (status) conditions.push(eq(tickets.status, status));
+    
+    if (conditions.length > 0) {
+      return await db.select().from(tickets).where(and(...conditions)).orderBy(desc(tickets.createdAt));
+    }
+    return await db.select().from(tickets).orderBy(desc(tickets.createdAt));
+  }
+
+  async getTicket(id: number): Promise<Ticket | undefined> {
+    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id));
+    return ticket;
+  }
+
+  async createTicket(ticket: InsertTicket): Promise<Ticket> {
+    const [newTicket] = await db.insert(tickets).values(ticket).returning();
+    return newTicket;
+  }
+
+  async updateTicket(id: number, updates: Partial<InsertTicket>): Promise<Ticket> {
+    const updateData: any = { ...updates, updatedAt: new Date() };
+    if (updates.status === 'closed') {
+      updateData.closedAt = new Date();
+    }
+    const [updated] = await db.update(tickets).set(updateData).where(eq(tickets.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTicket(id: number): Promise<void> {
+    await db.delete(ticketReplies).where(eq(ticketReplies.ticketId, id));
+    await db.delete(tickets).where(eq(tickets.id, id));
+  }
+
+  // Ticket Replies
+  async getTicketReplies(ticketId: number): Promise<TicketReply[]> {
+    return await db.select().from(ticketReplies).where(eq(ticketReplies.ticketId, ticketId)).orderBy(ticketReplies.createdAt);
+  }
+
+  async createTicketReply(reply: InsertTicketReply): Promise<TicketReply> {
+    const [newReply] = await db.insert(ticketReplies).values(reply).returning();
+    // Update ticket's updatedAt
+    if (reply.ticketId) {
+      await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, reply.ticketId));
+    }
+    return newReply;
   }
 }
 

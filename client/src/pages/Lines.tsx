@@ -4,7 +4,7 @@ import { useLines, useCreateLine, useDeleteLine } from "@/hooks/use-lines";
 import { useBouquets } from "@/hooks/use-bouquets";
 import { useServers } from "@/hooks/use-servers";
 import { usePackages } from "@/hooks/use-packages";
-import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp, Key, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,6 +304,49 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: {
           <div className="space-y-2">
             <Label>Reseller Notes</Label>
             <Textarea {...form.register("resellerNotes")} placeholder="Notes visible to reseller..." rows={2} data-testid="input-reseller-notes" />
+          </div>
+
+          <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Key className="w-5 h-5 text-purple-500" />
+              <h4 className="font-medium text-purple-500">Security Tokens</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">Additional security for playback</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Key className="w-4 h-4" />
+              Play Token
+            </Label>
+            <Input 
+              {...form.register("playToken")}
+              placeholder="Auto-generated secure token (optional)"
+              data-testid="input-play-token"
+            />
+            <p className="text-xs text-muted-foreground">Unique token required for playback validation</p>
+          </div>
+
+          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-5 h-5 text-green-500" />
+              <h4 className="font-medium text-green-500">Reseller Hierarchy</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">Parent reseller tracking</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Parent Reseller ID
+            </Label>
+            <Input 
+              type="number"
+              {...form.register("parentResellerIdd", { valueAsNumber: true })}
+              placeholder="ID of parent reseller (for hierarchy)"
+              data-testid="input-parent-reseller"
+            />
+            <p className="text-xs text-muted-foreground">Track which reseller created this line</p>
           </div>
         </TabsContent>
       </Tabs>

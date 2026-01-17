@@ -18,7 +18,8 @@ import {
   CalendarClock,
   Ban,
   Package,
-  UsersRound
+  UsersRound,
+  MessageSquare
 } from "lucide-react";
 
 export function Sidebar() {
@@ -43,6 +44,7 @@ export function Sidebar() {
     { icon: UsersRound, label: "Reseller Groups", href: "/reseller-groups" },
     { icon: Package, label: "Packages", href: "/packages" },
     { icon: Wifi, label: "Connections", href: "/connections" },
+    { icon: MessageSquare, label: "Tickets", href: "/tickets" },
   ];
 
   const securityNav = [

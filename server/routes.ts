@@ -1081,6 +1081,61 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === TICKETS ===
+  app.get("/api/tickets", async (req, res) => {
+    const userId = req.query.userId ? Number(req.query.userId) : undefined;
+    const status = req.query.status as string | undefined;
+    const tickets = await storage.getTickets(userId, status);
+    res.json(tickets);
+  });
+
+  app.get("/api/tickets/:id", async (req, res) => {
+    const ticket = await storage.getTicket(Number(req.params.id));
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+    res.json(ticket);
+  });
+
+  app.post("/api/tickets", async (req, res) => {
+    try {
+      const ticket = await storage.createTicket(req.body);
+      res.status(201).json(ticket);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/tickets/:id", async (req, res) => {
+    try {
+      const ticket = await storage.updateTicket(Number(req.params.id), req.body);
+      res.json(ticket);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/tickets/:id", async (req, res) => {
+    await storage.deleteTicket(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Ticket Replies
+  app.get("/api/tickets/:id/replies", async (req, res) => {
+    const replies = await storage.getTicketReplies(Number(req.params.id));
+    res.json(replies);
+  });
+
+  app.post("/api/tickets/:id/replies", async (req, res) => {
+    try {
+      const reply = await storage.createTicketReply({
+        ...req.body,
+        ticketId: Number(req.params.id)
+      });
+      res.status(201).json(reply);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   // === BULK OPERATIONS ===
   app.post(api.bulk.deleteStreams.path, async (req, res) => {
     try {
