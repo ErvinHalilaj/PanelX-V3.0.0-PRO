@@ -1,9 +1,87 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
+import bcrypt from "bcryptjs";
+
+// Auth rate limiting cache
+const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
+const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const AUTH_MAX_FAILED_ATTEMPTS = 10;
+
+function isAuthRateLimited(ip: string): boolean {
+  const cached = authRateLimitCache.get(ip);
+  if (!cached) return false;
+  
+  const now = Date.now();
+  if (now - cached.firstAttempt > AUTH_RATE_LIMIT_WINDOW_MS) {
+    authRateLimitCache.delete(ip);
+    return false;
+  }
+  
+  return cached.count >= AUTH_MAX_FAILED_ATTEMPTS;
+}
+
+function recordAuthAttempt(ip: string, success: boolean): void {
+  if (success) {
+    authRateLimitCache.delete(ip);
+    return;
+  }
+  
+  const cached = authRateLimitCache.get(ip);
+  const now = Date.now();
+  
+  if (cached) {
+    if (now - cached.firstAttempt > AUTH_RATE_LIMIT_WINDOW_MS) {
+      authRateLimitCache.set(ip, { count: 1, firstAttempt: now });
+    } else {
+      cached.count++;
+    }
+  } else {
+    authRateLimitCache.set(ip, { count: 1, firstAttempt: now });
+  }
+}
+
+// Extend session type to include user
+declare module "express-session" {
+  interface SessionData {
+    userId: number;
+    role: "admin" | "reseller";
+    username: string;
+  }
+}
+
+// Auth middleware - requires authentication
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  next();
+}
+
+// Reseller auth middleware - requires reseller or admin role
+function requireReseller(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  if (req.session.role !== "reseller" && req.session.role !== "admin") {
+    return res.status(403).json({ message: "Access denied" });
+  }
+  next();
+}
+
+// Admin auth middleware - requires admin role
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  if (req.session.role !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}
 
 async function seedDatabase() {
   // Check if we already have data
@@ -325,6 +403,195 @@ export async function registerRoutes(
 
   // Seed database on startup
   seedDatabase().catch(console.error);
+
+  // === AUTHENTICATION ===
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+      
+      // Check rate limit first
+      if (isAuthRateLimited(ip)) {
+        return res.status(429).json({ 
+          message: "Too many failed attempts. Please try again later." 
+        });
+      }
+      
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+
+      const users = await storage.getUsers();
+      const user = users.find(u => u.username === username);
+      
+      if (!user) {
+        recordAuthAttempt(ip, false);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Check if password is hashed (starts with $2) or plain text (for legacy/seeded users)
+      let isValid = false;
+      if (user.password.startsWith('$2')) {
+        isValid = await bcrypt.compare(password, user.password);
+      } else {
+        isValid = user.password === password;
+      }
+
+      if (!isValid) {
+        recordAuthAttempt(ip, false);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Clear rate limit on successful login
+      recordAuthAttempt(ip, true);
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.role = user.role as "admin" | "reseller";
+      req.session.username = user.username;
+
+      res.json({ 
+        id: user.id, 
+        username: user.username, 
+        role: user.role,
+        credits: user.credits
+      });
+    } catch (err) {
+      console.error("Login error:", err);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ message: "User not found" });
+      }
+      res.json({ 
+        id: user.id, 
+        username: user.username, 
+        role: user.role,
+        credits: user.credits
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get user info" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  // === RESELLER-SCOPED ENDPOINTS ===
+  // These endpoints filter data by the authenticated reseller's ID
+  
+  app.get("/api/reseller/lines", requireReseller, async (req, res) => {
+    try {
+      const allLines = await storage.getLines();
+      // Filter lines belonging to this reseller (memberId = userId)
+      // Only return lines where memberId matches and is not null
+      const resellerLines = allLines.filter(line => 
+        line.memberId !== null && line.memberId === req.session.userId
+      );
+      res.json(resellerLines);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch lines" });
+    }
+  });
+
+  app.post("/api/reseller/lines", requireReseller, async (req, res) => {
+    try {
+      const input = api.lines.create.input.parse({
+        ...req.body,
+        memberId: req.session.userId // Force memberId to current reseller
+      });
+      const line = await storage.createLine(input);
+      res.status(201).json(line);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to create line" });
+    }
+  });
+
+  app.delete("/api/reseller/lines/:id", requireReseller, async (req, res) => {
+    try {
+      const line = await storage.getLine(Number(req.params.id));
+      if (!line) {
+        return res.status(404).json({ message: "Line not found" });
+      }
+      // Reject lines without ownership or belonging to different reseller
+      if (line.memberId === null || line.memberId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      await storage.deleteLine(Number(req.params.id));
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete line" });
+    }
+  });
+
+  app.get("/api/reseller/tickets", requireReseller, async (req, res) => {
+    try {
+      const allTickets = await storage.getTickets();
+      // Filter tickets belonging to this reseller
+      // Only return tickets where userId matches and is not null
+      const resellerTickets = allTickets.filter(ticket => 
+        ticket.userId !== null && ticket.userId === req.session.userId
+      );
+      res.json(resellerTickets);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch tickets" });
+    }
+  });
+
+  app.post("/api/reseller/tickets", requireReseller, async (req, res) => {
+    try {
+      const { subject, message, priority, category } = req.body;
+      const ticket = await storage.createTicket({
+        userId: req.session.userId!,
+        subject,
+        message,
+        priority: priority || "medium",
+        category: category || "general",
+        status: "open"
+      });
+      res.status(201).json(ticket);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to create ticket" });
+    }
+  });
+
+  app.post("/api/reseller/tickets/:id/reply", requireReseller, async (req, res) => {
+    try {
+      const ticket = await storage.getTicket(Number(req.params.id));
+      if (!ticket) {
+        return res.status(404).json({ message: "Ticket not found" });
+      }
+      // Reject tickets without ownership or belonging to different reseller
+      if (ticket.userId === null || ticket.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const reply = await storage.createTicketReply({
+        ticketId: Number(req.params.id),
+        userId: req.session.userId!,
+        message: req.body.message,
+        isAdmin: false
+      });
+      res.status(201).json(reply);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to add reply" });
+    }
+  });
 
   // === STATS ===
   app.get(api.stats.get.path, async (_req, res) => {

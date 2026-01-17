@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -78,11 +78,11 @@ function CreateLineDialog({ packages, resellerId }: { packages: Package[]; resel
 
   const createLine = useMutation({
     mutationFn: async (data: Partial<InsertLine>) => {
-      const response = await apiRequest("POST", "/api/lines", data);
+      const response = await apiRequest("POST", "/api/reseller/lines", data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lines"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reseller/lines"] });
       toast({ title: "Success", description: "Line created successfully" });
       setIsOpen(false);
       setUsername("");
@@ -260,12 +260,12 @@ function CreateTicketDialog({ resellerId }: { resellerId: number }) {
   const [category, setCategory] = useState("general");
 
   const createTicket = useMutation({
-    mutationFn: async (data: Partial<InsertTicket>) => {
-      const response = await apiRequest("POST", "/api/tickets", data);
+    mutationFn: async (data: { subject: string; message: string; category: string; priority: string }) => {
+      const response = await apiRequest("POST", "/api/reseller/tickets", data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reseller/tickets"] });
       toast({ title: "Success", description: "Ticket submitted" });
       setIsOpen(false);
       setSubject("");
@@ -280,10 +280,9 @@ function CreateTicketDialog({ resellerId }: { resellerId: number }) {
     e.preventDefault();
     createTicket.mutate({
       subject,
+      message,
       category,
-      priority: "normal",
-      status: "open",
-      userId: resellerId,
+      priority: "medium",
     });
   };
 
@@ -349,38 +348,170 @@ function CreateTicketDialog({ resellerId }: { resellerId: number }) {
   );
 }
 
-export default function ResellerDashboard() {
-  const resellerId = 1;
+interface AuthUser {
+  id: number;
+  username: string;
+  role: string;
+  credits: number;
+}
 
-  const { data: lines = [] } = useQuery<Line[]>({
-    queryKey: ["/api/lines", { ownerId: resellerId }],
-    queryFn: async () => {
-      const res = await fetch(`/api/lines?ownerId=${resellerId}`);
-      return res.json();
+function LoginForm({ onLogin }: { onLogin: (user: AuthUser) => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Login failed");
+        return;
+      }
+      
+      const user = await res.json();
+      if (user.role !== "reseller" && user.role !== "admin") {
+        setError("This portal is for resellers only");
+        await fetch("/api/auth/logout", { method: "POST" });
+        return;
+      }
+      
+      onLogin(user);
+    } catch (err) {
+      setError("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Reseller Login</CardTitle>
+          <p className="text-muted-foreground text-sm mt-2">Sign in to access your reseller dashboard</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                required
+                data-testid="input-login-username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                data-testid="input-login-password"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login">
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function ResellerDashboard() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check auth status on mount
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error("Not authenticated");
+      })
+      .then(userData => {
+        if (userData.role === "reseller" || userData.role === "admin") {
+          setUser(userData);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsCheckingAuth(false));
+  }, []);
+
+  // Use reseller-scoped endpoints that filter by authenticated user
+  const { data: lines = [] } = useQuery<Line[]>({
+    queryKey: ["/api/reseller/lines"],
+    enabled: !!user
   });
 
   const { data: packages = [] } = useQuery<Package[]>({
-    queryKey: ["/api/packages"]
+    queryKey: ["/api/packages"],
+    enabled: !!user
   });
 
   const { data: tickets = [] } = useQuery<Ticket[]>({
-    queryKey: ["/api/tickets", { userId: resellerId }],
-    queryFn: async () => {
-      const res = await fetch(`/api/tickets?userId=${resellerId}`);
-      return res.json();
-    }
+    queryKey: ["/api/reseller/tickets"],
+    enabled: !!user
   });
 
   const deleteLine = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/lines/${id}`);
+      await apiRequest("DELETE", `/api/reseller/lines/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lines"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reseller/lines"] });
       toast({ title: "Deleted", description: "Line removed" });
     }
   });
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
+    queryClient.clear();
+  };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="mt-2 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!user) {
+    return <LoginForm onLogin={setUser} />;
+  }
+
+  const resellerId = user.id;
 
   const activeLines = lines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > new Date())).length;
   const expiredLines = lines.filter(l => l.expDate && new Date(l.expDate) < new Date()).length;
@@ -397,9 +528,22 @@ export default function ResellerDashboard() {
     <Layout 
       title="Reseller Dashboard"
       actions={
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{user.username}</span>
+            <Badge variant="outline" className="text-xs">{user.role}</Badge>
+          </div>
           <CreateTicketDialog resellerId={resellerId} />
           <CreateLineDialog packages={packages} resellerId={resellerId} />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleLogout}
+            data-testid="button-logout"
+          >
+            Logout
+          </Button>
         </div>
       }
     >
@@ -424,7 +568,7 @@ export default function ResellerDashboard() {
           />
           <StatCard 
             title="Available Credits" 
-            value="500" 
+            value={user.credits} 
             icon={CreditCard}
           />
         </div>

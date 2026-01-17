@@ -1,10 +1,27 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
 
 const app = express();
+
+// Session configuration for reseller/admin authentication
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  console.warn('WARNING: SESSION_SECRET not set. Using random secret for development. Set SESSION_SECRET in production!');
+}
+app.use(session({
+  secret: sessionSecret || require('crypto').randomBytes(32).toString('hex'),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 const httpServer = createServer(app);
 
 // Background cleanup interval for stale connections (every 30 seconds)
