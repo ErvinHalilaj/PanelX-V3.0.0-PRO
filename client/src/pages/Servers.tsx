@@ -9,46 +9,93 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Server as ServerIcon, Plus, Trash2, Globe } from "lucide-react";
+import { Server as ServerIcon, Plus, Trash2, Globe, Pencil } from "lucide-react";
 import { useState } from "react";
 import type { Server as ServerType } from "@shared/schema";
+
+const defaultFormData = {
+  serverName: "",
+  serverUrl: "",
+  serverPort: 80,
+  rtmpPort: 1935,
+  httpBroadcastPort: 25461,
+  isMainServer: false,
+  maxClients: 1000,
+  enabled: true,
+};
 
 export default function Servers() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    serverName: "",
-    serverUrl: "",
-    serverPort: 80,
-    rtmpPort: 1935,
-    httpBroadcastPort: 25461,
-    isMainServer: false,
-    maxClients: 1000,
-    enabled: true,
-  });
+  const [editingServer, setEditingServer] = useState<ServerType | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   const { data: servers = [], isLoading } = useQuery<ServerType[]>({
     queryKey: ["/api/servers"],
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/servers", data),
+    mutationFn: (data: typeof formData) => apiRequest("/api/servers", "POST", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       setIsOpen(false);
-      setFormData({ serverName: "", serverUrl: "", serverPort: 80, rtmpPort: 1935, httpBroadcastPort: 25461, isMainServer: false, maxClients: 1000, enabled: true });
+      setFormData(defaultFormData);
       toast({ title: "Server created successfully" });
     },
     onError: () => toast({ title: "Failed to create server", variant: "destructive" }),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<typeof formData> }) => apiRequest(`/api/servers/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
+      setIsOpen(false);
+      setEditingServer(null);
+      setFormData(defaultFormData);
+      toast({ title: "Server updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to update server", variant: "destructive" }),
+  });
+
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/servers/${id}`),
+    mutationFn: (id: number) => apiRequest(`/api/servers/${id}`, "DELETE"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       toast({ title: "Server deleted" });
     },
   });
+
+  const handleOpenEdit = (server: ServerType) => {
+    setEditingServer(server);
+    setFormData({
+      serverName: server.serverName,
+      serverUrl: server.serverUrl,
+      serverPort: server.serverPort ?? 80,
+      rtmpPort: server.rtmpPort ?? 1935,
+      httpBroadcastPort: server.httpBroadcastPort ?? 25461,
+      isMainServer: server.isMainServer ?? false,
+      maxClients: server.maxClients ?? 1000,
+      enabled: server.enabled ?? true,
+    });
+    setIsOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingServer) {
+      updateMutation.mutate({ id: editingServer.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setEditingServer(null);
+      setFormData(defaultFormData);
+    }
+  };
 
   return (
     <div className="flex">
@@ -62,7 +109,7 @@ export default function Servers() {
             </h1>
             <p className="text-muted-foreground mt-1">Manage streaming servers for load balancing</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-server">
                 <Plus className="w-4 h-4" /> Add Server
@@ -70,9 +117,9 @@ export default function Servers() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Server</DialogTitle>
+                <DialogTitle>{editingServer ? "Edit Server" : "Add New Server"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Server Name</Label>
                   <Input value={formData.serverName} onChange={(e) => setFormData({ ...formData, serverName: e.target.value })} placeholder="Main Server" required data-testid="input-server-name" />
@@ -105,8 +152,8 @@ export default function Servers() {
                     <Label>Enabled</Label>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-server">
-                  {createMutation.isPending ? "Creating..." : "Create Server"}
+                <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-server">
+                  {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingServer ? "Update Server" : "Create Server")}
                 </Button>
               </form>
             </DialogContent>
@@ -144,9 +191,14 @@ export default function Servers() {
                     <p className="text-muted-foreground">{server.serverUrl}:{server.serverPort}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Max: {server.maxClients} clients</span>
-                      <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(server.id)} className="text-destructive hover:text-destructive" data-testid={`button-delete-server-${server.id}`}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(server)} data-testid={`button-edit-server-${server.id}`}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(server.id)} className="text-destructive hover:text-destructive" data-testid={`button-delete-server-${server.id}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
