@@ -560,11 +560,18 @@ export async function registerRoutes(
       const ticket = await storage.createTicket({
         userId: req.session.userId!,
         subject,
-        message,
         priority: priority || "medium",
         category: category || "general",
         status: "open"
       });
+      if (message) {
+        await storage.createTicketReply({
+          ticketId: ticket.id,
+          userId: req.session.userId!,
+          message,
+          isAdminReply: false
+        });
+      }
       res.status(201).json(ticket);
     } catch (err) {
       res.status(500).json({ message: "Failed to create ticket" });
@@ -585,7 +592,7 @@ export async function registerRoutes(
         ticketId: Number(req.params.id),
         userId: req.session.userId!,
         message: req.body.message,
-        isAdmin: false
+        isAdminReply: false
       });
       res.status(201).json(reply);
     } catch (err) {

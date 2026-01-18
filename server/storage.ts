@@ -309,12 +309,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStream(stream: InsertStream): Promise<Stream> {
-    const [newStream] = await db.insert(streams).values(stream).returning();
+    const [newStream] = await db.insert(streams).values(stream as any).returning();
     return newStream;
   }
 
   async updateStream(id: number, updates: Partial<InsertStream>): Promise<Stream> {
-    const [updated] = await db.update(streams).set(updates).where(eq(streams.id, id)).returning();
+    const [updated] = await db.update(streams).set(updates as any).where(eq(streams.id, id)).returning();
     return updated;
   }
 
@@ -333,12 +333,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBouquet(bouquet: InsertBouquet): Promise<Bouquet> {
-    const [newBouquet] = await db.insert(bouquets).values(bouquet).returning();
+    const [newBouquet] = await db.insert(bouquets).values(bouquet as any).returning();
     return newBouquet;
   }
 
   async updateBouquet(id: number, updates: Partial<InsertBouquet>): Promise<Bouquet> {
-    const [updated] = await db.update(bouquets).set(updates).where(eq(bouquets.id, id)).returning();
+    const [updated] = await db.update(bouquets).set(updates as any).where(eq(bouquets.id, id)).returning();
     return updated;
   }
 
@@ -364,12 +364,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLine(line: InsertLine): Promise<Line> {
-    const [newLine] = await db.insert(lines).values(line).returning();
+    const [newLine] = await db.insert(lines).values(line as any).returning();
     return newLine;
   }
 
   async updateLine(id: number, updates: Partial<InsertLine>): Promise<Line> {
-    const [updated] = await db.update(lines).set(updates).where(eq(lines.id, id)).returning();
+    const [updated] = await db.update(lines).set(updates as any).where(eq(lines.id, id)).returning();
     return updated;
   }
 
@@ -612,12 +612,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVodInfo(info: InsertVodInfo): Promise<VodInfo> {
-    const [newInfo] = await db.insert(vodInfo).values(info).returning();
+    const [newInfo] = await db.insert(vodInfo).values(info as any).returning();
     return newInfo;
   }
 
   async updateVodInfo(id: number, updates: Partial<InsertVodInfo>): Promise<VodInfo> {
-    const [updated] = await db.update(vodInfo).set(updates).where(eq(vodInfo.id, id)).returning();
+    const [updated] = await db.update(vodInfo).set(updates as any).where(eq(vodInfo.id, id)).returning();
     return updated;
   }
 
@@ -812,12 +812,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createResellerGroup(group: InsertResellerGroup): Promise<ResellerGroup> {
-    const [newGroup] = await db.insert(resellerGroups).values(group).returning();
+    const [newGroup] = await db.insert(resellerGroups).values(group as any).returning();
     return newGroup;
   }
 
   async updateResellerGroup(id: number, updates: Partial<InsertResellerGroup>): Promise<ResellerGroup> {
-    const [updated] = await db.update(resellerGroups).set(updates).where(eq(resellerGroups.id, id)).returning();
+    const [updated] = await db.update(resellerGroups).set(updates as any).where(eq(resellerGroups.id, id)).returning();
     return updated;
   }
 
@@ -836,12 +836,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPackage(pkg: InsertPackage): Promise<Package> {
-    const [newPkg] = await db.insert(packages).values(pkg).returning();
+    const [newPkg] = await db.insert(packages).values(pkg as any).returning();
     return newPkg;
   }
 
   async updatePackage(id: number, updates: Partial<InsertPackage>): Promise<Package> {
-    const [updated] = await db.update(packages).set(updates).where(eq(packages.id, id)).returning();
+    const [updated] = await db.update(packages).set(updates as any).where(eq(packages.id, id)).returning();
     return updated;
   }
 
@@ -852,7 +852,7 @@ export class DatabaseStorage implements IStorage {
   // Bulk Operations
   async bulkCreateStreams(streamList: InsertStream[]): Promise<Stream[]> {
     if (streamList.length === 0) return [];
-    const newStreams = await db.insert(streams).values(streamList).returning();
+    const newStreams = await db.insert(streams).values(streamList as any).returning();
     return newStreams;
   }
 
@@ -927,12 +927,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBackup(backup: InsertBackup): Promise<Backup> {
-    const [newBackup] = await db.insert(backups).values(backup).returning();
+    const [newBackup] = await db.insert(backups).values(backup as any).returning();
     return newBackup;
   }
 
   async updateBackup(id: number, updates: Partial<InsertBackup>): Promise<Backup> {
-    const [updated] = await db.update(backups).set(updates).where(eq(backups.id, id)).returning();
+    const [updated] = await db.update(backups).set(updates as any).where(eq(backups.id, id)).returning();
     return updated;
   }
 
@@ -959,12 +959,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWebhook(webhook: InsertWebhook): Promise<Webhook> {
-    const [newWebhook] = await db.insert(webhooks).values(webhook).returning();
+    const [newWebhook] = await db.insert(webhooks).values(webhook as any).returning();
     return newWebhook;
   }
 
   async updateWebhook(id: number, updates: Partial<InsertWebhook>): Promise<Webhook> {
-    const [updated] = await db.update(webhooks).set(updates).where(eq(webhooks.id, id)).returning();
+    const [updated] = await db.update(webhooks).set(updates as any).where(eq(webhooks.id, id)).returning();
     return updated;
   }
 

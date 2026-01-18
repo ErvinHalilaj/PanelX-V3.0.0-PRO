@@ -231,7 +231,21 @@ Preferred communication style: Simple, everyday language.
 
 ### LOW Priority
 7. **Additional APIs**
-   - [ ] get_vod_info full implementation
-   - [ ] get_simple_data_table
-   - [ ] Panel management API
-   - [ ] Webhooks for events
+   - [x] get_vod_info full implementation
+   - [x] get_simple_data_table (EPG)
+   - [x] Panel management API
+   - [x] Webhooks for events (schema ready)
+
+## Recent Changes (January 2026)
+
+### Type System Fixes
+- Fixed 49 LSP type errors across storage.ts, routes.ts, and playerApi.ts
+- Aligned playerApi.ts with actual schema field names (lastModified, lang, archiveFile, etc.)
+- Fixed ticket creation to properly store messages in ticketReplies table
+- Added type assertions for Drizzle jsonb array fields
+
+### API Improvements
+- Fixed Xtream Codes API responses to use correct schema fields
+- Fixed XMLTV EPG generation with proper language field
+- Fixed TV archive/timeshift endpoints
+- Fixed device template playlist generation

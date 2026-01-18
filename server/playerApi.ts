@@ -321,12 +321,12 @@ export function registerPlayerApi(app: Express) {
           director: s.director || '',
           genre: s.genre || '',
           releaseDate: s.releaseDate || '',
-          last_modified: s.updatedAt ? new Date(s.updatedAt).toISOString() : '',
+          last_modified: s.lastModified ? new Date(s.lastModified).toISOString() : '',
           rating: s.rating || '0',
           rating_5based: parseFloat(s.rating || '0') / 2,
           backdrop_path: s.backdrop ? [s.backdrop] : [],
           youtube_trailer: s.youtubeTrailer || '',
-          episode_run_time: s.episodeRunTime || '',
+          episode_run_time: '',
           category_id: s.categoryId?.toString() || '',
         })));
 
@@ -350,19 +350,19 @@ export function registerPlayerApi(app: Express) {
             id: ep.id.toString(),
             episode_num: ep.episodeNum,
             title: ep.title,
-            container_extension: ep.containerExtension || 'mp4',
+            container_extension: 'mp4',
             info: {
-              duration_secs: ep.durationSecs || 0,
-              duration: ep.duration || '',
-              movie_image: ep.movieImage || '',
+              duration_secs: ep.duration || 0,
+              duration: ep.duration ? `${Math.floor(ep.duration / 60)}` : '',
+              movie_image: ep.cover || '',
               plot: ep.plot || '',
               releasedate: ep.releaseDate || '',
-              rating: ep.rating || 0,
+              rating: 0,
             },
             custom_sid: '',
-            added: ep.createdAt ? Math.floor(new Date(ep.createdAt).getTime() / 1000).toString() : '',
+            added: ep.addedAt ? Math.floor(new Date(ep.addedAt).getTime() / 1000).toString() : '',
             season: ep.seasonNum,
-            direct_source: ep.directSource || '',
+            direct_source: ep.sourceUrl || '',
           });
         }
 
@@ -379,7 +379,7 @@ export function registerPlayerApi(app: Express) {
             rating: seriesInfo.rating || '0',
             backdrop_path: seriesInfo.backdrop ? [seriesInfo.backdrop] : [],
             youtube_trailer: seriesInfo.youtubeTrailer || '',
-            episode_run_time: seriesInfo.episodeRunTime || '',
+            episode_run_time: '',
             category_id: seriesInfo.categoryId?.toString() || '',
           },
           episodes: seasons,
@@ -405,8 +405,8 @@ export function registerPlayerApi(app: Express) {
             o_name: vodStream.name,
             cover_big: vodMeta?.backdrop || vodStream.streamIcon || '',
             movie_image: vodStream.streamIcon || '',
-            releasedate: vodMeta?.releaseYear?.toString() || '',
-            episode_run_time: vodMeta?.duration || '',
+            releasedate: vodMeta?.releaseDate || '',
+            episode_run_time: vodMeta?.duration ? `${Math.floor(vodMeta.duration / 60)}` : '',
             youtube_trailer: vodMeta?.youtubeTrailer || '',
             director: vodMeta?.director || '',
             actors: vodMeta?.cast || '',
@@ -414,14 +414,14 @@ export function registerPlayerApi(app: Express) {
             description: vodMeta?.plot || '',
             plot: vodMeta?.plot || '',
             genre: vodMeta?.genre || '',
-            rating: vodMeta?.rating?.toString() || '',
-            rating_5based: (vodMeta?.rating || 0) / 2,
-            country: vodMeta?.country || '',
-            duration_secs: vodMeta?.durationSecs || 0,
-            duration: vodMeta?.duration || '',
-            video: vodMeta?.videoInfo || {},
-            audio: vodMeta?.audioInfo || {},
-            bitrate: vodMeta?.bitrate || 0,
+            rating: vodMeta?.rating || '',
+            rating_5based: parseFloat(vodMeta?.rating || '0') / 2,
+            country: '',
+            duration_secs: vodMeta?.duration || 0,
+            duration: vodMeta?.duration ? `${Math.floor(vodMeta.duration / 60)}` : '',
+            video: {},
+            audio: {},
+            bitrate: 0,
             subtitles: vodMeta?.subtitles || [],
           },
           movie_data: {
@@ -429,7 +429,7 @@ export function registerPlayerApi(app: Express) {
             name: vodStream.name,
             added: vodStream.createdAt ? Math.floor(new Date(vodStream.createdAt).getTime() / 1000).toString() : '',
             category_id: vodStream.categoryId?.toString() || '',
-            container_extension: vodMeta?.containerExtension || 'mp4',
+            container_extension: 'mp4',
             custom_sid: '',
             direct_source: vodStream.sourceUrl,
           },
@@ -453,7 +453,7 @@ export function registerPlayerApi(app: Express) {
             id: e.id.toString(),
             epg_id: e.channelId,
             title: btoa(e.title || ''),
-            lang: e.language || 'en',
+            lang: e.lang || 'en',
             start: e.startTime ? new Date(e.startTime).toISOString().replace('T', ' ').split('.')[0] : '',
             end: e.endTime ? new Date(e.endTime).toISOString().replace('T', ' ').split('.')[0] : '',
             description: btoa(e.description || ''),
@@ -746,7 +746,7 @@ export function registerPlayerApi(app: Express) {
     });
 
     // Redirect to source
-    return res.redirect(episode.directSource || '');
+    return res.redirect(episode.sourceUrl || '');
   });
 
   // XMLTV EPG endpoint
@@ -795,9 +795,9 @@ export function registerPlayerApi(app: Express) {
         const stop = entry.endTime ? formatXmltvDate(new Date(entry.endTime)) : '';
         
         xml += `  <programme start="${start}" stop="${stop}" channel="${channelId}">\n`;
-        xml += `    <title lang="${entry.language || 'en'}">${escapeXml(entry.title || '')}</title>\n`;
+        xml += `    <title lang="${entry.lang || 'en'}">${escapeXml(entry.title || '')}</title>\n`;
         if (entry.description) {
-          xml += `    <desc lang="${entry.language || 'en'}">${escapeXml(entry.description)}</desc>\n`;
+          xml += `    <desc lang="${entry.lang || 'en'}">${escapeXml(entry.description)}</desc>\n`;
         }
         if (entry.category) {
           xml += `    <category>${escapeXml(entry.category)}</category>\n`;
@@ -847,7 +847,7 @@ export function registerPlayerApi(app: Express) {
       details: `Archive from ${startTime.toISOString()}`,
     });
 
-    return res.redirect(archive.archiveUrl);
+    return res.redirect(archive.archiveFile);
   });
 
   // Catchup endpoint (alternative format)
@@ -877,7 +877,7 @@ export function registerPlayerApi(app: Express) {
       return res.status(404).send('Archive not found');
     }
 
-    return res.redirect(archives[0].archiveUrl);
+    return res.redirect(archives[0].archiveFile);
   });
 
   // Panel info endpoint (for compatibility)
@@ -1207,7 +1207,7 @@ export function registerPlayerApi(app: Express) {
     const categories = await storage.getCategories();
     
     // Apply template
-    let playlist = template.header.replace(/{username}/g, username).replace(/{password}/g, password).replace(/{server}/g, baseUrl) + '\n';
+    let playlist = (template.headerTemplate || '#EXTM3U').replace(/{username}/g, username).replace(/{password}/g, password).replace(/{server}/g, baseUrl) + '\n';
     
     for (const stream of streams) {
       const category = categories.find(c => c.id === stream.categoryId);
@@ -1220,16 +1220,13 @@ export function registerPlayerApi(app: Express) {
         .replace(/{username}/g, username)
         .replace(/{password}/g, password)
         .replace(/{server}/g, baseUrl)
-        .replace(/{extension}/g, template.extension);
+        .replace(/{extension}/g, template.fileExtension || 'ts');
       
       playlist += line + '\n';
     }
     
-    res.setHeader('Content-Type', template.contentType);
-    if (template.filenameTemplate) {
-      const filename = template.filenameTemplate.replace(/{username}/g, username);
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    }
+    res.setHeader('Content-Type', 'application/x-mpegurl');
+    res.setHeader('Content-Disposition', `attachment; filename="${username}.m3u"`);
     return res.send(playlist);
   });
 }
