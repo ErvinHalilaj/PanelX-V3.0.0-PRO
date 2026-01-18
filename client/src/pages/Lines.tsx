@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useLines, useCreateLine, useDeleteLine } from "@/hooks/use-lines";
+import { useLines, useCreateLine, useDeleteLine, useUpdateLine, useBulkDeleteLines, useBulkToggleLines } from "@/hooks/use-lines";
 import { useBouquets } from "@/hooks/use-bouquets";
 import { useServers } from "@/hooks/use-servers";
 import { usePackages } from "@/hooks/use-packages";
-import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp, Key, Users } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp, Key, Users, CheckSquare, Square, Power, PowerOff, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,37 +14,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { insertLineSchema, type InsertLine } from "@shared/schema";
+import { insertLineSchema, type InsertLine, type Line } from "@shared/schema";
 import { format } from "date-fns";
 
-function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: { 
+function LineForm({ onSubmit, bouquets, servers, packages, isLoading, initialData }: { 
   onSubmit: (data: InsertLine) => void, 
   bouquets: any[], 
   servers: any[],
   packages: any[],
-  isLoading: boolean 
+  isLoading: boolean,
+  initialData?: Partial<InsertLine>
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const form = useForm<InsertLine>({
     resolver: zodResolver(insertLineSchema),
     defaultValues: {
-      maxConnections: 1,
-      enabled: true,
-      isTrial: false,
-      allowedIps: [],
-      allowedCountries: [],
-      allowedUserAgents: [],
-      bouquets: [],
+      maxConnections: initialData?.maxConnections || 1,
+      enabled: initialData?.enabled ?? true,
+      isTrial: initialData?.isTrial ?? false,
+      username: initialData?.username || "",
+      password: initialData?.password || "",
+      allowedIps: initialData?.allowedIps || [],
+      allowedCountries: initialData?.allowedCountries || [],
+      allowedUserAgents: initialData?.allowedUserAgents || [],
+      bouquets: initialData?.bouquets || [],
     }
   });
 
-  const [selectedBouquets, setSelectedBouquets] = useState<number[]>([]);
-  const [allowedIpsText, setAllowedIpsText] = useState("");
-  const [allowedCountriesText, setAllowedCountriesText] = useState("");
-  const [allowedUserAgentsText, setAllowedUserAgentsText] = useState("");
+  const [selectedBouquets, setSelectedBouquets] = useState<number[]>(initialData?.bouquets || []);
+  const [allowedIpsText, setAllowedIpsText] = useState((initialData?.allowedIps || []).join(", "));
+  const [allowedCountriesText, setAllowedCountriesText] = useState((initialData?.allowedCountries || []).join(", "));
+  const [allowedUserAgentsText, setAllowedUserAgentsText] = useState((initialData?.allowedUserAgents || []).join("\n"));
 
   const handleFormSubmit = (data: InsertLine) => {
     const formData = {
@@ -123,43 +127,33 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: {
           <div className="space-y-2">
             <Label>Assigned Bouquets</Label>
             <div className="p-3 border border-white/10 rounded-md bg-background/50 max-h-32 overflow-y-auto">
-              {bouquets?.length === 0 && <p className="text-xs text-muted-foreground">No bouquets available</p>}
-              {bouquets?.map(b => (
-                <div key={b.id} className="flex items-center gap-2 mb-2 last:mb-0">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-white/20 bg-background"
-                    checked={selectedBouquets.includes(b.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedBouquets([...selectedBouquets, b.id]);
-                      } else {
-                        setSelectedBouquets(selectedBouquets.filter(id => id !== b.id));
-                      }
-                    }}
-                    data-testid={`checkbox-bouquet-${b.id}`}
-                  />
-                  <span className="text-sm">{b.bouquetName}</span>
+              {bouquets.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No bouquets available</p>
+              ) : (
+                <div className="space-y-2">
+                  {bouquets.map((bouquet: any) => (
+                    <div key={bouquet.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`bouquet-${bouquet.id}`}
+                        checked={selectedBouquets.includes(bouquet.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedBouquets([...selectedBouquets, bouquet.id]);
+                          } else {
+                            setSelectedBouquets(selectedBouquets.filter(id => id !== bouquet.id));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`bouquet-${bouquet.id}`} className="text-sm">{bouquet.bouquetName}</Label>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Admin Notes</Label>
-            <Textarea {...form.register("adminNotes")} placeholder="Internal notes..." rows={2} data-testid="input-admin-notes" />
           </div>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4 mt-4">
-          <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="w-5 h-5 text-orange-500" />
-              <h4 className="font-medium text-orange-500">Security Restrictions</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">Configure access restrictions for this line</p>
-          </div>
-
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
@@ -168,192 +162,97 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: {
             <Input 
               value={allowedCountriesText}
               onChange={(e) => setAllowedCountriesText(e.target.value)}
-              placeholder="US, UK, CA (comma-separated country codes)"
+              placeholder="US, UK, CA (leave empty for all)"
               data-testid="input-allowed-countries"
             />
-            <p className="text-xs text-muted-foreground">Leave empty to allow all countries. Use 2-letter ISO codes.</p>
           </div>
 
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Allowed IPs (Whitelist)
+              Allowed IPs
             </Label>
-            <Textarea 
+            <Input 
               value={allowedIpsText}
               onChange={(e) => setAllowedIpsText(e.target.value)}
-              placeholder="192.168.1.100, 10.0.0.50 (comma-separated)"
-              rows={2}
+              placeholder="192.168.1.1, 10.0.0.1 (leave empty for all)"
               data-testid="input-allowed-ips"
             />
-            <p className="text-xs text-muted-foreground">Leave empty to allow all IPs. Only these IPs will be able to connect.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Forced Country</Label>
-            <Input 
-              {...form.register("forcedCountry")}
-              placeholder="US (force stream from specific country)"
-              data-testid="input-forced-country"
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="advanced" className="space-y-4 mt-4">
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Package className="w-5 h-5 text-blue-500" />
-              <h4 className="font-medium text-blue-500">Package & Routing</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">Assign package and server routing</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Assigned Package
-              </Label>
-              <Select onValueChange={(val) => form.setValue("packageId", val === "none" ? undefined : parseInt(val))}>
-                <SelectTrigger data-testid="select-package">
-                  <SelectValue placeholder="No package" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No package</SelectItem>
-                  {packages?.map((pkg: any) => (
-                    <SelectItem key={pkg.id} value={pkg.id.toString()}>
-                      {pkg.packageName} ({pkg.duration} days, {pkg.credits} credits)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Package determines bouquets and pricing</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Server className="w-4 h-4" />
-                Forced Server
-              </Label>
-              <Select onValueChange={(val) => form.setValue("forcedServerId", val === "none" ? undefined : parseInt(val))}>
-                <SelectTrigger data-testid="select-forced-server">
-                  <SelectValue placeholder="Auto (load balanced)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Auto (load balanced)</SelectItem>
-                  {servers?.map((srv: any) => (
-                    <SelectItem key={srv.id} value={srv.id.toString()}>
-                      {srv.serverName} ({srv.serverUrl})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Route all streams through specific server</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>ISP Lock</Label>
-            <Input 
-              {...form.register("ispLock")}
-              placeholder="Comcast, AT&T (ISP name to restrict access)"
-              data-testid="input-isp-lock"
-            />
-            <p className="text-xs text-muted-foreground">Only allow connections from this ISP</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Allowed User Agents (Whitelist)</Label>
-            <Textarea 
-              value={allowedUserAgentsText}
-              onChange={(e) => setAllowedUserAgentsText(e.target.value)}
-              placeholder="VLC/3.0.16&#10;TiviMate/4.0&#10;Smarters&#10;(one per line)"
-              rows={3}
-              data-testid="input-allowed-user-agents"
-            />
-            <p className="text-xs text-muted-foreground">Leave empty to allow all. Only listed user agents can connect.</p>
-          </div>
-
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Smartphone className="w-5 h-5 text-blue-500" />
-              <h4 className="font-medium text-blue-500">Device Locking</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">Lock this line to specific devices</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Locked Device ID</Label>
+            <Label className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4" />
+              Locked Device ID
+            </Label>
             <Input 
               {...form.register("lockedDeviceId")}
-              placeholder="Device ID (auto-captured on first connection)"
-              data-testid="input-locked-device-id"
+              placeholder="Device ID to lock account to"
+              data-testid="input-locked-device"
             />
-            <p className="text-xs text-muted-foreground">Once set, only this device can use the line</p>
           </div>
 
           <div className="space-y-2">
             <Label>Locked MAC Address</Label>
             <Input 
               {...form.register("lockedMac")}
-              placeholder="00:1A:2B:3C:4D:5E"
+              placeholder="00:1A:79:XX:XX:XX"
               data-testid="input-locked-mac"
             />
-            <p className="text-xs text-muted-foreground">Lock to a specific MAC address (for MAG devices)</p>
           </div>
+        </TabsContent>
 
+        <TabsContent value="advanced" className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label>Reseller Notes</Label>
-            <Textarea {...form.register("resellerNotes")} placeholder="Notes visible to reseller..." rows={2} data-testid="input-reseller-notes" />
-          </div>
-
-          <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Key className="w-5 h-5 text-purple-500" />
-              <h4 className="font-medium text-purple-500">Security Tokens</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">Additional security for playback</p>
+            <Label className="flex items-center gap-2">
+              <Server className="w-4 h-4" />
+              Force Server ID
+            </Label>
+            <Select onValueChange={(val) => form.setValue("forceServerId", parseInt(val) || undefined)}>
+              <SelectTrigger data-testid="select-force-server">
+                <SelectValue placeholder="Auto-select best server" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Auto-select</SelectItem>
+                {servers.map((server: any) => (
+                  <SelectItem key={server.id} value={String(server.id)}>{server.serverName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
-              <Key className="w-4 h-4" />
-              Play Token
+              <Package className="w-4 h-4" />
+              Package
             </Label>
-            <Input 
-              {...form.register("playToken")}
-              placeholder="Auto-generated secure token (optional)"
-              data-testid="input-play-token"
-            />
-            <p className="text-xs text-muted-foreground">Unique token required for playback validation</p>
-          </div>
-
-          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="w-5 h-5 text-green-500" />
-              <h4 className="font-medium text-green-500">Reseller Hierarchy</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">Parent reseller tracking</p>
+            <Select onValueChange={(val) => form.setValue("packageId", parseInt(val) || undefined)}>
+              <SelectTrigger data-testid="select-package">
+                <SelectValue placeholder="No package" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">No package</SelectItem>
+                {packages.map((pkg: any) => (
+                  <SelectItem key={pkg.id} value={String(pkg.id)}>{pkg.packageName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Parent Reseller ID
-            </Label>
-            <Input 
-              type="number"
-              {...form.register("parentResellerIdd", { valueAsNumber: true })}
-              placeholder="ID of parent reseller (for hierarchy)"
-              data-testid="input-parent-reseller"
+            <Label>Notes</Label>
+            <Textarea 
+              {...form.register("adminNotes")}
+              placeholder="Internal notes about this line"
+              data-testid="input-admin-notes"
             />
-            <p className="text-xs text-muted-foreground">Track which reseller created this line</p>
           </div>
         </TabsContent>
       </Tabs>
 
       <DialogFooter>
-        <Button type="submit" disabled={isLoading} className="w-full btn-primary" data-testid="button-create-line">
-          {isLoading ? "Creating..." : "Create Line"}
+        <Button type="submit" disabled={isLoading} className="w-full btn-primary" data-testid="button-submit-line">
+          {isLoading ? "Saving..." : (initialData ? "Save Changes" : "Create Line")}
         </Button>
       </DialogFooter>
     </form>
@@ -362,13 +261,18 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading }: {
 
 export default function Lines() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editLine, setEditLine] = useState<Line | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const { data: lines, isLoading } = useLines();
   const { data: bouquets } = useBouquets();
   const { data: servers } = useServers();
   const { data: packages } = usePackages();
   const createLine = useCreateLine();
   const deleteLine = useDeleteLine();
+  const updateLine = useUpdateLine();
+  const bulkDelete = useBulkDeleteLines();
+  const bulkToggle = useBulkToggleLines();
 
   const handleCreate = async (data: InsertLine) => {
     try {
@@ -380,10 +284,62 @@ export default function Lines() {
     }
   };
 
+  const handleUpdate = async (data: InsertLine) => {
+    if (!editLine) return;
+    try {
+      await updateLine.mutateAsync({ id: editLine.id, ...data });
+      toast({ title: "Success", description: "Line updated successfully" });
+      setEditLine(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update line", variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (confirm("Delete this user line permanently?")) {
       await deleteLine.mutateAsync(id);
       toast({ title: "Deleted", description: "Line removed" });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Delete ${selectedIds.length} selected lines?`)) {
+      try {
+        await bulkDelete.mutateAsync(selectedIds);
+        toast({ title: "Success", description: `${selectedIds.length} lines deleted` });
+        setSelectedIds([]);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to delete lines", variant: "destructive" });
+      }
+    }
+  };
+
+  const handleBulkToggle = async (enabled: boolean) => {
+    if (selectedIds.length === 0) return;
+    try {
+      await bulkToggle.mutateAsync({ ids: selectedIds, enabled });
+      toast({ title: "Success", description: `${selectedIds.length} lines ${enabled ? 'enabled' : 'disabled'}` });
+      setSelectedIds([]);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to toggle lines", variant: "destructive" });
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (!filteredLines) return;
+    if (selectedIds.length === filteredLines.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredLines.map(l => l.id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(i => i !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
@@ -396,21 +352,85 @@ export default function Lines() {
     <Layout 
       title="Manage Lines"
       actions={
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="btn-primary gap-2" data-testid="button-add-line">
-              <Plus className="w-4 h-4" /> Create Line
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
-            <DialogHeader>
-              <DialogTitle>Create New Line</DialogTitle>
-            </DialogHeader>
-            <LineForm onSubmit={handleCreate} bouquets={bouquets || []} servers={servers || []} packages={packages || []} isLoading={createLine.isPending} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <>
+              <Button 
+                variant="outline" 
+                className="gap-2" 
+                onClick={() => handleBulkToggle(true)}
+                disabled={bulkToggle.isPending}
+                data-testid="button-bulk-enable"
+              >
+                <Power className="w-4 h-4" /> Enable ({selectedIds.length})
+              </Button>
+              <Button 
+                variant="outline" 
+                className="gap-2" 
+                onClick={() => handleBulkToggle(false)}
+                disabled={bulkToggle.isPending}
+                data-testid="button-bulk-disable"
+              >
+                <PowerOff className="w-4 h-4" /> Disable
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="gap-2" 
+                onClick={handleBulkDelete}
+                disabled={bulkDelete.isPending}
+                data-testid="button-bulk-delete"
+              >
+                {bulkDelete.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Delete
+              </Button>
+            </>
+          )}
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="btn-primary gap-2" data-testid="button-add-line">
+                <Plus className="w-4 h-4" /> Create Line
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle>Create New Line</DialogTitle>
+              </DialogHeader>
+              <LineForm onSubmit={handleCreate} bouquets={bouquets || []} servers={servers || []} packages={packages || []} isLoading={createLine.isPending} />
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
+      <Dialog open={!!editLine} onOpenChange={(open) => !open && setEditLine(null)}>
+        <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Line: {editLine?.username}</DialogTitle>
+          </DialogHeader>
+          {editLine && (
+            <LineForm 
+              onSubmit={handleUpdate} 
+              bouquets={bouquets || []} 
+              servers={servers || []} 
+              packages={packages || []} 
+              isLoading={updateLine.isPending}
+              initialData={{
+                username: editLine.username,
+                password: editLine.password,
+                maxConnections: editLine.maxConnections,
+                enabled: editLine.enabled ?? true,
+                isTrial: editLine.isTrial ?? false,
+                bouquets: editLine.bouquets || [],
+                allowedIps: editLine.allowedIps || [],
+                allowedCountries: editLine.allowedCountries || [],
+                allowedUserAgents: editLine.allowedUserAgents || [],
+                lockedDeviceId: editLine.lockedDeviceId || undefined,
+                lockedMac: editLine.lockedMac || undefined,
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="bg-card/40 border border-white/5 rounded-xl overflow-hidden backdrop-blur-sm">
         <div className="p-4 border-b border-white/5 flex gap-4">
           <div className="relative flex-1 max-w-sm">
@@ -423,6 +443,11 @@ export default function Lines() {
               data-testid="input-search-lines"
             />
           </div>
+          {filteredLines && filteredLines.length > 0 && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              {selectedIds.length > 0 && <span>{selectedIds.length} selected</span>}
+            </div>
+          )}
         </div>
 
         {isLoading ? (
@@ -438,20 +463,34 @@ export default function Lines() {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 text-muted-foreground font-medium uppercase text-xs">
               <tr>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Username</th>
-                <th className="px-6 py-4">Password</th>
-                <th className="px-6 py-4">Created</th>
-                <th className="px-6 py-4">Expires</th>
-                <th className="px-6 py-4">Conn</th>
-                <th className="px-6 py-4">Restrictions</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-4 py-4">
+                  <Checkbox 
+                    checked={filteredLines && selectedIds.length === filteredLines.length && filteredLines.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                    data-testid="checkbox-select-all"
+                  />
+                </th>
+                <th className="px-4 py-4">Status</th>
+                <th className="px-4 py-4">Username</th>
+                <th className="px-4 py-4">Password</th>
+                <th className="px-4 py-4">Created</th>
+                <th className="px-4 py-4">Expires</th>
+                <th className="px-4 py-4">Conn</th>
+                <th className="px-4 py-4">Restrictions</th>
+                <th className="px-4 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {filteredLines?.map((line) => (
                 <tr key={line.id} className="hover:bg-white/5 transition-colors group" data-testid={`row-line-${line.id}`}>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4">
+                    <Checkbox 
+                      checked={selectedIds.includes(line.id)}
+                      onCheckedChange={() => toggleSelect(line.id)}
+                      data-testid={`checkbox-line-${line.id}`}
+                    />
+                  </td>
+                  <td className="px-4 py-4">
                     <div className="flex flex-col gap-1">
                       {line.enabled ? (
                         <Badge variant="default" className="bg-emerald-500/10 text-emerald-500 border-0">Active</Badge>
@@ -461,19 +500,19 @@ export default function Lines() {
                       {line.isTrial && <Badge variant="secondary">Trial</Badge>}
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-white">{line.username}</td>
-                  <td className="px-6 py-4 text-muted-foreground font-mono">{line.password}</td>
-                  <td className="px-6 py-4 text-muted-foreground">
+                  <td className="px-4 py-4 font-medium text-white">{line.username}</td>
+                  <td className="px-4 py-4 text-muted-foreground font-mono">{line.password}</td>
+                  <td className="px-4 py-4 text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3 h-3" />
                       {line.createdAt ? format(new Date(line.createdAt), 'MMM d, yyyy') : '-'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">
+                  <td className="px-4 py-4 text-muted-foreground">
                     {line.expDate ? format(new Date(line.expDate), 'MMM d, yyyy') : 'Never'}
                   </td>
-                  <td className="px-6 py-4 text-white font-medium">{line.maxConnections}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4 text-white font-medium">{line.maxConnections}</td>
+                  <td className="px-4 py-4">
                     <div className="flex gap-1">
                       {(line.allowedCountries && line.allowedCountries.length > 0) && (
                         <Badge variant="outline" className="text-xs"><Globe className="w-3 h-3 mr-1" />GeoIP</Badge>
@@ -486,9 +525,15 @@ export default function Lines() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 hover:text-white">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 hover:bg-white/10 hover:text-white"
+                        onClick={() => setEditLine(line)}
+                        data-testid={`button-edit-line-${line.id}`}
+                      >
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button 

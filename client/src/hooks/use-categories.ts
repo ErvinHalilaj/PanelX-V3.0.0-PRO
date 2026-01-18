@@ -48,3 +48,23 @@ export function useDeleteCategory() {
     },
   });
 }
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertCategory> }) => {
+      const url = buildUrl(api.categories.update.path, { id });
+      const res = await fetch(url, {
+        method: api.categories.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.categories.list.path] });
+    },
+  });
+}

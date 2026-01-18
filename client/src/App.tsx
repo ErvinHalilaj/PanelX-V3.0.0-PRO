@@ -29,6 +29,12 @@ import Tickets from "@/pages/Tickets";
 import ResellerDashboard from "@/pages/ResellerDashboard";
 import Backups from "@/pages/Backups";
 import Webhooks from "@/pages/Webhooks";
+import ActivityLogs from "@/pages/ActivityLogs";
+import CreditTransactions from "@/pages/CreditTransactions";
+import CronJobs from "@/pages/CronJobs";
+import EpgDataViewer from "@/pages/EpgDataViewer";
+import MagDevices from "@/pages/MagDevices";
+import StreamStatus from "@/pages/StreamStatus";
 import { AdminAuthProvider } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -56,6 +62,12 @@ function AdminRouter() {
       <Route path="/tickets" component={Tickets} />
       <Route path="/backups" component={Backups} />
       <Route path="/webhooks" component={Webhooks} />
+      <Route path="/activity-logs" component={ActivityLogs} />
+      <Route path="/credit-transactions" component={CreditTransactions} />
+      <Route path="/cron-jobs" component={CronJobs} />
+      <Route path="/epg-data" component={EpgDataViewer} />
+      <Route path="/mag-devices" component={MagDevices} />
+      <Route path="/stream-status" component={StreamStatus} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

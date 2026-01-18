@@ -68,3 +68,41 @@ export function useDeleteLine() {
     },
   });
 }
+
+export function useBulkDeleteLines() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await fetch("/api/lines/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete lines");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.lines.list.path] });
+    },
+  });
+}
+
+export function useBulkToggleLines() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, enabled }: { ids: number[]; enabled: boolean }) => {
+      const res = await fetch("/api/lines/bulk-toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, enabled }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to toggle lines");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.lines.list.path] });
+    },
+  });
+}

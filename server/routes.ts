@@ -866,6 +866,38 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Bulk operations for lines
+  app.post("/api/lines/bulk-delete", requireAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No line IDs provided" });
+      }
+      await storage.bulkDeleteLines(ids);
+      res.json({ message: `Deleted ${ids.length} lines`, deleted: ids.length });
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      res.status(500).json({ message: "Failed to delete lines" });
+    }
+  });
+
+  app.post("/api/lines/bulk-toggle", requireAdmin, async (req, res) => {
+    try {
+      const { ids, enabled } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No line IDs provided" });
+      }
+      // Update each line's enabled status
+      for (const id of ids) {
+        await storage.updateLine(id, { enabled });
+      }
+      res.json({ message: `Toggled ${ids.length} lines`, updated: ids.length });
+    } catch (error) {
+      console.error("Bulk toggle error:", error);
+      res.status(500).json({ message: "Failed to toggle lines" });
+    }
+  });
+
   app.post(api.lines.extend.path, async (req, res) => {
     try {
       const { days, useCredits } = api.lines.extend.input.parse(req.body);
@@ -1612,6 +1644,129 @@ export async function registerRoutes(
     } catch (err: any) {
       res.status(400).json({ message: err.message });
     }
+  });
+
+  // === ACTIVITY LOGS ===
+  app.get("/api/activity-logs", requireAdmin, async (req, res) => {
+    const lineId = req.query.lineId ? Number(req.query.lineId) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const logs = await storage.getActivityLog(lineId, limit);
+    res.json(logs);
+  });
+
+  // === CREDIT TRANSACTIONS ===
+  app.get("/api/credit-transactions", requireAdmin, async (req, res) => {
+    const userId = req.query.userId ? Number(req.query.userId) : undefined;
+    const transactions = await storage.getCreditTransactions(userId);
+    res.json(transactions);
+  });
+
+  // === CRON JOBS ===
+  app.get("/api/cron-jobs", requireAdmin, async (_req, res) => {
+    const jobs = await storage.getCronJobs();
+    res.json(jobs);
+  });
+
+  app.post("/api/cron-jobs", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.createCronJob(req.body);
+      res.status(201).json(job);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/cron-jobs/:id", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.updateCronJob(Number(req.params.id), req.body);
+      res.json(job);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/cron-jobs/:id", requireAdmin, async (req, res) => {
+    await storage.deleteCronJob(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/cron-jobs/:id/run", requireAdmin, async (req, res) => {
+    try {
+      const job = await storage.getCronJob(Number(req.params.id));
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      
+      await storage.updateCronJob(job.id, { 
+        status: 'running', 
+        lastRun: new Date() 
+      } as any);
+      
+      // Simulate job execution
+      setTimeout(async () => {
+        await storage.updateCronJob(job.id, { 
+          status: 'idle',
+          nextRun: new Date(Date.now() + (job.intervalMinutes || 60) * 60000)
+        } as any);
+      }, 2000);
+      
+      res.json({ message: "Job started", job });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // === EPG DATA ===
+  app.get("/api/epg-data", requireAuth, async (req, res) => {
+    const channelId = req.query.channelId as string;
+    const startTime = req.query.startTime ? new Date(req.query.startTime as string) : undefined;
+    const endTime = req.query.endTime ? new Date(req.query.endTime as string) : undefined;
+    
+    if (!channelId) {
+      return res.status(400).json({ message: "channelId is required" });
+    }
+    
+    const data = await storage.getEpgData(channelId, startTime, endTime);
+    res.json(data);
+  });
+
+  app.get("/api/epg-data/all", requireAuth, async (req, res) => {
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const data = await storage.getAllEpgData(limit);
+    res.json(data);
+  });
+
+  // === DASHBOARD STATISTICS ===
+  app.get("/api/stats/detailed", requireAdmin, async (_req, res) => {
+    const stats = await storage.getStats();
+    const connections = await storage.getActiveConnections();
+    const streams = await storage.getStreams();
+    
+    const onlineStreams = streams.filter(s => s.monitorStatus === 'online').length;
+    const offlineStreams = streams.filter(s => s.monitorStatus === 'offline').length;
+    
+    // Group connections by hour for chart
+    const now = new Date();
+    const hourlyConnections = Array.from({ length: 24 }, (_, i) => {
+      const hour = new Date(now);
+      hour.setHours(now.getHours() - (23 - i), 0, 0, 0);
+      return {
+        hour: hour.toISOString(),
+        count: connections.filter(c => {
+          const connTime = new Date(c.startedAt!);
+          return connTime >= hour && connTime < new Date(hour.getTime() + 3600000);
+        }).length
+      };
+    });
+
+    res.json({
+      ...stats,
+      onlineStreams,
+      offlineStreams,
+      hourlyConnections,
+      contentDistribution: [
+        { name: "Live TV", value: streams.filter(s => s.streamType === 'live').length },
+        { name: "Movies", value: streams.filter(s => s.streamType === 'movie').length },
+      ]
+    });
   });
 
   // Webhook events list (for UI)

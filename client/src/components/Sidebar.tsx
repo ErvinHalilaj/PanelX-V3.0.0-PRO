@@ -23,7 +23,12 @@ import {
   TrendingUp,
   Archive,
   Webhook,
-  User
+  User,
+  Activity,
+  CreditCard,
+  Clock,
+  MonitorPlay,
+  FileText
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -37,19 +42,23 @@ export function Sidebar() {
 
   const contentNav = [
     { icon: Tv, label: "Live Streams", href: "/streams" },
+    { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },
     { icon: Clapperboard, label: "Series", href: "/series" },
     { icon: Layers, label: "Categories", href: "/categories" },
     { icon: Layers, label: "Bouquets", href: "/bouquets" },
     { icon: CalendarClock, label: "EPG Sources", href: "/epg" },
+    { icon: FileText, label: "EPG Data", href: "/epg-data" },
   ];
 
   const usersNav = [
     { icon: Users, label: "Lines", href: "/lines" },
+    { icon: MonitorPlay, label: "MAG Devices", href: "/mag-devices" },
     { icon: UserCog, label: "Users/Resellers", href: "/users" },
     { icon: UsersRound, label: "Reseller Groups", href: "/reseller-groups" },
     { icon: Package, label: "Packages", href: "/packages" },
     { icon: Wifi, label: "Connections", href: "/connections" },
+    { icon: CreditCard, label: "Credit History", href: "/credit-transactions" },
     { icon: MessageSquare, label: "Tickets", href: "/tickets" },
   ];
 
@@ -62,6 +71,8 @@ export function Sidebar() {
     { icon: Server, label: "Servers", href: "/servers" },
     { icon: Smartphone, label: "Device Templates", href: "/devices" },
     { icon: Radio, label: "Transcode", href: "/transcode" },
+    { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
+    { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: Archive, label: "Backups", href: "/backups" },
     { icon: Webhook, label: "Webhooks", href: "/webhooks" },
     { icon: Code, label: "API Info", href: "/api" },

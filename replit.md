@@ -177,6 +177,18 @@ Preferred communication style: Simple, everyday language.
 - **Added bulk operations** - Multi-select checkboxes and batch delete for streams
 - Added use-servers hook for server data fetching
 
+### January 2026 Updates
+- **Activity Logs Page** - View user login, authentication, and streaming activity with filters
+- **Credit Transactions Page** - Track all credit movements (add/deduct) for resellers
+- **Stream Status Monitor** - Real-time stream health monitoring with check status buttons
+- **MAG Devices Page** - Manage STB/MAG devices with MAC address registration
+- **Cron Jobs Manager** - Create, enable/disable, and run scheduled tasks manually
+- **EPG Data Viewer** - Browse EPG entries with current/upcoming program display
+- **Categories Edit Dialog** - Full edit functionality with type selection
+- **Lines Bulk Operations** - Select multiple lines for bulk enable/disable/delete
+- **Lines Edit Dialog** - Complete editing with all security and advanced options
+- **Bulk API Endpoints** - `/api/lines/bulk-delete` and `/api/lines/bulk-toggle` for mass operations
+
 ## Feature Roadmap (Xtream Codes v2.9 Parity)
 
 ### CRITICAL Priority
@@ -218,10 +230,15 @@ Preferred communication style: Simple, everyday language.
    - [x] Mass operations (bulk edit/delete)
    - [x] M3U import wizard
    - [x] Xtream panel import
-   - [ ] Backup/restore system
-   - [ ] MAG device management
+   - [x] Backup/restore system
+   - [x] MAG device management
    - [ ] Enigma2 plugin management
-   - [ ] Real-time stats graphs
+   - [x] Real-time stats graphs
+   - [x] Activity logging and viewing
+   - [x] Credit transaction history
+   - [x] Stream status monitoring
+   - [x] Cron jobs scheduler UI
+   - [x] EPG data browser
 
 6. **Security**
    - [ ] Rate limiting

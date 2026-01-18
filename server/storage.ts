@@ -167,7 +167,10 @@ export interface IStorage {
   // Cron Jobs
   getCronJobs(): Promise<CronJob[]>;
   getCronJob(id: number): Promise<CronJob | undefined>;
+  createCronJob(job: InsertCronJob): Promise<CronJob>;
   updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob>;
+  deleteCronJob(id: number): Promise<void>;
+  getAllEpgData(limit?: number): Promise<EpgData[]>;
 
   // Reseller Groups
   getResellerGroups(): Promise<ResellerGroup[]>;
@@ -796,9 +799,23 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
+  async createCronJob(job: InsertCronJob): Promise<CronJob> {
+    const [newJob] = await db.insert(cronJobs).values(job).returning();
+    return newJob;
+  }
+
   async updateCronJob(id: number, updates: Partial<InsertCronJob>): Promise<CronJob> {
     const [updated] = await db.update(cronJobs).set(updates).where(eq(cronJobs.id, id)).returning();
     return updated;
+  }
+
+  async deleteCronJob(id: number): Promise<void> {
+    await db.delete(cronJobs).where(eq(cronJobs.id, id));
+  }
+
+  // Get all EPG Data
+  async getAllEpgData(limit: number = 100): Promise<EpgData[]> {
+    return await db.select().from(epgData).orderBy(desc(epgData.startTime)).limit(limit);
   }
 
   // Reseller Groups
