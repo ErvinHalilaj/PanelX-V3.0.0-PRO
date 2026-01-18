@@ -26,7 +26,7 @@ import {
   type ActivationCode, type ConnectionHistory, type MostWatched, type TwoFactorAuth, type FingerprintSettings, type LineFingerprint,
   type WatchFolder, type WatchFolderLog, type LoopingChannel, type AutoblockRule, type StatisticsSnapshot, type ImpersonationLog
 } from "@shared/schema";
-import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
+import { eq, count, and, lt, sql, desc, gte, lte, or, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -1004,12 +1004,12 @@ export class DatabaseStorage implements IStorage {
 
   async bulkDeleteStreams(ids: number[]): Promise<void> {
     if (ids.length === 0) return;
-    await db.delete(streams).where(sql`${streams.id} = ANY(${ids})`);
+    await db.delete(streams).where(inArray(streams.id, ids));
   }
 
   async bulkDeleteLines(ids: number[]): Promise<void> {
     if (ids.length === 0) return;
-    await db.delete(lines).where(sql`${lines.id} = ANY(${ids})`);
+    await db.delete(lines).where(inArray(lines.id, ids));
   }
 
   // Tickets
