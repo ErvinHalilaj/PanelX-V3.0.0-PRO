@@ -35,7 +35,17 @@ import {
   Monitor,
   Bell,
   SlidersHorizontal,
-  Globe
+  Globe,
+  Gift,
+  History,
+  Eye,
+  Key,
+  Fingerprint,
+  FolderOpen,
+  Repeat,
+  ShieldAlert,
+  BarChart3,
+  UserCheck
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -57,6 +67,9 @@ export function Sidebar() {
     { icon: Layers, label: "Bouquets", href: "/bouquets" },
     { icon: CalendarClock, label: "EPG Sources", href: "/epg" },
     { icon: FileText, label: "EPG Data", href: "/epg-data" },
+    { icon: FolderOpen, label: "Watch Folders", href: "/watch-folders" },
+    { icon: Repeat, label: "24/7 Channels", href: "/looping-channels" },
+    { icon: Eye, label: "Most Watched", href: "/most-watched" },
   ];
 
   const usersNav = [
@@ -67,7 +80,9 @@ export function Sidebar() {
     { icon: UsersRound, label: "Reseller Groups", href: "/reseller-groups" },
     { icon: Package, label: "Packages", href: "/packages" },
     { icon: Wifi, label: "Connections", href: "/connections" },
+    { icon: History, label: "Connection History", href: "/connection-history" },
     { icon: CreditCard, label: "Credit History", href: "/credit-transactions" },
+    { icon: Gift, label: "Activation Codes", href: "/activation-codes" },
     { icon: MessageSquare, label: "Tickets", href: "/tickets" },
     { icon: TrendingUp, label: "Reseller Panel", href: "/reseller" },
   ];
@@ -76,6 +91,10 @@ export function Sidebar() {
     { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
     { icon: ShieldBan, label: "Reserved Usernames", href: "/reserved-usernames" },
+    { icon: ShieldAlert, label: "Autoblock Rules", href: "/autoblock-rules" },
+    { icon: Key, label: "Two-Factor Auth", href: "/two-factor" },
+    { icon: Fingerprint, label: "Fingerprinting", href: "/fingerprinting" },
+    { icon: UserCheck, label: "Impersonation Logs", href: "/impersonation-logs" },
   ];
 
   const systemNav = [
@@ -86,6 +105,7 @@ export function Sidebar() {
     { icon: Bell, label: "Signals/Triggers", href: "/signals" },
     { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
+    { icon: BarChart3, label: "Stats Snapshots", href: "/stats-snapshots" },
     { icon: Archive, label: "Backups", href: "/backups" },
     { icon: Webhook, label: "Webhooks", href: "/webhooks" },
     { icon: Globe, label: "Client Portal", href: "/portal" },

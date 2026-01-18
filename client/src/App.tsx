@@ -40,6 +40,16 @@ import ReservedUsernames from "@/pages/ReservedUsernames";
 import CreatedChannels from "@/pages/CreatedChannels";
 import Enigma2Devices from "@/pages/Enigma2Devices";
 import Signals from "@/pages/Signals";
+import ActivationCodes from "@/pages/ActivationCodes";
+import ConnectionHistory from "@/pages/ConnectionHistory";
+import MostWatched from "@/pages/MostWatched";
+import TwoFactorAuth from "@/pages/TwoFactorAuth";
+import Fingerprinting from "@/pages/Fingerprinting";
+import WatchFolders from "@/pages/WatchFolders";
+import LoopingChannels from "@/pages/LoopingChannels";
+import AutoblockRules from "@/pages/AutoblockRules";
+import StatsSnapshots from "@/pages/StatsSnapshots";
+import ImpersonationLogs from "@/pages/ImpersonationLogs";
 import { AdminAuthProvider } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -78,6 +88,16 @@ function AdminRouter() {
       <Route path="/created-channels" component={CreatedChannels} />
       <Route path="/enigma2-devices" component={Enigma2Devices} />
       <Route path="/signals" component={Signals} />
+      <Route path="/activation-codes" component={ActivationCodes} />
+      <Route path="/connection-history" component={ConnectionHistory} />
+      <Route path="/most-watched" component={MostWatched} />
+      <Route path="/two-factor" component={TwoFactorAuth} />
+      <Route path="/fingerprinting" component={Fingerprinting} />
+      <Route path="/watch-folders" component={WatchFolders} />
+      <Route path="/looping-channels" component={LoopingChannels} />
+      <Route path="/autoblock-rules" component={AutoblockRules} />
+      <Route path="/stats-snapshots" component={StatsSnapshots} />
+      <Route path="/impersonation-logs" component={ImpersonationLogs} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

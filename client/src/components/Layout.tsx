@@ -5,10 +5,11 @@ import { Bell, Search, UserCircle } from "lucide-react";
 interface LayoutProps {
   children: ReactNode;
   title: string;
+  subtitle?: string;
   actions?: ReactNode;
 }
 
-export function Layout({ children, title, actions }: LayoutProps) {
+export function Layout({ children, title, subtitle, actions }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -48,7 +49,7 @@ export function Layout({ children, title, actions }: LayoutProps) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-3xl font-display font-bold text-white">{title}</h2>
-              <p className="text-muted-foreground mt-1">Manage and monitor your IPTV platform</p>
+              <p className="text-muted-foreground mt-1">{subtitle || "Manage and monitor your IPTV platform"}</p>
             </div>
             {actions && <div className="flex gap-2">{actions}</div>}
           </div>
