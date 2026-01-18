@@ -69,7 +69,7 @@ export default function AccessOutputs() {
     setFormData({
       outputName: output.outputName,
       outputKey: output.outputKey,
-      outputExt: output.outputExt,
+      outputExt: output.outputExt || "",
       enabled: output.enabled ?? true,
     });
     setIsDialogOpen(true);
