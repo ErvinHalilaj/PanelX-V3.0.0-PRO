@@ -77,6 +77,7 @@ The system includes 22 core data models covering:
 - `shadcn/ui`, `Radix UI`: UI component libraries.
 - `Tailwind CSS`: Styling framework.
 - `Lucide React`: Icons.
+- `otpauth`: TOTP/HOTP generation for 2FA.
 
 ### Development Tools
 - Vite with React plugin.
