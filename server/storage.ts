@@ -3,18 +3,19 @@ import {
   users, categories, streams, bouquets, lines, activeConnections, activityLog, creditTransactions,
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
-  tickets, ticketReplies, backups, webhooks, webhookLogs,
+  tickets, ticketReplies, backups, webhooks, webhookLogs, settings, accessOutputs, reservedUsernames,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
   type InsertVodInfo, type InsertTvArchive, type InsertBlockedIp, type InsertBlockedUserAgent,
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
   type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply, type InsertBackup,
-  type InsertWebhook, type InsertWebhookLog,
+  type InsertWebhook, type InsertWebhookLog, type InsertSetting, type InsertAccessOutput, type InsertReservedUsername,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
-  type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog
+  type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog,
+  type Setting, type AccessOutput, type ReservedUsername
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -220,6 +221,26 @@ export interface IStorage {
   // Webhook Logs
   getWebhookLogs(webhookId?: number, limit?: number): Promise<WebhookLog[]>;
   logWebhook(log: InsertWebhookLog): Promise<WebhookLog>;
+
+  // Settings
+  getSettings(): Promise<Setting[]>;
+  getSetting(key: string): Promise<Setting | undefined>;
+  createSetting(setting: InsertSetting): Promise<Setting>;
+  updateSetting(key: string, value: string): Promise<Setting>;
+  deleteSetting(key: string): Promise<void>;
+
+  // Access Outputs
+  getAccessOutputs(): Promise<AccessOutput[]>;
+  getAccessOutput(id: number): Promise<AccessOutput | undefined>;
+  createAccessOutput(output: InsertAccessOutput): Promise<AccessOutput>;
+  updateAccessOutput(id: number, updates: Partial<InsertAccessOutput>): Promise<AccessOutput>;
+  deleteAccessOutput(id: number): Promise<void>;
+
+  // Reserved Usernames
+  getReservedUsernames(): Promise<ReservedUsername[]>;
+  isUsernameReserved(username: string): Promise<boolean>;
+  createReservedUsername(reserved: InsertReservedUsername): Promise<ReservedUsername>;
+  deleteReservedUsername(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1004,6 +1025,79 @@ export class DatabaseStorage implements IStorage {
   async logWebhook(log: InsertWebhookLog): Promise<WebhookLog> {
     const [newLog] = await db.insert(webhookLogs).values(log).returning();
     return newLog;
+  }
+
+  // Settings
+  async getSettings(): Promise<Setting[]> {
+    return await db.select().from(settings);
+  }
+
+  async getSetting(key: string): Promise<Setting | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.settingKey, key));
+    return setting;
+  }
+
+  async createSetting(setting: InsertSetting): Promise<Setting> {
+    const [newSetting] = await db.insert(settings).values(setting).returning();
+    return newSetting;
+  }
+
+  async updateSetting(key: string, value: string): Promise<Setting> {
+    const [updated] = await db.update(settings)
+      .set({ settingValue: value })
+      .where(eq(settings.settingKey, key))
+      .returning();
+    return updated;
+  }
+
+  async deleteSetting(key: string): Promise<void> {
+    await db.delete(settings).where(eq(settings.settingKey, key));
+  }
+
+  // Access Outputs
+  async getAccessOutputs(): Promise<AccessOutput[]> {
+    return await db.select().from(accessOutputs);
+  }
+
+  async getAccessOutput(id: number): Promise<AccessOutput | undefined> {
+    const [output] = await db.select().from(accessOutputs).where(eq(accessOutputs.id, id));
+    return output;
+  }
+
+  async createAccessOutput(output: InsertAccessOutput): Promise<AccessOutput> {
+    const [newOutput] = await db.insert(accessOutputs).values(output).returning();
+    return newOutput;
+  }
+
+  async updateAccessOutput(id: number, updates: Partial<InsertAccessOutput>): Promise<AccessOutput> {
+    const [updated] = await db.update(accessOutputs).set(updates).where(eq(accessOutputs.id, id)).returning();
+    return updated;
+  }
+
+  async deleteAccessOutput(id: number): Promise<void> {
+    await db.delete(accessOutputs).where(eq(accessOutputs.id, id));
+  }
+
+  // Reserved Usernames
+  async getReservedUsernames(): Promise<ReservedUsername[]> {
+    return await db.select().from(reservedUsernames);
+  }
+
+  async isUsernameReserved(username: string): Promise<boolean> {
+    const [reserved] = await db.select().from(reservedUsernames)
+      .where(eq(reservedUsernames.username, username.toLowerCase()));
+    return !!reserved;
+  }
+
+  async createReservedUsername(reserved: InsertReservedUsername): Promise<ReservedUsername> {
+    const [newReserved] = await db.insert(reservedUsernames)
+      .values({ ...reserved, username: reserved.username.toLowerCase() })
+      .returning();
+    return newReserved;
+  }
+
+  async deleteReservedUsername(id: number): Promise<void> {
+    await db.delete(reservedUsernames).where(eq(reservedUsernames.id, id));
   }
 }
 

@@ -274,6 +274,33 @@ export const ticketReplies = pgTable("ticket_replies", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// System Settings (Global panel configuration)
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value"),
+  settingType: text("setting_type").default("text"), // text, number, boolean, json
+  category: text("category").default("general"), // general, security, streaming, api
+  description: text("description"),
+});
+
+// Access Output Types (HLS, MPEGTS, RTMP)
+export const accessOutputs = pgTable("access_outputs", {
+  id: serial("id").primaryKey(),
+  outputName: text("output_name").notNull(), // HLS, MPEGTS, RTMP
+  outputKey: text("output_key").notNull().unique(), // m3u8, ts, rtmp
+  outputExt: text("output_ext").default(""), // m3u8, ts, "" (empty for RTMP)
+  enabled: boolean("enabled").default(true),
+});
+
+// Reserved Usernames (blocked from registration)
+export const reservedUsernames = pgTable("reserved_usernames", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Content Categories (e.g., "Sports", "Movies")
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -513,6 +540,9 @@ export const insertResellerGroupSchema = createInsertSchema(resellerGroups).omit
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true, closedAt: true });
 export const insertTicketReplySchema = createInsertSchema(ticketReplies).omit({ id: true, createdAt: true });
+export const insertSettingSchema = createInsertSchema(settings).omit({ id: true });
+export const insertAccessOutputSchema = createInsertSchema(accessOutputs).omit({ id: true });
+export const insertReservedUsernameSchema = createInsertSchema(reservedUsernames).omit({ id: true, createdAt: true });
 export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({ id: true, attemptedAt: true });
 export const insertRateLimitSettingsSchema = createInsertSchema(rateLimitSettings).omit({ id: true });
 
@@ -610,6 +640,15 @@ export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
 
 export type RateLimitSettings = typeof rateLimitSettings.$inferSelect;
 export type InsertRateLimitSettings = z.infer<typeof insertRateLimitSettingsSchema>;
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
+
+export type AccessOutput = typeof accessOutputs.$inferSelect;
+export type InsertAccessOutput = z.infer<typeof insertAccessOutputSchema>;
+
+export type ReservedUsername = typeof reservedUsernames.$inferSelect;
+export type InsertReservedUsername = z.infer<typeof insertReservedUsernameSchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

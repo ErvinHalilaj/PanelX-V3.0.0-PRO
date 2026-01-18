@@ -35,6 +35,8 @@ import CronJobs from "@/pages/CronJobs";
 import EpgDataViewer from "@/pages/EpgDataViewer";
 import MagDevices from "@/pages/MagDevices";
 import StreamStatus from "@/pages/StreamStatus";
+import AccessOutputs from "@/pages/AccessOutputs";
+import ReservedUsernames from "@/pages/ReservedUsernames";
 import { AdminAuthProvider } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -68,6 +70,8 @@ function AdminRouter() {
       <Route path="/epg-data" component={EpgDataViewer} />
       <Route path="/mag-devices" component={MagDevices} />
       <Route path="/stream-status" component={StreamStatus} />
+      <Route path="/access-outputs" component={AccessOutputs} />
+      <Route path="/reserved-usernames" component={ReservedUsernames} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

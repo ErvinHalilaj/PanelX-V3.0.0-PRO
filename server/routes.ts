@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
+import { insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema } from "@shared/schema";
 
 // Auth rate limiting cache
 const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
@@ -2005,6 +2006,119 @@ export async function registerRoutes(
       }
       res.status(400).json({ message: err.message || "Failed to import from Xtream" });
     }
+  });
+
+  // === SETTINGS (Admin only) ===
+  app.get("/api/settings", requireAdmin, async (_req, res) => {
+    const allSettings = await storage.getSettings();
+    res.json(allSettings);
+  });
+
+  app.get("/api/settings/:key", requireAdmin, async (req, res) => {
+    const setting = await storage.getSetting(req.params.key);
+    if (!setting) return res.status(404).json({ message: "Setting not found" });
+    res.json(setting);
+  });
+
+  app.post("/api/settings", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertSettingSchema.parse(req.body);
+      const setting = await storage.createSetting(validated);
+      res.status(201).json(setting);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/settings/:key", requireAdmin, async (req, res) => {
+    try {
+      const { value } = z.object({ value: z.string() }).parse(req.body);
+      const existing = await storage.getSetting(req.params.key);
+      if (!existing) return res.status(404).json({ message: "Setting not found" });
+      const setting = await storage.updateSetting(req.params.key, value);
+      res.json(setting);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/settings/:key", requireAdmin, async (req, res) => {
+    await storage.deleteSetting(req.params.key);
+    res.status(204).send();
+  });
+
+  // === ACCESS OUTPUTS (Admin only) ===
+  app.get("/api/access-outputs", requireAdmin, async (_req, res) => {
+    const outputs = await storage.getAccessOutputs();
+    res.json(outputs);
+  });
+
+  app.post("/api/access-outputs", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertAccessOutputSchema.parse(req.body);
+      const output = await storage.createAccessOutput(validated);
+      res.status(201).json(output);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/access-outputs/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertAccessOutputSchema.partial().parse(req.body);
+      const existing = await storage.getAccessOutput(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Access output not found" });
+      const output = await storage.updateAccessOutput(Number(req.params.id), validated);
+      res.json(output);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/access-outputs/:id", requireAdmin, async (req, res) => {
+    await storage.deleteAccessOutput(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === RESERVED USERNAMES (Admin only) ===
+  app.get("/api/reserved-usernames", requireAdmin, async (_req, res) => {
+    const reserved = await storage.getReservedUsernames();
+    res.json(reserved);
+  });
+
+  app.get("/api/reserved-usernames/check/:username", requireAuth, async (req, res) => {
+    const isReserved = await storage.isUsernameReserved(req.params.username);
+    res.json({ reserved: isReserved });
+  });
+
+  app.post("/api/reserved-usernames", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertReservedUsernameSchema.parse(req.body);
+      const reserved = await storage.createReservedUsername(validated);
+      res.status(201).json(reserved);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/reserved-usernames/:id", requireAdmin, async (req, res) => {
+    await storage.deleteReservedUsername(Number(req.params.id));
+    res.status(204).send();
   });
 
   return httpServer;

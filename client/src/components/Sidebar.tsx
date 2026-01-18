@@ -28,7 +28,9 @@ import {
   CreditCard,
   Clock,
   MonitorPlay,
-  FileText
+  FileText,
+  FileOutput,
+  ShieldBan
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -65,12 +67,14 @@ export function Sidebar() {
   const securityNav = [
     { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
+    { icon: ShieldBan, label: "Reserved Usernames", href: "/reserved-usernames" },
   ];
 
   const systemNav = [
     { icon: Server, label: "Servers", href: "/servers" },
     { icon: Smartphone, label: "Device Templates", href: "/devices" },
     { icon: Radio, label: "Transcode", href: "/transcode" },
+    { icon: FileOutput, label: "Output Types", href: "/access-outputs" },
     { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: Archive, label: "Backups", href: "/backups" },
