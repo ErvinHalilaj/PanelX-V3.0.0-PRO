@@ -35,7 +35,7 @@ export default function Servers() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => apiRequest("/api/servers", "POST", data),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/servers", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       setIsOpen(false);
@@ -46,7 +46,7 @@ export default function Servers() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<typeof formData> }) => apiRequest(`/api/servers/${id}`, "PUT", data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<typeof formData> }) => apiRequest("PUT", `/api/servers/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       setIsOpen(false);
@@ -58,7 +58,7 @@ export default function Servers() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/servers/${id}`, "DELETE"),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/servers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/servers"] });
       toast({ title: "Server deleted" });
