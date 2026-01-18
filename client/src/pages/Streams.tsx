@@ -343,7 +343,7 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
         if (data.fatal) {
           setIsLoading(false);
           setError(data.type === Hls.ErrorTypes.NETWORK_ERROR 
-            ? "Network error - Stream may be unavailable or blocked by CORS"
+            ? "The stream source may be unavailable or blocked."
             : `Playback error: ${data.details}`);
         }
       });
@@ -637,6 +637,9 @@ export default function Streams() {
   const [xtreamUsername, setXtreamUsername] = useState("");
   const [xtreamPassword, setXtreamPassword] = useState("");
   const [xtreamImportPending, setXtreamImportPending] = useState(false);
+  const [editingStream, setEditingStream] = useState<Stream | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<Stream>>({});
+  const [isEditPending, setIsEditPending] = useState(false);
   
   const { data: streams, isLoading } = useStreams(selectedCategory);
   const { data: categories } = useCategories();
@@ -664,6 +667,41 @@ export default function Streams() {
 
   const handlePlay = (stream: Stream) => {
     setPlayingStream(stream);
+  };
+
+  const handleEdit = (stream: Stream) => {
+    setEditingStream(stream);
+    setEditFormData({
+      name: stream.name,
+      sourceUrl: stream.sourceUrl,
+      categoryId: stream.categoryId,
+      streamType: stream.streamType,
+      isDirect: stream.isDirect,
+      onDemand: stream.onDemand,
+      autoRestartHours: stream.autoRestartHours,
+      delayMinutes: stream.delayMinutes,
+      rtmpOutput: stream.rtmpOutput,
+      readNative: stream.readNative,
+      streamAll: stream.streamAll,
+      removeSubtitles: stream.removeSubtitles,
+      genTimestamps: stream.genTimestamps,
+      allowRecord: stream.allowRecord,
+    });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingStream) return;
+    setIsEditPending(true);
+    try {
+      await apiRequest("PATCH", `/api/streams/${editingStream.id}`, editFormData);
+      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+      toast({ title: "Success", description: "Stream updated successfully" });
+      setEditingStream(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update stream", variant: "destructive" });
+    } finally {
+      setIsEditPending(false);
+    }
   };
 
   const handleImportM3U = async () => {
@@ -929,6 +967,99 @@ export default function Streams() {
         <VideoPlayer stream={playingStream} onClose={() => setPlayingStream(null)} />
       )}
 
+      <Dialog open={!!editingStream} onOpenChange={(open) => !open && setEditingStream(null)}>
+        <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="w-5 h-5" /> Edit Stream
+            </DialogTitle>
+          </DialogHeader>
+          {editingStream && (
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Stream Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  data-testid="input-edit-stream-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sourceUrl">Source URL</Label>
+                <Input
+                  id="edit-sourceUrl"
+                  value={editFormData.sourceUrl || ""}
+                  onChange={(e) => setEditFormData({ ...editFormData, sourceUrl: e.target.value })}
+                  data-testid="input-edit-source-url"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select
+                    value={editFormData.categoryId?.toString() || ""}
+                    onValueChange={(val) => setEditFormData({ ...editFormData, categoryId: parseInt(val) })}
+                  >
+                    <SelectTrigger data-testid="select-edit-category">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories?.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Stream Type</Label>
+                  <Select
+                    value={editFormData.streamType || "live"}
+                    onValueChange={(val) => setEditFormData({ ...editFormData, streamType: val })}
+                  >
+                    <SelectTrigger data-testid="select-edit-type">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="live">Live Stream</SelectItem>
+                      <SelectItem value="movie">Movie</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="edit-onDemand"
+                    checked={editFormData.onDemand || false}
+                    onCheckedChange={(v) => setEditFormData({ ...editFormData, onDemand: !!v })}
+                  />
+                  <Label htmlFor="edit-onDemand" className="text-sm">On-Demand Mode</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="edit-isDirect"
+                    checked={editFormData.isDirect || false}
+                    onCheckedChange={(v) => setEditFormData({ ...editFormData, isDirect: !!v })}
+                  />
+                  <Label htmlFor="edit-isDirect" className="text-sm">Direct Source</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={handleEditSubmit}
+                  disabled={isEditPending}
+                  className="w-full btn-primary"
+                  data-testid="button-save-stream"
+                >
+                  {isEditPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="bg-card/40 border border-white/5 rounded-xl overflow-hidden backdrop-blur-sm">
         <div className="p-4 border-b border-white/5 flex gap-4 items-center">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -1070,6 +1201,7 @@ export default function Streams() {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 hover:bg-white/10 hover:text-white"
+                            onClick={() => handleEdit(stream)}
                             data-testid={`button-edit-stream-${stream.id}`}
                           >
                             <Edit2 className="w-4 h-4" />
