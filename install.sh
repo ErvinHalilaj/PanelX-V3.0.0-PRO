@@ -284,18 +284,20 @@ setup_initial_admin() {
     
     cd "$INSTALL_DIR"
     
-    # Create a setup script to initialize the admin user
-    cat > "$INSTALL_DIR/setup-admin.js" << 'EOFJS'
-const bcrypt = require('bcryptjs');
-const { drizzle } = require('drizzle-orm/node-postgres');
-const { Pool } = require('pg');
-require('dotenv').config();
+    # Create a setup script to initialize the admin user (ES module compatible)
+    cat > "$INSTALL_DIR/setup-admin.mjs" << 'EOFJS'
+import bcrypt from 'bcryptjs';
+import pg from 'pg';
+import dotenv from 'dotenv';
 
+dotenv.config();
+
+const { Pool } = pg;
 const username = process.argv[2];
 const password = process.argv[3];
 
 if (!username || !password) {
-    console.error('Usage: node setup-admin.js <username> <password>');
+    console.error('Usage: node setup-admin.mjs <username> <password>');
     process.exit(1);
 }
 
@@ -348,10 +350,10 @@ EOFJS
     npm run db:push 2>/dev/null || npx drizzle-kit push 2>/dev/null || true
     
     # Create admin user
-    node setup-admin.js "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+    node setup-admin.mjs "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
     
     # Remove setup script
-    rm -f setup-admin.js
+    rm -f setup-admin.mjs
     
     print_success "Admin user created"
 }
