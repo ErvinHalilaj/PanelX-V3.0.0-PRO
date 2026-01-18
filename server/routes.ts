@@ -2035,7 +2035,8 @@ export async function registerRoutes(
 
   app.put("/api/settings/:key", requireAdmin, async (req, res) => {
     try {
-      const { value } = z.object({ value: z.string() }).parse(req.body);
+      const updateSchema = z.object({ value: z.string() });
+      const { value } = updateSchema.parse(req.body);
       const existing = await storage.getSetting(req.params.key);
       if (!existing) return res.status(404).json({ message: "Setting not found" });
       const setting = await storage.updateSetting(req.params.key, value);
