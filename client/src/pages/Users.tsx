@@ -116,9 +116,139 @@ function AddCreditsDialog({ user, onClose }: { user: any; onClose: () => void })
   );
 }
 
+const defaultEditFormData = {
+  username: "",
+  password: "",
+  role: "reseller" as const,
+  credits: 0,
+  notes: "",
+  enabled: true,
+};
+
+function EditUserDialog({ user, onClose }: { user: any; onClose: () => void }) {
+  const updateUser = useUpdateUser();
+  const [formData, setFormData] = useState({
+    username: user.username || "",
+    password: "",
+    role: user.role || "reseller",
+    credits: user.credits || 0,
+    notes: user.notes || "",
+    enabled: user.enabled !== false,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const updateData: any = {
+        username: formData.username,
+        role: formData.role,
+        credits: formData.credits,
+        notes: formData.notes,
+        enabled: formData.enabled,
+      };
+      if (formData.password) {
+        updateData.password = formData.password;
+      }
+      await updateUser.mutateAsync({ id: user.id, data: updateData });
+      toast({ title: "Success", description: "User updated successfully" });
+      onClose();
+    } catch {
+      toast({ title: "Error", description: "Failed to update user", variant: "destructive" });
+    }
+  };
+
+  return (
+    <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white">
+      <DialogHeader>
+        <DialogTitle>Edit User: {user.username}</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-username">Username</Label>
+            <Input 
+              id="edit-username" 
+              value={formData.username} 
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })} 
+              data-testid="input-edit-username" 
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-password">New Password (leave empty to keep)</Label>
+            <Input 
+              id="edit-password" 
+              type="password" 
+              value={formData.password} 
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+              placeholder="Leave empty to keep current"
+              data-testid="input-edit-password" 
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-role">Role</Label>
+            <Select value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+              <SelectTrigger data-testid="select-edit-role">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="reseller">Reseller</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-credits">Credits</Label>
+            <Input 
+              id="edit-credits" 
+              type="number" 
+              value={formData.credits} 
+              onChange={(e) => setFormData({ ...formData, credits: Number(e.target.value) })} 
+              data-testid="input-edit-credits" 
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Notes</Label>
+          <Input 
+            value={formData.notes} 
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })} 
+            placeholder="Optional notes..." 
+            data-testid="input-edit-notes" 
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={formData.enabled ? "active" : "disabled"} onValueChange={(v) => setFormData({ ...formData, enabled: v === "active" })}>
+            <SelectTrigger data-testid="select-edit-status">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="disabled">Disabled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <DialogFooter>
+          <Button type="submit" disabled={updateUser.isPending} className="w-full btn-primary" data-testid="button-save-user">
+            {updateUser.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
+}
+
 export default function Users() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [creditsUser, setCreditsUser] = useState<any>(null);
   const { data: users, isLoading } = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
@@ -217,26 +347,24 @@ export default function Users() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Dialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-actions-${user.id}`}>
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-card border-white/10">
-                          <DialogTrigger asChild>
-                            <DropdownMenuItem onClick={() => setSelectedUser(user)} data-testid={`menu-add-credits-${user.id}`}>
-                              <CreditCard className="w-4 h-4 mr-2" /> Add Credits
-                            </DropdownMenuItem>
-                          </DialogTrigger>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user.id)} data-testid={`menu-delete-${user.id}`}>
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      {selectedUser?.id === user.id && <AddCreditsDialog user={selectedUser} onClose={() => setSelectedUser(null)} />}
-                    </Dialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-actions-${user.id}`}>
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-card border-white/10">
+                        <DropdownMenuItem onClick={() => setEditingUser(user)} data-testid={`menu-edit-${user.id}`}>
+                          <Edit2 className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setCreditsUser(user)} data-testid={`menu-add-credits-${user.id}`}>
+                          <CreditCard className="w-4 h-4 mr-2" /> Add Credits
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user.id)} data-testid={`menu-delete-${user.id}`}>
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}
@@ -244,6 +372,16 @@ export default function Users() {
           </table>
         )}
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        {editingUser && <EditUserDialog user={editingUser} onClose={() => setEditingUser(null)} />}
+      </Dialog>
+
+      {/* Add Credits Dialog */}
+      <Dialog open={!!creditsUser} onOpenChange={(open) => !open && setCreditsUser(null)}>
+        {creditsUser && <AddCreditsDialog user={creditsUser} onClose={() => setCreditsUser(null)} />}
+      </Dialog>
     </Layout>
   );
 }
