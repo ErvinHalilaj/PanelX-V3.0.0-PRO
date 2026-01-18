@@ -1,0 +1,72 @@
+WHAT WE HAVE (Implemented)
+Feature Area	Status
+User/Reseller Management	✅ Basic (admin/reseller with credits)
+Categories	✅ Live, Movie, Series types
+Streams	✅ Basic CRUD, status monitoring
+Bouquets	✅ Channel packages
+Lines	✅ Basic + GeoIP, device lock, max connections
+EPG	✅ Sources + data storage + XMLTV endpoint
+Series/Episodes	✅ Full metadata
+VOD Metadata	✅ TMDB-style info
+TV Archive	✅ Catchup structure
+Device Templates	✅ 20+ devices
+Transcode Profiles	✅ FFmpeg presets
+Multi-Server	✅ Load balancer structure
+Blocked IPs/UAs	✅ Security blocking
+Player API	✅ Basic Xtream compatibility
+Stalker Portal	✅ MAG device API
+WHAT'S MISSING (Priority Features)
+🔴 CRITICAL - Stream Options
+Feature	Description
+Multiple Source URLs	Backup/failover sources per stream
+On-Demand Mode	Stream sleeps when unused, wakes on request
+Stream Import (M3U)	Bulk import streams from M3U/M3U8 playlists
+Stream Import (Xtream)	Import from another Xtream panel via API
+Auto-Restart Timer	Restart stream after X hours
+Delay Minutes	Timeshift/delay playback
+RTMP Output	Push stream to RTMP destination
+External Push	Push to external CDN/servers
+Custom FFmpeg Mapping	Advanced stream/audio track selection
+🔴 CRITICAL - Restreaming/Encoding
+Feature	Description
+Live Transcoding	Real-time FFmpeg encoding pipeline
+HLS Segment Generation	Create .ts segments from source
+Created Live Channels	Accept RTMP input → output HLS
+Encoding Queue	Manage transcoding jobs
+Stream Health Monitoring	Auto-restart on failure
+🟠 HIGH - Lines Options
+Feature	Description
+ISP Locking	Lock user to their ISP
+Forced Server	Route line to specific server
+Allowed User Agents	Whitelist specific UAs
+Package Assignment	Link line to subscription package
+Play Token	Secure playback token
+Parent Reseller	Hierarchy tracking
+🟠 HIGH - Reseller System
+Feature	Description
+Reseller Groups	Permission groups with access levels
+Package Management	Create packages (30 days, 1 year, etc.)
+Package Pricing	Credit cost per package
+Ticket System	Admin-reseller communication
+Reseller Dashboard	Separate reseller portal
+🟡 MEDIUM - Admin Panel
+Feature	Description
+Mass Operations	Bulk edit/delete streams/lines
+M3U Import Wizard	GUI for importing playlists
+Xtream Import	Import from another panel
+Backup/Restore	System backup management
+MAG Device Management	Register/manage MAG boxes
+Enigma2 Plugin	Device plugin management
+Real-time Stats	Live encoding/bandwidth graphs
+🟡 MEDIUM - Security
+Feature	Description
+Rate Limiting	Limit requests per IP
+Auto-Block	Block after X failed attempts
+Connection Speed Monitor	Track client bandwidth
+Flood Protection	DDoS mitigation
+🟢 LOW - Additional APIs
+Feature	Description
+get_vod_info	Full VOD metadata API
+get_simple_data_table	EPG table with archive status
+Panel API	External panel management
+Webhooks	Event notifications

@@ -319,6 +319,8 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     video.addEventListener("pause", handlePause);
     video.addEventListener("progress", handleProgress);
 
+    // Use proxy URL to bypass CORS - the server proxies the stream
+    const proxyUrl = `/api/streams/${stream.id}/proxy`;
     const sourceUrl = stream.sourceUrl;
     const isHls = sourceUrl.includes(".m3u8") || sourceUrl.includes("m3u8");
 
@@ -327,7 +329,8 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
         enableWorker: true,
         lowLatencyMode: true,
       });
-      hls.loadSource(sourceUrl);
+      // Use proxy for HLS to handle CORS
+      hls.loadSource(proxyUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
@@ -343,19 +346,21 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
         if (data.fatal) {
           setIsLoading(false);
           setError(data.type === Hls.ErrorTypes.NETWORK_ERROR 
-            ? "The stream source may be unavailable or blocked."
+            ? "Stream source unavailable. The external server may be down or blocking connections."
             : `Playback error: ${data.details}`);
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = sourceUrl;
+      // Safari native HLS support - use proxy
+      video.src = proxyUrl;
       video.addEventListener("canplay", () => setIsLoading(false));
-      video.addEventListener("error", () => setError("Failed to load stream"));
+      video.addEventListener("error", () => setError("Stream unavailable. The source may be down or blocking connections."));
       video.play().catch(() => {});
     } else {
-      video.src = sourceUrl;
+      // For non-HLS streams (.ts files), use proxy to avoid CORS
+      video.src = proxyUrl;
       video.addEventListener("canplay", () => setIsLoading(false));
-      video.addEventListener("error", () => setError("Failed to load stream"));
+      video.addEventListener("error", () => setError("Stream unavailable. MPEG-TS streams require a compatible player."));
       video.play().catch(() => {});
     }
 
@@ -368,7 +373,7 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
         hls.destroy();
       }
     };
-  }, [stream.sourceUrl]);
+  }, [stream.id, stream.sourceUrl]);
 
   const toggleFullscreen = async () => {
     if (!playerRef.current) return;

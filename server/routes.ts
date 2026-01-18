@@ -816,6 +816,84 @@ export async function registerRoutes(
     }
   });
 
+  // Stream preview proxy for admin panel - bypasses CORS issues
+  app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
+    const stream = await storage.getStream(Number(req.params.id));
+    if (!stream) return res.status(404).json({ message: "Stream not found" });
+
+    const sourceUrl = stream.sourceUrl;
+    const isHls = sourceUrl.includes('.m3u8');
+
+    try {
+      const response = await fetch(sourceUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ message: "Stream source unavailable" });
+      }
+
+      // Forward content type
+      const contentType = response.headers.get('content-type') || (isHls ? 'application/vnd.apple.mpegurl' : 'video/mp2t');
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+
+      // For HLS, we need to rewrite the playlist URLs to go through our proxy
+      if (isHls) {
+        const text = await response.text();
+        // Rewrite relative URLs in the playlist to absolute
+        const baseUrl = new URL(sourceUrl);
+        const rewritten = text.replace(/^(?!#)(.+\.ts.*)$/gm, (match) => {
+          if (match.startsWith('http')) return match;
+          return new URL(match, baseUrl).toString();
+        }).replace(/^(?!#)(.+\.m3u8.*)$/gm, (match) => {
+          if (match.startsWith('http')) return match;
+          return new URL(match, baseUrl).toString();
+        });
+        return res.send(rewritten);
+      }
+
+      // For non-HLS, stream directly
+      res.setHeader('Transfer-Encoding', 'chunked');
+      
+      const reader = response.body?.getReader();
+      if (!reader) {
+        return res.status(502).json({ message: "Stream unavailable" });
+      }
+
+      req.on('close', () => {
+        reader.cancel();
+      });
+
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!res.writableEnded) {
+              res.write(value);
+            }
+          }
+          if (!res.writableEnded) {
+            res.end();
+          }
+        } catch (err) {
+          if (!res.writableEnded) {
+            res.end();
+          }
+        }
+      };
+
+      pump();
+    } catch (err) {
+      console.error('Stream proxy error:', err);
+      return res.status(502).json({ message: "Failed to connect to stream source" });
+    }
+  });
+
   // === BOUQUETS ===
   app.get(api.bouquets.list.path, async (_req, res) => {
     const bouquets = await storage.getBouquets();

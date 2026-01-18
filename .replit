@@ -3,7 +3,7 @@ run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
-channel = "stable-25_05"
+channel = "stable-24_05"
 
 [[ports]]
 localPort = 5000
@@ -40,4 +40,3 @@ waitForPort = 5000
 
 [agent]
 integrations = ["github:1.0.0"]
-expertMode = true
