@@ -370,7 +370,7 @@ User=root
 WorkingDirectory=${INSTALL_DIR}
 Environment=NODE_ENV=production
 EnvironmentFile=${INSTALL_DIR}/.env
-ExecStart=/usr/bin/node ${INSTALL_DIR}/dist/index.js
+ExecStart=/usr/bin/node ${INSTALL_DIR}/dist/index.cjs
 Restart=always
 RestartSec=10
 
