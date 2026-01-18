@@ -32,7 +32,10 @@ import {
   FileOutput,
   ShieldBan,
   Zap,
-  Monitor
+  Monitor,
+  Bell,
+  SlidersHorizontal,
+  Globe
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -66,6 +69,7 @@ export function Sidebar() {
     { icon: Wifi, label: "Connections", href: "/connections" },
     { icon: CreditCard, label: "Credit History", href: "/credit-transactions" },
     { icon: MessageSquare, label: "Tickets", href: "/tickets" },
+    { icon: TrendingUp, label: "Reseller Panel", href: "/reseller" },
   ];
 
   const securityNav = [
@@ -77,13 +81,14 @@ export function Sidebar() {
   const systemNav = [
     { icon: Server, label: "Servers", href: "/servers" },
     { icon: Smartphone, label: "Device Templates", href: "/devices" },
-    { icon: Zap, label: "Transcode", href: "/transcode" },
+    { icon: SlidersHorizontal, label: "Transcode", href: "/transcode" },
     { icon: FileOutput, label: "Output Types", href: "/access-outputs" },
-    { icon: Zap, label: "Signals", href: "/signals" },
+    { icon: Bell, label: "Signals/Triggers", href: "/signals" },
     { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: Archive, label: "Backups", href: "/backups" },
     { icon: Webhook, label: "Webhooks", href: "/webhooks" },
+    { icon: Globe, label: "Client Portal", href: "/portal" },
     { icon: Code, label: "API Info", href: "/api" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
