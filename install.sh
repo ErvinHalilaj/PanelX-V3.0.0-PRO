@@ -288,21 +288,19 @@ setup_initial_admin() {
     cat > "$INSTALL_DIR/setup-admin.mjs" << 'EOFJS'
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const { Pool } = pg;
-const username = process.argv[2];
-const password = process.argv[3];
+const databaseUrl = process.argv[2];
+const username = process.argv[3];
+const password = process.argv[4];
 
-if (!username || !password) {
-    console.error('Usage: node setup-admin.mjs <username> <password>');
+if (!databaseUrl || !username || !password) {
+    console.error('Usage: node setup-admin.mjs <database_url> <username> <password>');
     process.exit(1);
 }
 
 async function setupAdmin() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({ connectionString: databaseUrl });
     
     try {
         // Hash password
@@ -349,8 +347,8 @@ EOFJS
     # Push database schema
     npm run db:push 2>/dev/null || npx drizzle-kit push 2>/dev/null || true
     
-    # Create admin user
-    node setup-admin.mjs "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+    # Create admin user (pass DATABASE_URL directly as argument)
+    node setup-admin.mjs "$DATABASE_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
     
     # Remove setup script
     rm -f setup-admin.mjs
