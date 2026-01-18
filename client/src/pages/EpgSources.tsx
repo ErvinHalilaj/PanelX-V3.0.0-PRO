@@ -10,20 +10,23 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { CalendarClock, Plus, Trash2, RefreshCw, ExternalLink } from "lucide-react";
+import { CalendarClock, Plus, Trash2, RefreshCw, ExternalLink, Edit2 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
 import type { EpgSource } from "@shared/schema";
 
+const defaultFormData = {
+  sourceName: "",
+  sourceUrl: "",
+  updateInterval: 24,
+  enabled: true,
+};
+
 export default function EpgSources() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    sourceName: "",
-    sourceUrl: "",
-    updateInterval: 24,
-    enabled: true,
-  });
+  const [editingSource, setEditingSource] = useState<EpgSource | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   const { data: sources = [], isLoading } = useQuery<EpgSource[]>({
     queryKey: ["/api/epg-sources"],
@@ -34,7 +37,7 @@ export default function EpgSources() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/epg-sources"] });
       setIsOpen(false);
-      setFormData({ sourceName: "", sourceUrl: "", updateInterval: 24, enabled: true });
+      setFormData(defaultFormData);
       toast({ title: "EPG source added successfully" });
     },
     onError: () => toast({ title: "Failed to add EPG source", variant: "destructive" }),
@@ -49,6 +52,18 @@ export default function EpgSources() {
     onError: () => toast({ title: "Failed to refresh EPG", variant: "destructive" }),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof formData }) => apiRequest("PUT", `/api/epg-sources/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/epg-sources"] });
+      setIsOpen(false);
+      setEditingSource(null);
+      setFormData(defaultFormData);
+      toast({ title: "EPG source updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to update EPG source", variant: "destructive" }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/epg-sources/${id}`),
     onSuccess: () => {
@@ -56,6 +71,34 @@ export default function EpgSources() {
       toast({ title: "EPG source deleted" });
     },
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSource) {
+      updateMutation.mutate({ id: editingSource.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const openEditDialog = (source: EpgSource) => {
+    setEditingSource(source);
+    setFormData({
+      sourceName: source.sourceName,
+      sourceUrl: source.sourceUrl,
+      updateInterval: source.updateInterval ?? 24,
+      enabled: source.enabled ?? true,
+    });
+    setIsOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setEditingSource(null);
+      setFormData(defaultFormData);
+    }
+  };
 
   return (
     <div className="flex">
@@ -69,7 +112,7 @@ export default function EpgSources() {
             </h1>
             <p className="text-muted-foreground mt-1">Manage XMLTV program guide sources</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-epg-source">
                 <Plus className="w-4 h-4" /> Add EPG Source
@@ -77,9 +120,9 @@ export default function EpgSources() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add EPG Source</DialogTitle>
+                <DialogTitle>{editingSource ? "Edit EPG Source" : "Add EPG Source"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Source Name</Label>
                   <Input value={formData.sourceName} onChange={(e) => setFormData({ ...formData, sourceName: e.target.value })} placeholder="EPG Provider" required data-testid="input-epg-name" />
@@ -96,8 +139,8 @@ export default function EpgSources() {
                   <Switch checked={formData.enabled} onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })} data-testid="switch-enabled" />
                   <Label>Enabled</Label>
                 </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-epg">
-                  {createMutation.isPending ? "Adding..." : "Add EPG Source"}
+                <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-epg">
+                  {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingSource ? "Save Changes" : "Add EPG Source")}
                 </Button>
               </form>
             </DialogContent>
@@ -145,6 +188,9 @@ export default function EpgSources() {
                       </TableCell>
                       <TableCell>{source.lastUpdate ? format(new Date(source.lastUpdate), "PPp") : "Never"}</TableCell>
                       <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(source)} data-testid={`button-edit-epg-${source.id}`}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => refreshMutation.mutate(source.id)} disabled={refreshMutation.isPending} data-testid={`button-refresh-epg-${source.id}`}>
                           <RefreshCw className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
                         </Button>

@@ -11,27 +11,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Clapperboard, Plus, Trash2, Calendar, Star, List } from "lucide-react";
+import { Clapperboard, Plus, Trash2, Calendar, Star, List, Edit2 } from "lucide-react";
 import { useState } from "react";
 import type { Series as SeriesType, Category } from "@shared/schema";
+
+const defaultFormData = {
+  name: "",
+  categoryId: null as number | null,
+  cover: "",
+  backdrop: "",
+  plot: "",
+  cast: "",
+  director: "",
+  genre: "",
+  releaseDate: "",
+  rating: "",
+  youtubeTrailer: "",
+};
 
 export default function Series() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    categoryId: null as number | null,
-    cover: "",
-    backdrop: "",
-    plot: "",
-    cast: "",
-    director: "",
-    genre: "",
-    releaseDate: "",
-    rating: "",
-    youtubeTrailer: "",
-    episodeRunTime: "",
-  });
+  const [editingSeries, setEditingSeries] = useState<SeriesType | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   const { data: seriesList = [], isLoading } = useQuery<SeriesType[]>({
     queryKey: ["/api/series"],
@@ -48,10 +50,22 @@ export default function Series() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/series"] });
       setIsOpen(false);
-      setFormData({ name: "", categoryId: null, cover: "", backdrop: "", plot: "", cast: "", director: "", genre: "", releaseDate: "", rating: "", youtubeTrailer: "", episodeRunTime: "" });
+      setFormData(defaultFormData);
       toast({ title: "Series created successfully" });
     },
     onError: () => toast({ title: "Failed to create series", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof formData }) => apiRequest("PUT", `/api/series/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/series"] });
+      setIsOpen(false);
+      setEditingSeries(null);
+      setFormData(defaultFormData);
+      toast({ title: "Series updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to update series", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -61,6 +75,41 @@ export default function Series() {
       toast({ title: "Series deleted" });
     },
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSeries) {
+      updateMutation.mutate({ id: editingSeries.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const openEditDialog = (series: SeriesType) => {
+    setEditingSeries(series);
+    setFormData({
+      name: series.name,
+      categoryId: series.categoryId,
+      cover: series.cover || "",
+      backdrop: series.backdrop || "",
+      plot: series.plot || "",
+      cast: series.cast || "",
+      director: series.director || "",
+      genre: series.genre || "",
+      releaseDate: series.releaseDate || "",
+      rating: series.rating || "",
+      youtubeTrailer: series.youtubeTrailer || "",
+    });
+    setIsOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setEditingSeries(null);
+      setFormData(defaultFormData);
+    }
+  };
 
   return (
     <div className="flex">
@@ -74,7 +123,7 @@ export default function Series() {
             </h1>
             <p className="text-muted-foreground mt-1">Manage TV series and episodes</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-series">
                 <Plus className="w-4 h-4" /> Add Series
@@ -82,9 +131,9 @@ export default function Series() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add New Series</DialogTitle>
+                <DialogTitle>{editingSeries ? "Edit Series" : "Add New Series"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Series Name</Label>
@@ -142,8 +191,8 @@ export default function Series() {
                     <Input value={formData.rating} onChange={(e) => setFormData({ ...formData, rating: e.target.value })} placeholder="9.5" data-testid="input-rating" />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-series">
-                  {createMutation.isPending ? "Creating..." : "Create Series"}
+                <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-series">
+                  {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingSeries ? "Save Changes" : "Create Series")}
                 </Button>
               </form>
             </DialogContent>
@@ -172,7 +221,10 @@ export default function Series() {
                       <Clapperboard className="w-16 h-16 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button variant="secondary" size="sm" onClick={() => openEditDialog(series)} data-testid={`button-edit-series-${series.id}`}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
                     <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(series.id)} data-testid={`button-delete-series-${series.id}`}>
                       <Trash2 className="w-4 h-4" />
                     </Button>

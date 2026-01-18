@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useUsers, useCreateUser, useDeleteUser, useAddCredits } from "@/hooks/use-users";
-import { Plus, Trash2, CreditCard, UserCog, Shield, ShieldCheck, MoreVertical } from "lucide-react";
+import { useUsers, useCreateUser, useDeleteUser, useAddCredits, useUpdateUser } from "@/hooks/use-users";
+import { Plus, Trash2, CreditCard, UserCog, Shield, ShieldCheck, MoreVertical, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

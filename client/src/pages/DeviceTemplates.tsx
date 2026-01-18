@@ -10,22 +10,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Smartphone, Plus, Trash2, Copy } from "lucide-react";
+import { Smartphone, Plus, Trash2, Copy, Edit2 } from "lucide-react";
 import { useState } from "react";
 import type { DeviceTemplate } from "@shared/schema";
+
+const defaultFormData = {
+  deviceKey: "",
+  deviceName: "",
+  headerTemplate: "#EXTM3U",
+  lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}',
+  footerTemplate: "",
+  fileExtension: "m3u",
+  defaultOutput: "ts",
+};
 
 export default function DeviceTemplates() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    deviceKey: "",
-    deviceName: "",
-    headerTemplate: "#EXTM3U",
-    lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}',
-    footerTemplate: "",
-    fileExtension: "m3u",
-    defaultOutput: "ts",
-  });
+  const [editingTemplate, setEditingTemplate] = useState<DeviceTemplate | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   const { data: templates = [], isLoading } = useQuery<DeviceTemplate[]>({
     queryKey: ["/api/device-templates"],
@@ -36,10 +39,22 @@ export default function DeviceTemplates() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/device-templates"] });
       setIsOpen(false);
-      setFormData({ deviceKey: "", deviceName: "", headerTemplate: "#EXTM3U", lineTemplate: '#EXTINF:-1 tvg-id="{epg_channel_id}" tvg-name="{stream_name}" tvg-logo="{stream_icon}" group-title="{category_name}",{stream_name}\n{server}/live/{username}/{password}/{stream_id}.{extension}', footerTemplate: "", fileExtension: "m3u", defaultOutput: "ts" });
+      setFormData(defaultFormData);
       toast({ title: "Device template created successfully" });
     },
     onError: () => toast({ title: "Failed to create template", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof formData }) => apiRequest("PUT", `/api/device-templates/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/device-templates"] });
+      setIsOpen(false);
+      setEditingTemplate(null);
+      setFormData(defaultFormData);
+      toast({ title: "Template updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to update template", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -49,6 +64,37 @@ export default function DeviceTemplates() {
       toast({ title: "Template deleted" });
     },
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTemplate) {
+      updateMutation.mutate({ id: editingTemplate.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const openEditDialog = (template: DeviceTemplate) => {
+    setEditingTemplate(template);
+    setFormData({
+      deviceKey: template.deviceKey,
+      deviceName: template.deviceName,
+      headerTemplate: template.headerTemplate || "#EXTM3U",
+      lineTemplate: template.lineTemplate || "",
+      footerTemplate: template.footerTemplate || "",
+      fileExtension: template.fileExtension || "m3u",
+      defaultOutput: template.defaultOutput || "ts",
+    });
+    setIsOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setEditingTemplate(null);
+      setFormData(defaultFormData);
+    }
+  };
 
   const copyPlaylistUrl = (template: DeviceTemplate) => {
     const url = `${window.location.origin}/playlist/${template.deviceKey}/USERNAME/PASSWORD`;
@@ -68,7 +114,7 @@ export default function DeviceTemplates() {
             </h1>
             <p className="text-muted-foreground mt-1">Customize playlist formats for different devices</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-template">
                 <Plus className="w-4 h-4" /> Add Template
@@ -76,9 +122,9 @@ export default function DeviceTemplates() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Add Device Template</DialogTitle>
+                <DialogTitle>{editingTemplate ? "Edit Device Template" : "Add Device Template"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Device Key</Label>
@@ -111,8 +157,8 @@ export default function DeviceTemplates() {
                     <Input value={formData.defaultOutput} onChange={(e) => setFormData({ ...formData, defaultOutput: e.target.value })} placeholder="ts" data-testid="input-default-output" />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-template">
-                  {createMutation.isPending ? "Creating..." : "Create Template"}
+                <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-template">
+                  {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingTemplate ? "Save Changes" : "Create Template")}
                 </Button>
               </form>
             </DialogContent>
@@ -153,6 +199,9 @@ export default function DeviceTemplates() {
                       <TableCell>.{template.fileExtension}</TableCell>
                       <TableCell className="text-muted-foreground">{template.defaultOutput}</TableCell>
                       <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(template)} data-testid={`button-edit-template-${template.id}`}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => copyPlaylistUrl(template)} data-testid={`button-copy-url-${template.id}`}>
                           <Copy className="w-4 h-4" />
                         </Button>

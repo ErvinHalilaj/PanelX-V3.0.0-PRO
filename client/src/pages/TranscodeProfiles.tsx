@@ -11,24 +11,27 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Radio, Plus, Trash2, Settings } from "lucide-react";
+import { Radio, Plus, Trash2, Settings, Edit2 } from "lucide-react";
 import { useState } from "react";
 import type { TranscodeProfile } from "@shared/schema";
+
+const defaultFormData = {
+  profileName: "",
+  videoCodec: "libx264",
+  audioCodec: "aac",
+  videoBitrate: "4000k",
+  audioBitrate: "128k",
+  resolution: "1920x1080",
+  preset: "fast",
+  customParams: "",
+  enabled: true,
+};
 
 export default function TranscodeProfiles() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    profileName: "",
-    videoCodec: "libx264",
-    audioCodec: "aac",
-    videoBitrate: "4000k",
-    audioBitrate: "128k",
-    resolution: "1920x1080",
-    preset: "fast",
-    customParams: "",
-    enabled: true,
-  });
+  const [editingProfile, setEditingProfile] = useState<TranscodeProfile | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   const { data: profiles = [], isLoading } = useQuery<TranscodeProfile[]>({
     queryKey: ["/api/transcode-profiles"],
@@ -39,10 +42,22 @@ export default function TranscodeProfiles() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transcode-profiles"] });
       setIsOpen(false);
-      setFormData({ profileName: "", videoCodec: "libx264", audioCodec: "aac", videoBitrate: "4000k", audioBitrate: "128k", resolution: "1920x1080", preset: "fast", customParams: "", enabled: true });
+      setFormData(defaultFormData);
       toast({ title: "Transcode profile created successfully" });
     },
     onError: () => toast({ title: "Failed to create profile", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof formData }) => apiRequest("PUT", `/api/transcode-profiles/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transcode-profiles"] });
+      setIsOpen(false);
+      setEditingProfile(null);
+      setFormData(defaultFormData);
+      toast({ title: "Profile updated successfully" });
+    },
+    onError: () => toast({ title: "Failed to update profile", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -52,6 +67,39 @@ export default function TranscodeProfiles() {
       toast({ title: "Profile deleted" });
     },
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingProfile) {
+      updateMutation.mutate({ id: editingProfile.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const openEditDialog = (profile: TranscodeProfile) => {
+    setEditingProfile(profile);
+    setFormData({
+      profileName: profile.profileName,
+      videoCodec: profile.videoCodec || "libx264",
+      audioCodec: profile.audioCodec || "aac",
+      videoBitrate: profile.videoBitrate || "4000k",
+      audioBitrate: profile.audioBitrate || "128k",
+      resolution: profile.resolution || "1920x1080",
+      preset: profile.preset || "fast",
+      customParams: profile.customParams || "",
+      enabled: profile.enabled ?? true,
+    });
+    setIsOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setEditingProfile(null);
+      setFormData(defaultFormData);
+    }
+  };
 
   return (
     <div className="flex">
@@ -65,7 +113,7 @@ export default function TranscodeProfiles() {
             </h1>
             <p className="text-muted-foreground mt-1">Configure FFmpeg transcoding settings for streams</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-profile">
                 <Plus className="w-4 h-4" /> Add Profile
@@ -73,9 +121,9 @@ export default function TranscodeProfiles() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Add Transcode Profile</DialogTitle>
+                <DialogTitle>{editingProfile ? "Edit Transcode Profile" : "Add Transcode Profile"}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Profile Name</Label>
                   <Input value={formData.profileName} onChange={(e) => setFormData({ ...formData, profileName: e.target.value })} placeholder="HD 1080p" required data-testid="input-profile-name" />
@@ -159,8 +207,8 @@ export default function TranscodeProfiles() {
                   <Switch checked={formData.enabled} onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })} data-testid="switch-enabled" />
                   <Label>Enabled</Label>
                 </div>
-                <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-profile">
-                  {createMutation.isPending ? "Creating..." : "Create Profile"}
+                <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-profile">
+                  {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingProfile ? "Save Changes" : "Create Profile")}
                 </Button>
               </form>
             </DialogContent>
@@ -209,7 +257,10 @@ export default function TranscodeProfiles() {
                       <span>{profile.preset}</span>
                     </div>
                   </div>
-                  <div className="flex justify-end mt-4">
+                  <div className="flex justify-end mt-4 gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(profile)} data-testid={`button-edit-profile-${profile.id}`}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(profile.id)} className="text-destructive" data-testid={`button-delete-profile-${profile.id}`}>
                       <Trash2 className="w-4 h-4" />
                     </Button>

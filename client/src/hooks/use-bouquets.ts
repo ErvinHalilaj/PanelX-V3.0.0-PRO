@@ -31,3 +31,38 @@ export function useCreateBouquet() {
     },
   });
 }
+
+export function useUpdateBouquet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: number } & Partial<InsertBouquet>) => {
+      const res = await fetch(`/api/bouquets/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update bouquet");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.bouquets.list.path] });
+    },
+  });
+}
+
+export function useDeleteBouquet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/bouquets/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete bouquet");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.bouquets.list.path] });
+    },
+  });
+}
