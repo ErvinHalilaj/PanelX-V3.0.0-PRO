@@ -258,6 +258,33 @@ Preferred communication style: Simple, everyday language.
    - [x] Panel management API
    - [x] Webhooks for events (schema ready)
 
+## Production Installer Scripts
+
+PanelX includes production-ready installation scripts for Ubuntu servers:
+
+### install.sh - Interactive Installation Wizard
+- Branded ASCII banner and colored output
+- System requirements check (Ubuntu, RAM, disk space)
+- Interactive configuration wizard:
+  - Installation directory (default: /opt/panelx)
+  - Web server port (default: 5000)
+  - Admin username and password creation
+- Auto-installs: Node.js 20, PostgreSQL, npm packages
+- Creates systemd service for auto-start on boot
+- Configures firewall (UFW) rules
+
+### uninstall.sh - Clean Removal
+- Stops PanelX service
+- Removes systemd service
+- Optionally removes database (with confirmation)
+- Cleans up files and firewall rules
+
+### manage-admin.sh - Admin User Management CLI
+- List all users (admin/reseller)
+- Add new users with bcrypt password hashing
+- Change user passwords
+- Delete users with confirmation
+
 ## Recent Changes (January 2026)
 
 ### Type System Fixes
