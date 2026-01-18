@@ -5,6 +5,8 @@ import {
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
   tickets, ticketReplies, backups, webhooks, webhookLogs, settings, accessOutputs, reservedUsernames,
   createdChannels, enigma2Devices, enigma2Actions, signals,
+  activationCodes, connectionHistory, mostWatched, twoFactorAuth, fingerprintSettings, lineFingerprints,
+  watchFolders, watchFolderLogs, loopingChannels, autoblockRules, statisticsSnapshots, impersonationLogs,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
@@ -13,11 +15,16 @@ import {
   type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply, type InsertBackup,
   type InsertWebhook, type InsertWebhookLog, type InsertSetting, type InsertAccessOutput, type InsertReservedUsername,
   type InsertCreatedChannel, type InsertEnigma2Device, type InsertEnigma2Action, type InsertSignal,
+  type InsertActivationCode, type InsertConnectionHistory, type InsertMostWatched, type InsertTwoFactorAuth,
+  type InsertFingerprintSettings, type InsertLineFingerprint, type InsertWatchFolder, type InsertWatchFolderLog,
+  type InsertLoopingChannel, type InsertAutoblockRule, type InsertStatisticsSnapshot, type InsertImpersonationLog,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
   type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog,
-  type Setting, type AccessOutput, type ReservedUsername, type CreatedChannel, type Enigma2Device, type Enigma2Action, type Signal
+  type Setting, type AccessOutput, type ReservedUsername, type CreatedChannel, type Enigma2Device, type Enigma2Action, type Signal,
+  type ActivationCode, type ConnectionHistory, type MostWatched, type TwoFactorAuth, type FingerprintSettings, type LineFingerprint,
+  type WatchFolder, type WatchFolderLog, type LoopingChannel, type AutoblockRule, type StatisticsSnapshot, type ImpersonationLog
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -271,6 +278,77 @@ export interface IStorage {
   createSignal(signal: InsertSignal): Promise<Signal>;
   updateSignal(id: number, updates: Partial<InsertSignal>): Promise<Signal>;
   deleteSignal(id: number): Promise<void>;
+
+  // Activation Codes
+  getActivationCodes(): Promise<ActivationCode[]>;
+  getActivationCode(id: number): Promise<ActivationCode | undefined>;
+  getActivationCodeByCode(code: string): Promise<ActivationCode | undefined>;
+  createActivationCode(code: InsertActivationCode): Promise<ActivationCode>;
+  updateActivationCode(id: number, updates: Partial<InsertActivationCode>): Promise<ActivationCode>;
+  deleteActivationCode(id: number): Promise<void>;
+  redeemActivationCode(code: string, lineId: number): Promise<ActivationCode>;
+
+  // Connection History
+  getConnectionHistory(lineId?: number, limit?: number): Promise<ConnectionHistory[]>;
+  createConnectionHistory(history: InsertConnectionHistory): Promise<ConnectionHistory>;
+  updateConnectionHistory(id: number, updates: Partial<InsertConnectionHistory>): Promise<ConnectionHistory>;
+
+  // Most Watched
+  getMostWatched(streamType?: string, limit?: number): Promise<MostWatched[]>;
+  updateMostWatched(streamId: number, streamType: string): Promise<MostWatched>;
+
+  // Two-Factor Authentication
+  getTwoFactorAuth(userId: number): Promise<TwoFactorAuth | undefined>;
+  createTwoFactorAuth(auth: InsertTwoFactorAuth): Promise<TwoFactorAuth>;
+  updateTwoFactorAuth(userId: number, updates: Partial<InsertTwoFactorAuth> & { verifiedAt?: Date }): Promise<TwoFactorAuth>;
+  deleteTwoFactorAuth(userId: number): Promise<void>;
+
+  // Fingerprint Settings
+  getFingerprintSettings(): Promise<FingerprintSettings[]>;
+  getFingerprintSetting(id: number): Promise<FingerprintSettings | undefined>;
+  createFingerprintSetting(setting: InsertFingerprintSettings): Promise<FingerprintSettings>;
+  updateFingerprintSetting(id: number, updates: Partial<InsertFingerprintSettings>): Promise<FingerprintSettings>;
+  deleteFingerprintSetting(id: number): Promise<void>;
+
+  // Line Fingerprints
+  getLineFingerprints(lineId: number): Promise<LineFingerprint[]>;
+  createLineFingerprint(fingerprint: InsertLineFingerprint): Promise<LineFingerprint>;
+  deleteLineFingerprint(id: number): Promise<void>;
+
+  // Watch Folders
+  getWatchFolders(): Promise<WatchFolder[]>;
+  getWatchFolder(id: number): Promise<WatchFolder | undefined>;
+  createWatchFolder(folder: InsertWatchFolder): Promise<WatchFolder>;
+  updateWatchFolder(id: number, updates: Partial<InsertWatchFolder>): Promise<WatchFolder>;
+  deleteWatchFolder(id: number): Promise<void>;
+
+  // Watch Folder Logs
+  getWatchFolderLogs(folderId?: number): Promise<WatchFolderLog[]>;
+  createWatchFolderLog(log: InsertWatchFolderLog): Promise<WatchFolderLog>;
+  updateWatchFolderLog(id: number, updates: Partial<InsertWatchFolderLog>): Promise<WatchFolderLog>;
+
+  // Looping Channels
+  getLoopingChannels(): Promise<LoopingChannel[]>;
+  getLoopingChannel(id: number): Promise<LoopingChannel | undefined>;
+  createLoopingChannel(channel: InsertLoopingChannel): Promise<LoopingChannel>;
+  updateLoopingChannel(id: number, updates: Partial<InsertLoopingChannel>): Promise<LoopingChannel>;
+  deleteLoopingChannel(id: number): Promise<void>;
+
+  // Autoblock Rules
+  getAutoblockRules(): Promise<AutoblockRule[]>;
+  getAutoblockRule(id: number): Promise<AutoblockRule | undefined>;
+  createAutoblockRule(rule: InsertAutoblockRule): Promise<AutoblockRule>;
+  updateAutoblockRule(id: number, updates: Partial<InsertAutoblockRule>): Promise<AutoblockRule>;
+  deleteAutoblockRule(id: number): Promise<void>;
+
+  // Statistics Snapshots
+  getStatisticsSnapshots(type?: string, limit?: number): Promise<StatisticsSnapshot[]>;
+  createStatisticsSnapshot(snapshot: InsertStatisticsSnapshot): Promise<StatisticsSnapshot>;
+
+  // Impersonation Logs
+  getImpersonationLogs(adminId?: number): Promise<ImpersonationLog[]>;
+  createImpersonationLog(log: InsertImpersonationLog): Promise<ImpersonationLog>;
+  endImpersonation(id: number): Promise<ImpersonationLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1227,6 +1305,281 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSignal(id: number): Promise<void> {
     await db.delete(signals).where(eq(signals.id, id));
+  }
+
+  // Activation Codes
+  async getActivationCodes(): Promise<ActivationCode[]> {
+    return await db.select().from(activationCodes).orderBy(desc(activationCodes.createdAt));
+  }
+
+  async getActivationCode(id: number): Promise<ActivationCode | undefined> {
+    const [code] = await db.select().from(activationCodes).where(eq(activationCodes.id, id));
+    return code;
+  }
+
+  async getActivationCodeByCode(code: string): Promise<ActivationCode | undefined> {
+    const [result] = await db.select().from(activationCodes).where(eq(activationCodes.code, code));
+    return result;
+  }
+
+  async createActivationCode(code: InsertActivationCode): Promise<ActivationCode> {
+    const [newCode] = await db.insert(activationCodes).values(code).returning();
+    return newCode;
+  }
+
+  async updateActivationCode(id: number, updates: Partial<InsertActivationCode>): Promise<ActivationCode> {
+    const [updated] = await db.update(activationCodes).set(updates).where(eq(activationCodes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteActivationCode(id: number): Promise<void> {
+    await db.delete(activationCodes).where(eq(activationCodes.id, id));
+  }
+
+  async redeemActivationCode(code: string, lineId: number): Promise<ActivationCode> {
+    const [updated] = await db.update(activationCodes)
+      .set({ usedBy: lineId, usedAt: new Date(), enabled: false })
+      .where(eq(activationCodes.code, code))
+      .returning();
+    return updated;
+  }
+
+  // Connection History
+  async getConnectionHistory(lineId?: number, limit?: number): Promise<ConnectionHistory[]> {
+    let query = db.select().from(connectionHistory).orderBy(desc(connectionHistory.startedAt));
+    if (lineId) {
+      query = query.where(eq(connectionHistory.lineId, lineId)) as typeof query;
+    }
+    if (limit) {
+      query = query.limit(limit) as typeof query;
+    }
+    return await query;
+  }
+
+  async createConnectionHistory(history: InsertConnectionHistory): Promise<ConnectionHistory> {
+    const [newHistory] = await db.insert(connectionHistory).values(history).returning();
+    return newHistory;
+  }
+
+  async updateConnectionHistory(id: number, updates: Partial<InsertConnectionHistory>): Promise<ConnectionHistory> {
+    const [updated] = await db.update(connectionHistory).set(updates).where(eq(connectionHistory.id, id)).returning();
+    return updated;
+  }
+
+  // Most Watched
+  async getMostWatched(streamType?: string, limit?: number): Promise<MostWatched[]> {
+    let query = db.select().from(mostWatched).orderBy(desc(mostWatched.totalViews));
+    if (streamType) {
+      query = query.where(eq(mostWatched.streamType, streamType)) as typeof query;
+    }
+    if (limit) {
+      query = query.limit(limit) as typeof query;
+    }
+    return await query;
+  }
+
+  async updateMostWatched(streamId: number, streamType: string): Promise<MostWatched> {
+    const [existing] = await db.select().from(mostWatched).where(eq(mostWatched.streamId, streamId));
+    if (existing) {
+      const [updated] = await db.update(mostWatched)
+        .set({ 
+          totalViews: sql`${mostWatched.totalViews} + 1`,
+          lastWatched: new Date()
+        })
+        .where(eq(mostWatched.streamId, streamId))
+        .returning();
+      return updated;
+    }
+    const [newEntry] = await db.insert(mostWatched)
+      .values({ streamId, streamType, totalViews: 1, lastWatched: new Date() })
+      .returning();
+    return newEntry;
+  }
+
+  // Two-Factor Authentication
+  async getTwoFactorAuth(userId: number): Promise<TwoFactorAuth | undefined> {
+    const [auth] = await db.select().from(twoFactorAuth).where(eq(twoFactorAuth.userId, userId));
+    return auth;
+  }
+
+  async createTwoFactorAuth(auth: InsertTwoFactorAuth): Promise<TwoFactorAuth> {
+    const [newAuth] = await db.insert(twoFactorAuth).values(auth).returning();
+    return newAuth;
+  }
+
+  async updateTwoFactorAuth(userId: number, updates: Partial<InsertTwoFactorAuth> & { verifiedAt?: Date }): Promise<TwoFactorAuth> {
+    const [updated] = await db.update(twoFactorAuth).set(updates).where(eq(twoFactorAuth.userId, userId)).returning();
+    return updated;
+  }
+
+  async deleteTwoFactorAuth(userId: number): Promise<void> {
+    await db.delete(twoFactorAuth).where(eq(twoFactorAuth.userId, userId));
+  }
+
+  // Fingerprint Settings
+  async getFingerprintSettings(): Promise<FingerprintSettings[]> {
+    return await db.select().from(fingerprintSettings);
+  }
+
+  async getFingerprintSetting(id: number): Promise<FingerprintSettings | undefined> {
+    const [setting] = await db.select().from(fingerprintSettings).where(eq(fingerprintSettings.id, id));
+    return setting;
+  }
+
+  async createFingerprintSetting(setting: InsertFingerprintSettings): Promise<FingerprintSettings> {
+    const [newSetting] = await db.insert(fingerprintSettings).values(setting).returning();
+    return newSetting;
+  }
+
+  async updateFingerprintSetting(id: number, updates: Partial<InsertFingerprintSettings>): Promise<FingerprintSettings> {
+    const [updated] = await db.update(fingerprintSettings).set(updates).where(eq(fingerprintSettings.id, id)).returning();
+    return updated;
+  }
+
+  async deleteFingerprintSetting(id: number): Promise<void> {
+    await db.delete(fingerprintSettings).where(eq(fingerprintSettings.id, id));
+  }
+
+  // Line Fingerprints
+  async getLineFingerprints(lineId: number): Promise<LineFingerprint[]> {
+    return await db.select().from(lineFingerprints).where(eq(lineFingerprints.lineId, lineId));
+  }
+
+  async createLineFingerprint(fingerprint: InsertLineFingerprint): Promise<LineFingerprint> {
+    const [newFingerprint] = await db.insert(lineFingerprints).values(fingerprint).returning();
+    return newFingerprint;
+  }
+
+  async deleteLineFingerprint(id: number): Promise<void> {
+    await db.delete(lineFingerprints).where(eq(lineFingerprints.id, id));
+  }
+
+  // Watch Folders
+  async getWatchFolders(): Promise<WatchFolder[]> {
+    return await db.select().from(watchFolders);
+  }
+
+  async getWatchFolder(id: number): Promise<WatchFolder | undefined> {
+    const [folder] = await db.select().from(watchFolders).where(eq(watchFolders.id, id));
+    return folder;
+  }
+
+  async createWatchFolder(folder: InsertWatchFolder): Promise<WatchFolder> {
+    const [newFolder] = await db.insert(watchFolders).values(folder).returning();
+    return newFolder;
+  }
+
+  async updateWatchFolder(id: number, updates: Partial<InsertWatchFolder>): Promise<WatchFolder> {
+    const [updated] = await db.update(watchFolders).set(updates).where(eq(watchFolders.id, id)).returning();
+    return updated;
+  }
+
+  async deleteWatchFolder(id: number): Promise<void> {
+    await db.delete(watchFolders).where(eq(watchFolders.id, id));
+  }
+
+  // Watch Folder Logs
+  async getWatchFolderLogs(folderId?: number): Promise<WatchFolderLog[]> {
+    if (folderId) {
+      return await db.select().from(watchFolderLogs).where(eq(watchFolderLogs.watchFolderId, folderId)).orderBy(desc(watchFolderLogs.createdAt));
+    }
+    return await db.select().from(watchFolderLogs).orderBy(desc(watchFolderLogs.createdAt));
+  }
+
+  async createWatchFolderLog(log: InsertWatchFolderLog): Promise<WatchFolderLog> {
+    const [newLog] = await db.insert(watchFolderLogs).values(log).returning();
+    return newLog;
+  }
+
+  async updateWatchFolderLog(id: number, updates: Partial<InsertWatchFolderLog>): Promise<WatchFolderLog> {
+    const [updated] = await db.update(watchFolderLogs).set(updates).where(eq(watchFolderLogs.id, id)).returning();
+    return updated;
+  }
+
+  // Looping Channels (24/7 Channels)
+  async getLoopingChannels(): Promise<LoopingChannel[]> {
+    return await db.select().from(loopingChannels);
+  }
+
+  async getLoopingChannel(id: number): Promise<LoopingChannel | undefined> {
+    const [channel] = await db.select().from(loopingChannels).where(eq(loopingChannels.id, id));
+    return channel;
+  }
+
+  async createLoopingChannel(channel: InsertLoopingChannel): Promise<LoopingChannel> {
+    const [newChannel] = await db.insert(loopingChannels).values(channel).returning();
+    return newChannel;
+  }
+
+  async updateLoopingChannel(id: number, updates: Partial<InsertLoopingChannel>): Promise<LoopingChannel> {
+    const [updated] = await db.update(loopingChannels).set(updates).where(eq(loopingChannels.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLoopingChannel(id: number): Promise<void> {
+    await db.delete(loopingChannels).where(eq(loopingChannels.id, id));
+  }
+
+  // Autoblock Rules
+  async getAutoblockRules(): Promise<AutoblockRule[]> {
+    return await db.select().from(autoblockRules);
+  }
+
+  async getAutoblockRule(id: number): Promise<AutoblockRule | undefined> {
+    const [rule] = await db.select().from(autoblockRules).where(eq(autoblockRules.id, id));
+    return rule;
+  }
+
+  async createAutoblockRule(rule: InsertAutoblockRule): Promise<AutoblockRule> {
+    const [newRule] = await db.insert(autoblockRules).values(rule).returning();
+    return newRule;
+  }
+
+  async updateAutoblockRule(id: number, updates: Partial<InsertAutoblockRule>): Promise<AutoblockRule> {
+    const [updated] = await db.update(autoblockRules).set(updates).where(eq(autoblockRules.id, id)).returning();
+    return updated;
+  }
+
+  async deleteAutoblockRule(id: number): Promise<void> {
+    await db.delete(autoblockRules).where(eq(autoblockRules.id, id));
+  }
+
+  // Statistics Snapshots
+  async getStatisticsSnapshots(type?: string, limit?: number): Promise<StatisticsSnapshot[]> {
+    let query = db.select().from(statisticsSnapshots).orderBy(desc(statisticsSnapshots.recordedAt));
+    if (type) {
+      query = query.where(eq(statisticsSnapshots.snapshotType, type)) as typeof query;
+    }
+    if (limit) {
+      query = query.limit(limit) as typeof query;
+    }
+    return await query;
+  }
+
+  async createStatisticsSnapshot(snapshot: InsertStatisticsSnapshot): Promise<StatisticsSnapshot> {
+    const [newSnapshot] = await db.insert(statisticsSnapshots).values(snapshot).returning();
+    return newSnapshot;
+  }
+
+  // Impersonation Logs
+  async getImpersonationLogs(adminId?: number): Promise<ImpersonationLog[]> {
+    if (adminId) {
+      return await db.select().from(impersonationLogs).where(eq(impersonationLogs.adminId, adminId)).orderBy(desc(impersonationLogs.startedAt));
+    }
+    return await db.select().from(impersonationLogs).orderBy(desc(impersonationLogs.startedAt));
+  }
+
+  async createImpersonationLog(log: InsertImpersonationLog): Promise<ImpersonationLog> {
+    const [newLog] = await db.insert(impersonationLogs).values(log).returning();
+    return newLog;
+  }
+
+  async endImpersonation(id: number): Promise<ImpersonationLog> {
+    const [updated] = await db.update(impersonationLogs)
+      .set({ endedAt: new Date() })
+      .where(eq(impersonationLogs.id, id))
+      .returning();
+    return updated;
   }
 }
 

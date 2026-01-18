@@ -7,8 +7,12 @@ import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
 import { 
   insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema,
-  insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema
+  insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema,
+  insertActivationCodeSchema, insertConnectionHistorySchema, insertTwoFactorAuthSchema,
+  insertFingerprintSettingsSchema, insertLineFingerprintSchema, insertWatchFolderSchema,
+  insertLoopingChannelSchema, insertAutoblockRuleSchema, insertStatisticsSnapshotSchema, insertImpersonationLogSchema
 } from "@shared/schema";
+import * as OTPAuth from "otpauth";
 
 // Auth rate limiting cache
 const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
@@ -420,7 +424,7 @@ export async function registerRoutes(
         });
       }
       
-      const { username, password } = req.body;
+      const { username, password, totpCode } = req.body;
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password required" });
       }
@@ -444,6 +448,45 @@ export async function registerRoutes(
       if (!isValid) {
         recordAuthAttempt(ip, false);
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Check if 2FA is enabled for this user
+      const twoFactor = await storage.getTwoFactorAuth(user.id);
+      if (twoFactor && twoFactor.enabled) {
+        // 2FA is required - verify the TOTP code
+        if (!totpCode) {
+          return res.status(200).json({ 
+            requires2FA: true,
+            message: "Two-factor authentication code required"
+          });
+        }
+
+        // Verify the TOTP code
+        const totp = new OTPAuth.TOTP({
+          issuer: "PanelX",
+          label: user.username,
+          algorithm: "SHA1",
+          digits: 6,
+          period: 30,
+          secret: OTPAuth.Secret.fromBase32(twoFactor.secret),
+        });
+
+        const delta = totp.validate({ token: totpCode, window: 1 });
+        
+        if (delta === null) {
+          // Check backup codes
+          const backupCodes = (twoFactor.backupCodes as string[]) || [];
+          const codeIndex = backupCodes.indexOf(totpCode);
+          
+          if (codeIndex === -1) {
+            recordAuthAttempt(ip, false);
+            return res.status(401).json({ message: "Invalid two-factor code" });
+          }
+          
+          // Remove used backup code
+          const newBackupCodes = backupCodes.filter((_, i) => i !== codeIndex);
+          await storage.updateTwoFactorAuth(user.id, { backupCodes: newBackupCodes });
+        }
       }
 
       // Clear rate limit on successful login
@@ -2284,6 +2327,457 @@ export async function registerRoutes(
   app.delete("/api/signals/:id", requireAdmin, async (req, res) => {
     await storage.deleteSignal(Number(req.params.id));
     res.status(204).send();
+  });
+
+  // === ACTIVATION CODES (Admin only) ===
+  app.get("/api/activation-codes", requireAdmin, async (_req, res) => {
+    const codes = await storage.getActivationCodes();
+    res.json(codes);
+  });
+
+  app.get("/api/activation-codes/:id", requireAdmin, async (req, res) => {
+    const code = await storage.getActivationCode(Number(req.params.id));
+    if (!code) return res.status(404).json({ message: "Activation code not found" });
+    res.json(code);
+  });
+
+  app.post("/api/activation-codes", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertActivationCodeSchema.parse(req.body);
+      const code = await storage.createActivationCode(validated);
+      res.status(201).json(code);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/activation-codes/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertActivationCodeSchema.partial().parse(req.body);
+      const code = await storage.updateActivationCode(Number(req.params.id), validated);
+      res.json(code);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/activation-codes/:id", requireAdmin, async (req, res) => {
+    await storage.deleteActivationCode(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/activation-codes/:code/redeem", async (req, res) => {
+    try {
+      const codeStr = req.params.code;
+      const { lineId } = req.body;
+      
+      if (!lineId || typeof lineId !== 'number') {
+        return res.status(400).json({ message: "Valid lineId is required" });
+      }
+
+      const line = await storage.getLine(lineId);
+      if (!line) {
+        return res.status(404).json({ message: "Line not found" });
+      }
+      
+      const activationCode = await storage.getActivationCodeByCode(codeStr);
+      if (!activationCode) {
+        return res.status(404).json({ message: "Activation code not found" });
+      }
+      if (!activationCode.enabled) {
+        return res.status(400).json({ message: "Activation code is disabled" });
+      }
+      if (activationCode.usedBy) {
+        return res.status(400).json({ message: "Activation code already used" });
+      }
+      if (activationCode.expiresAt && new Date(activationCode.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Activation code has expired" });
+      }
+
+      const redeemed = await storage.redeemActivationCode(codeStr, lineId);
+      
+      if (activationCode.durationDays) {
+        await storage.extendLine(lineId, activationCode.durationDays);
+      }
+      if (activationCode.bouquets && (activationCode.bouquets as number[]).length > 0) {
+        await storage.updateLine(lineId, { bouquets: activationCode.bouquets as number[] });
+      }
+      if (activationCode.maxConnections) {
+        await storage.updateLine(lineId, { maxConnections: activationCode.maxConnections });
+      }
+      
+      res.json(redeemed);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Generate activation codes in bulk
+  app.post("/api/activation-codes/generate", requireAdmin, async (req, res) => {
+    try {
+      const { count, prefix, ...codeData } = req.body;
+      const numCodes = Math.min(count || 1, 100); // Max 100 at a time
+      const codePrefix = prefix || "ACT";
+      
+      const generated = [];
+      for (let i = 0; i < numCodes; i++) {
+        const uniqueCode = `${codePrefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const validated = insertActivationCodeSchema.parse({ ...codeData, code: uniqueCode });
+        const code = await storage.createActivationCode(validated);
+        generated.push(code);
+      }
+      res.status(201).json(generated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // === CONNECTION HISTORY (Admin only) ===
+  app.get("/api/connection-history", requireAdmin, async (req, res) => {
+    const lineId = req.query.lineId ? Number(req.query.lineId) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const history = await storage.getConnectionHistory(lineId, limit);
+    res.json(history);
+  });
+
+  // === MOST WATCHED ANALYTICS (Admin only) ===
+  app.get("/api/most-watched", requireAdmin, async (req, res) => {
+    const streamType = req.query.streamType as string | undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    const watched = await storage.getMostWatched(streamType, limit);
+    res.json(watched);
+  });
+
+  // === TWO-FACTOR AUTHENTICATION ===
+  app.get("/api/2fa/status", requireAuth, async (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    
+    const twoFactor = await storage.getTwoFactorAuth(userId);
+    res.json({ enabled: twoFactor?.enabled || false, verified: !!twoFactor?.verifiedAt });
+  });
+
+  app.post("/api/2fa/setup", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const { secret, backupCodes } = req.body;
+      const existing = await storage.getTwoFactorAuth(userId);
+      
+      if (existing) {
+        const updated = await storage.updateTwoFactorAuth(userId, { secret, backupCodes, enabled: false });
+        res.json(updated);
+      } else {
+        const created = await storage.createTwoFactorAuth({ userId, secret, backupCodes, enabled: false });
+        res.json(created);
+      }
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/2fa/verify", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const { code } = req.body;
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ message: "Verification code is required" });
+      }
+
+      const twoFactor = await storage.getTwoFactorAuth(userId);
+      if (!twoFactor) {
+        return res.status(400).json({ message: "2FA not set up. Please run setup first." });
+      }
+
+      // Verify the TOTP code
+      const totp = new OTPAuth.TOTP({
+        issuer: "PanelX",
+        label: req.session.username || "User",
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(twoFactor.secret),
+      });
+
+      const delta = totp.validate({ token: code, window: 1 });
+      
+      if (delta === null) {
+        // Check backup codes
+        const backupCodes = (twoFactor.backupCodes as string[]) || [];
+        const codeIndex = backupCodes.indexOf(code);
+        
+        if (codeIndex === -1) {
+          return res.status(400).json({ message: "Invalid verification code" });
+        }
+        
+        // Remove used backup code
+        const newBackupCodes = backupCodes.filter((_, i) => i !== codeIndex);
+        await storage.updateTwoFactorAuth(userId, { backupCodes: newBackupCodes });
+      }
+      
+      const updated = await storage.updateTwoFactorAuth(userId, { enabled: true, verifiedAt: new Date() });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/2fa/disable", requireAuth, async (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    
+    await storage.deleteTwoFactorAuth(userId);
+    res.status(204).send();
+  });
+
+  // === FINGERPRINT SETTINGS (Admin only) ===
+  app.get("/api/fingerprint-settings", requireAdmin, async (_req, res) => {
+    const settings = await storage.getFingerprintSettings();
+    res.json(settings);
+  });
+
+  app.get("/api/fingerprint-settings/:id", requireAdmin, async (req, res) => {
+    const setting = await storage.getFingerprintSetting(Number(req.params.id));
+    if (!setting) return res.status(404).json({ message: "Fingerprint setting not found" });
+    res.json(setting);
+  });
+
+  app.post("/api/fingerprint-settings", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertFingerprintSettingsSchema.parse(req.body);
+      const setting = await storage.createFingerprintSetting(validated);
+      res.status(201).json(setting);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/fingerprint-settings/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertFingerprintSettingsSchema.partial().parse(req.body);
+      const setting = await storage.updateFingerprintSetting(Number(req.params.id), validated);
+      res.json(setting);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/fingerprint-settings/:id", requireAdmin, async (req, res) => {
+    await storage.deleteFingerprintSetting(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === LINE FINGERPRINTS (Admin only) ===
+  app.get("/api/lines/:lineId/fingerprints", requireAdmin, async (req, res) => {
+    const fingerprints = await storage.getLineFingerprints(Number(req.params.lineId));
+    res.json(fingerprints);
+  });
+
+  app.post("/api/lines/:lineId/fingerprints", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertLineFingerprintSchema.parse({ ...req.body, lineId: Number(req.params.lineId) });
+      const fingerprint = await storage.createLineFingerprint(validated);
+      res.status(201).json(fingerprint);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/line-fingerprints/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLineFingerprint(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === WATCH FOLDERS (Admin only) ===
+  app.get("/api/watch-folders", requireAdmin, async (_req, res) => {
+    const folders = await storage.getWatchFolders();
+    res.json(folders);
+  });
+
+  app.get("/api/watch-folders/:id", requireAdmin, async (req, res) => {
+    const folder = await storage.getWatchFolder(Number(req.params.id));
+    if (!folder) return res.status(404).json({ message: "Watch folder not found" });
+    res.json(folder);
+  });
+
+  app.post("/api/watch-folders", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertWatchFolderSchema.parse(req.body);
+      const folder = await storage.createWatchFolder(validated);
+      res.status(201).json(folder);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/watch-folders/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertWatchFolderSchema.partial().parse(req.body);
+      const folder = await storage.updateWatchFolder(Number(req.params.id), validated);
+      res.json(folder);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/watch-folders/:id", requireAdmin, async (req, res) => {
+    await storage.deleteWatchFolder(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/watch-folders/:id/logs", requireAdmin, async (req, res) => {
+    const logs = await storage.getWatchFolderLogs(Number(req.params.id));
+    res.json(logs);
+  });
+
+  // === LOOPING CHANNELS (24/7 Channels - Admin only) ===
+  app.get("/api/looping-channels", requireAdmin, async (_req, res) => {
+    const channels = await storage.getLoopingChannels();
+    res.json(channels);
+  });
+
+  app.get("/api/looping-channels/:id", requireAdmin, async (req, res) => {
+    const channel = await storage.getLoopingChannel(Number(req.params.id));
+    if (!channel) return res.status(404).json({ message: "Looping channel not found" });
+    res.json(channel);
+  });
+
+  app.post("/api/looping-channels", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertLoopingChannelSchema.parse(req.body);
+      const channel = await storage.createLoopingChannel(validated);
+      res.status(201).json(channel);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/looping-channels/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertLoopingChannelSchema.partial().parse(req.body);
+      const channel = await storage.updateLoopingChannel(Number(req.params.id), validated);
+      res.json(channel);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/looping-channels/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLoopingChannel(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === AUTOBLOCK RULES (Admin only) ===
+  app.get("/api/autoblock-rules", requireAdmin, async (_req, res) => {
+    const rules = await storage.getAutoblockRules();
+    res.json(rules);
+  });
+
+  app.get("/api/autoblock-rules/:id", requireAdmin, async (req, res) => {
+    const rule = await storage.getAutoblockRule(Number(req.params.id));
+    if (!rule) return res.status(404).json({ message: "Autoblock rule not found" });
+    res.json(rule);
+  });
+
+  app.post("/api/autoblock-rules", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertAutoblockRuleSchema.parse(req.body);
+      const rule = await storage.createAutoblockRule(validated);
+      res.status(201).json(rule);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/autoblock-rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertAutoblockRuleSchema.partial().parse(req.body);
+      const rule = await storage.updateAutoblockRule(Number(req.params.id), validated);
+      res.json(rule);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/autoblock-rules/:id", requireAdmin, async (req, res) => {
+    await storage.deleteAutoblockRule(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === STATISTICS SNAPSHOTS (Admin only) ===
+  app.get("/api/statistics-snapshots", requireAdmin, async (req, res) => {
+    const type = req.query.type as string | undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const snapshots = await storage.getStatisticsSnapshots(type, limit);
+    res.json(snapshots);
+  });
+
+  app.post("/api/statistics-snapshots", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertStatisticsSnapshotSchema.parse(req.body);
+      const snapshot = await storage.createStatisticsSnapshot(validated);
+      res.status(201).json(snapshot);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // === IMPERSONATION LOGS (Admin only) ===
+  app.get("/api/impersonation-logs", requireAdmin, async (req, res) => {
+    const adminId = req.query.adminId ? Number(req.query.adminId) : undefined;
+    const logs = await storage.getImpersonationLogs(adminId);
+    res.json(logs);
+  });
+
+  app.post("/api/impersonate/:userId", requireAdmin, async (req, res) => {
+    try {
+      const adminId = req.session?.userId;
+      const targetUserId = Number(req.params.userId);
+      
+      if (!adminId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) return res.status(404).json({ message: "User not found" });
+      
+      const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
+      const log = await storage.createImpersonationLog({
+        adminId,
+        targetUserId,
+        reason: req.body.reason,
+        ipAddress
+      });
+      
+      res.json({ log, user: targetUser });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/impersonation-logs/:id/end", requireAdmin, async (req, res) => {
+    try {
+      const log = await storage.endImpersonation(Number(req.params.id));
+      res.json(log);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
   });
 
   return httpServer;

@@ -501,6 +501,10 @@ export const lines = pgTable("lines", {
   playToken: text("play_token"), // Secure playback token
   parentResellerIdd: integer("parent_reseller_id"), // Hierarchy
   adminEnabled: boolean("admin_enabled").default(true), // Separate admin toggle
+  // New 1-Stream features
+  allowedDomains: jsonb("allowed_domains").$type<string[]>().default([]), // Restrict playback domains
+  fingerprintEnabled: boolean("fingerprint_enabled").default(false),
+  fingerprintId: integer("fingerprint_id"),
 });
 
 // Active Connections (Real-time tracking)
@@ -559,6 +563,194 @@ export const rateLimitSettings = pgTable("rate_limit_settings", {
   lockoutDurationMinutes: integer("lockout_duration_minutes").default(60),
   attemptWindowMinutes: integer("attempt_window_minutes").default(15),
   enabled: boolean("enabled").default(true),
+});
+
+// Activation Codes (Pre-generated codes for line activation)
+export const activationCodes = pgTable("activation_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  packageId: integer("package_id").references(() => packages.id),
+  bouquets: jsonb("bouquets").$type<number[]>().default([]),
+  durationDays: integer("duration_days").notNull(),
+  maxConnections: integer("max_connections").default(1),
+  createdBy: integer("created_by").references(() => users.id),
+  usedBy: integer("used_by"), // Line ID when redeemed
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at"), // Code expiration (not subscription)
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Connection History (Detailed tracking of all connections)
+export const connectionHistory = pgTable("connection_history", {
+  id: serial("id").primaryKey(),
+  lineId: integer("line_id").references(() => lines.id),
+  streamId: integer("stream_id").references(() => streams.id),
+  serverId: integer("server_id").references(() => servers.id),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  country: text("country"),
+  city: text("city"),
+  isp: text("isp"),
+  isVpn: boolean("is_vpn").default(false),
+  isProxy: boolean("is_proxy").default(false),
+  isDatacenter: boolean("is_datacenter").default(false),
+  deviceId: text("device_id"),
+  playerType: text("player_type"), // TiviMate, Smarters, VLC, etc.
+  bytesTransferred: integer("bytes_transferred").default(0),
+  duration: integer("duration").default(0), // seconds
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
+});
+
+// Most Watched Analytics
+export const mostWatched = pgTable("most_watched", {
+  id: serial("id").primaryKey(),
+  streamId: integer("stream_id").references(() => streams.id).notNull(),
+  streamType: text("stream_type").default("live"), // live, movie, series
+  totalViews: integer("total_views").default(0),
+  totalDuration: integer("total_duration").default(0), // seconds
+  uniqueViewers: integer("unique_viewers").default(0),
+  peakConcurrent: integer("peak_concurrent").default(0),
+  lastWatched: timestamp("last_watched"),
+  dateRecorded: timestamp("date_recorded").defaultNow(),
+});
+
+// Two-Factor Authentication
+export const twoFactorAuth = pgTable("two_factor_auth", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  secret: text("secret").notNull(),
+  backupCodes: jsonb("backup_codes").$type<string[]>().default([]),
+  enabled: boolean("enabled").default(false),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Fingerprint/Watermark Settings
+export const fingerprintSettings = pgTable("fingerprint_settings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  fingerprintType: text("fingerprint_type").default("text"), // text, image
+  text: text("text"), // Variables: {username}, {ip}, {date}, {time}
+  imageUrl: text("image_url"),
+  position: text("position").default("bottom-right"), // top-left, top-right, bottom-left, bottom-right, center
+  opacity: real("opacity").default(0.5),
+  fontSize: integer("font_size").default(14),
+  fontColor: text("font_color").default("#FFFFFF"),
+  backgroundColor: text("background_color"),
+  margin: integer("margin").default(10),
+  applyToLive: boolean("apply_to_live").default(true),
+  applyToVod: boolean("apply_to_vod").default(true),
+  applyToSeries: boolean("apply_to_series").default(true),
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Line Fingerprints (Per-line watermark settings)
+export const lineFingerprints = pgTable("line_fingerprints", {
+  id: serial("id").primaryKey(),
+  lineId: integer("line_id").references(() => lines.id).notNull(),
+  fingerprintId: integer("fingerprint_id").references(() => fingerprintSettings.id),
+  customText: text("custom_text"),
+  enabled: boolean("enabled").default(true),
+});
+
+// Watch Folders (Auto-import from directories)
+export const watchFolders = pgTable("watch_folders", {
+  id: serial("id").primaryKey(),
+  folderName: text("folder_name").notNull(),
+  folderPath: text("folder_path").notNull(),
+  folderType: text("folder_type").default("movie"), // movie, series, live_m3u
+  categoryId: integer("category_id").references(() => categories.id),
+  serverId: integer("server_id").references(() => servers.id),
+  autoImport: boolean("auto_import").default(true),
+  deleteAfterImport: boolean("delete_after_import").default(false),
+  fetchTmdbInfo: boolean("fetch_tmdb_info").default(true),
+  transcodeProfileId: integer("transcode_profile_id").references(() => transcodeProfiles.id),
+  lastScanned: timestamp("last_scanned"),
+  filesFound: integer("files_found").default(0),
+  filesImported: integer("files_imported").default(0),
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Watch Folder Logs
+export const watchFolderLogs = pgTable("watch_folder_logs", {
+  id: serial("id").primaryKey(),
+  watchFolderId: integer("watch_folder_id").references(() => watchFolders.id),
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path").notNull(),
+  fileSize: integer("file_size").default(0),
+  status: text("status").default("pending"), // pending, importing, imported, failed
+  streamId: integer("stream_id").references(() => streams.id),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Looping Channels (24/7 channels with playlist)
+export const loopingChannels = pgTable("looping_channels", {
+  id: serial("id").primaryKey(),
+  channelName: text("channel_name").notNull(),
+  categoryId: integer("category_id").references(() => categories.id),
+  streamIcon: text("stream_icon"),
+  playlist: jsonb("playlist").$type<{streamId: number, order: number}[]>().default([]),
+  loopMode: text("loop_mode").default("sequential"), // sequential, shuffle, single
+  currentIndex: integer("current_index").default(0),
+  currentStartTime: timestamp("current_start_time"),
+  transitionType: text("transition_type").default("cut"), // cut, fade
+  serverId: integer("server_id").references(() => servers.id),
+  transcodeProfileId: integer("transcode_profile_id").references(() => transcodeProfiles.id),
+  outputStreamId: integer("output_stream_id").references(() => streams.id),
+  epgChannelId: text("epg_channel_id"),
+  status: text("status").default("stopped"), // stopped, running, error
+  pid: integer("pid").default(0),
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Autoblock Rules
+export const autoblockRules = pgTable("autoblock_rules", {
+  id: serial("id").primaryKey(),
+  ruleName: text("rule_name").notNull(),
+  ruleType: text("rule_type").notNull(), // expired_line, failed_auth, vpn_proxy, suspicious_ua, connection_limit
+  threshold: integer("threshold").default(5), // Number of attempts before block
+  timeWindowMinutes: integer("time_window_minutes").default(15),
+  blockDurationMinutes: integer("block_duration_minutes").default(60),
+  blockType: text("block_type").default("temporary"), // temporary, permanent
+  notifyAdmin: boolean("notify_admin").default(false),
+  enabled: boolean("enabled").default(true),
+  triggeredCount: integer("triggered_count").default(0),
+  lastTriggered: timestamp("last_triggered"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Statistics Snapshots (For analytics dashboard)
+export const statisticsSnapshots = pgTable("statistics_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshotType: text("snapshot_type").default("hourly"), // hourly, daily, weekly, monthly
+  totalConnections: integer("total_connections").default(0),
+  peakConnections: integer("peak_connections").default(0),
+  uniqueUsers: integer("unique_users").default(0),
+  totalBandwidth: real("total_bandwidth").default(0), // GB
+  activeLines: integer("active_lines").default(0),
+  expiredLines: integer("expired_lines").default(0),
+  newLines: integer("new_lines").default(0),
+  topCountries: jsonb("top_countries").$type<{country: string, count: number}[]>().default([]),
+  topStreams: jsonb("top_streams").$type<{streamId: number, views: number}[]>().default([]),
+  serverStats: jsonb("server_stats").$type<{serverId: number, load: number, connections: number}[]>().default([]),
+  recordedAt: timestamp("recorded_at").defaultNow(),
+});
+
+// Admin Impersonation Log (Login as user)
+export const impersonationLogs = pgTable("impersonation_logs", {
+  id: serial("id").primaryKey(),
+  adminId: integer("admin_id").references(() => users.id).notNull(),
+  targetUserId: integer("target_user_id").references(() => users.id).notNull(),
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
 });
 
 // === RELATIONS ===
@@ -629,6 +821,20 @@ export const insertCreatedChannelSchema = createInsertSchema(createdChannels).om
 export const insertEnigma2DeviceSchema = createInsertSchema(enigma2Devices).omit({ id: true, createdAt: true, lastUpdated: true });
 export const insertEnigma2ActionSchema = createInsertSchema(enigma2Actions).omit({ id: true, createdAt: true, status: true });
 export const insertSignalSchema = createInsertSchema(signals).omit({ id: true, createdAt: true, lastTriggered: true, triggerCount: true });
+
+// New 1-Stream feature schemas
+export const insertActivationCodeSchema = createInsertSchema(activationCodes).omit({ id: true, createdAt: true, usedAt: true });
+export const insertConnectionHistorySchema = createInsertSchema(connectionHistory).omit({ id: true, startedAt: true, endedAt: true });
+export const insertMostWatchedSchema = createInsertSchema(mostWatched).omit({ id: true, dateRecorded: true, lastWatched: true });
+export const insertTwoFactorAuthSchema = createInsertSchema(twoFactorAuth).omit({ id: true, createdAt: true, verifiedAt: true });
+export const insertFingerprintSettingsSchema = createInsertSchema(fingerprintSettings).omit({ id: true, createdAt: true });
+export const insertLineFingerprintSchema = createInsertSchema(lineFingerprints).omit({ id: true });
+export const insertWatchFolderSchema = createInsertSchema(watchFolders).omit({ id: true, createdAt: true, lastScanned: true });
+export const insertWatchFolderLogSchema = createInsertSchema(watchFolderLogs).omit({ id: true, createdAt: true });
+export const insertLoopingChannelSchema = createInsertSchema(loopingChannels).omit({ id: true, createdAt: true, pid: true, status: true });
+export const insertAutoblockRuleSchema = createInsertSchema(autoblockRules).omit({ id: true, createdAt: true, triggeredCount: true, lastTriggered: true });
+export const insertStatisticsSnapshotSchema = createInsertSchema(statisticsSnapshots).omit({ id: true, recordedAt: true });
+export const insertImpersonationLogSchema = createInsertSchema(impersonationLogs).omit({ id: true, startedAt: true, endedAt: true });
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
@@ -745,6 +951,43 @@ export type InsertEnigma2Action = z.infer<typeof insertEnigma2ActionSchema>;
 
 export type Signal = typeof signals.$inferSelect;
 export type InsertSignal = z.infer<typeof insertSignalSchema>;
+
+// New 1-Stream feature types
+export type ActivationCode = typeof activationCodes.$inferSelect;
+export type InsertActivationCode = z.infer<typeof insertActivationCodeSchema>;
+
+export type ConnectionHistory = typeof connectionHistory.$inferSelect;
+export type InsertConnectionHistory = z.infer<typeof insertConnectionHistorySchema>;
+
+export type MostWatched = typeof mostWatched.$inferSelect;
+export type InsertMostWatched = z.infer<typeof insertMostWatchedSchema>;
+
+export type TwoFactorAuth = typeof twoFactorAuth.$inferSelect;
+export type InsertTwoFactorAuth = z.infer<typeof insertTwoFactorAuthSchema>;
+
+export type FingerprintSettings = typeof fingerprintSettings.$inferSelect;
+export type InsertFingerprintSettings = z.infer<typeof insertFingerprintSettingsSchema>;
+
+export type LineFingerprint = typeof lineFingerprints.$inferSelect;
+export type InsertLineFingerprint = z.infer<typeof insertLineFingerprintSchema>;
+
+export type WatchFolder = typeof watchFolders.$inferSelect;
+export type InsertWatchFolder = z.infer<typeof insertWatchFolderSchema>;
+
+export type WatchFolderLog = typeof watchFolderLogs.$inferSelect;
+export type InsertWatchFolderLog = z.infer<typeof insertWatchFolderLogSchema>;
+
+export type LoopingChannel = typeof loopingChannels.$inferSelect;
+export type InsertLoopingChannel = z.infer<typeof insertLoopingChannelSchema>;
+
+export type AutoblockRule = typeof autoblockRules.$inferSelect;
+export type InsertAutoblockRule = z.infer<typeof insertAutoblockRuleSchema>;
+
+export type StatisticsSnapshot = typeof statisticsSnapshots.$inferSelect;
+export type InsertStatisticsSnapshot = z.infer<typeof insertStatisticsSnapshotSchema>;
+
+export type ImpersonationLog = typeof impersonationLogs.$inferSelect;
+export type InsertImpersonationLog = z.infer<typeof insertImpersonationLogSchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

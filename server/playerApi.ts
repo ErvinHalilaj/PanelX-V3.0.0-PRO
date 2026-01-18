@@ -36,6 +36,27 @@ function formatXmltvDate(date: Date): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())} +0000`;
 }
 
+// Detect player type from user agent
+function detectPlayerType(userAgent: string): string {
+  const ua = userAgent.toLowerCase();
+  if (ua.includes('tivimate')) return 'TiviMate';
+  if (ua.includes('smarters') || ua.includes('iptv smarters')) return 'Smarters';
+  if (ua.includes('vlc')) return 'VLC';
+  if (ua.includes('kodi') || ua.includes('xbmc')) return 'Kodi';
+  if (ua.includes('tvheadend')) return 'TVHeadend';
+  if (ua.includes('ffmpeg') || ua.includes('ffplay')) return 'FFmpeg';
+  if (ua.includes('mpv')) return 'MPV';
+  if (ua.includes('gse') || ua.includes('gse iptv')) return 'GSE IPTV';
+  if (ua.includes('perfect player')) return 'Perfect Player';
+  if (ua.includes('ottplayer') || ua.includes('ott')) return 'OTT Player';
+  if (ua.includes('stb emu') || ua.includes('stbemu')) return 'STB Emu';
+  if (ua.includes('xciptv')) return 'xcIPTV';
+  if (ua.includes('sparkle tv')) return 'Sparkle TV';
+  if (ua.includes('iptv pro')) return 'IPTV Pro';
+  if (ua.includes('mozilla') || ua.includes('chrome') || ua.includes('safari')) return 'Browser';
+  return 'Unknown';
+}
+
 // Get the server's base URL
 function getServerInfo(req: Request): XtreamServerInfo {
   const protocol = req.protocol;
@@ -541,6 +562,18 @@ export function registerPlayerApi(app: Express) {
       return res.status(403).send('Max connections reached');
     }
 
+    // Check allowed domains restriction
+    const lineAllowedDomains = line.allowedDomains as string[] | null;
+    if (lineAllowedDomains && lineAllowedDomains.length > 0) {
+      const requestHost = req.get('host') || req.get('origin') || '';
+      const isAllowed = lineAllowedDomains.some(domain => 
+        requestHost.includes(domain) || domain === '*'
+      );
+      if (!isAllowed) {
+        return res.status(403).send('Domain not allowed');
+      }
+    }
+
     // Get the stream
     const stream = await storage.getStream(parseInt(streamId));
     
@@ -562,6 +595,29 @@ export function registerPlayerApi(app: Express) {
       ipAddress: req.ip || '',
     });
 
+    // Track connection history for analytics
+    const connectionStartTime = Date.now();
+    let connectionHistoryId: number | null = null;
+    try {
+      const historyEntry = await storage.createConnectionHistory({
+        lineId: line.id,
+        streamId: stream.id,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || '',
+        playerType: detectPlayerType(req.get('user-agent') || ''),
+      });
+      connectionHistoryId = historyEntry.id;
+    } catch (e) {
+      console.error('Failed to create connection history:', e);
+    }
+
+    // Update most watched analytics
+    try {
+      await storage.updateMostWatched(stream.id, stream.streamType || 'live');
+    } catch (e) {
+      console.error('Failed to update most watched:', e);
+    }
+
     // Log activity
     await storage.logActivity({
       lineId: line.id,
@@ -578,6 +634,19 @@ export function registerPlayerApi(app: Express) {
     // Cleanup on client disconnect
     req.on('close', async () => {
       await storage.deleteConnection(connection.id);
+      
+      // Update connection history with duration
+      if (connectionHistoryId) {
+        const durationSeconds = Math.floor((Date.now() - connectionStartTime) / 1000);
+        try {
+          await storage.updateConnectionHistory(connectionHistoryId, {
+            duration: durationSeconds,
+          });
+        } catch (e) {
+          console.error('Failed to update connection history duration:', e);
+        }
+      }
+      
       await storage.logActivity({
         lineId: line.id,
         action: 'stream_stop',
@@ -660,6 +729,18 @@ export function registerPlayerApi(app: Express) {
       return res.status(403).send('Max connections reached');
     }
 
+    // Check allowed domains restriction
+    const movieAllowedDomains = line.allowedDomains as string[] | null;
+    if (movieAllowedDomains && movieAllowedDomains.length > 0) {
+      const requestHost = req.get('host') || req.get('origin') || '';
+      const isAllowed = movieAllowedDomains.some(domain => 
+        requestHost.includes(domain) || domain === '*'
+      );
+      if (!isAllowed) {
+        return res.status(403).send('Domain not allowed');
+      }
+    }
+
     // Get the stream
     const stream = await storage.getStream(parseInt(streamId));
     
@@ -681,6 +762,29 @@ export function registerPlayerApi(app: Express) {
       ipAddress: req.ip || '',
     });
 
+    // Track connection history for analytics
+    const vodStartTime = Date.now();
+    let vodHistoryId: number | null = null;
+    try {
+      const historyEntry = await storage.createConnectionHistory({
+        lineId: line.id,
+        streamId: stream.id,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || '',
+        playerType: detectPlayerType(req.get('user-agent') || ''),
+      });
+      vodHistoryId = historyEntry.id;
+    } catch (e) {
+      console.error('Failed to create VOD connection history:', e);
+    }
+
+    // Update most watched analytics for movies
+    try {
+      await storage.updateMostWatched(stream.id, 'movie');
+    } catch (e) {
+      console.error('Failed to update movie most watched:', e);
+    }
+
     // Log activity
     await storage.logActivity({
       lineId: line.id,
@@ -693,6 +797,16 @@ export function registerPlayerApi(app: Express) {
     // Cleanup on disconnect
     req.on('close', async () => {
       await storage.deleteConnection(connection.id);
+      
+      // Update connection history with duration
+      if (vodHistoryId) {
+        const durationSeconds = Math.floor((Date.now() - vodStartTime) / 1000);
+        try {
+          await storage.updateConnectionHistory(vodHistoryId, { duration: durationSeconds });
+        } catch (e) {
+          console.error('Failed to update VOD connection history duration:', e);
+        }
+      }
     });
 
     // Redirect to source
@@ -715,6 +829,18 @@ export function registerPlayerApi(app: Express) {
       return res.status(403).send('Max connections reached');
     }
 
+    // Check allowed domains restriction
+    const seriesAllowedDomains = line.allowedDomains as string[] | null;
+    if (seriesAllowedDomains && seriesAllowedDomains.length > 0) {
+      const requestHost = req.get('host') || req.get('origin') || '';
+      const isAllowed = seriesAllowedDomains.some(domain => 
+        requestHost.includes(domain) || domain === '*'
+      );
+      if (!isAllowed) {
+        return res.status(403).send('Domain not allowed');
+      }
+    }
+
     // Get the episode
     const episode = await storage.getEpisode(parseInt(episodeId));
     
@@ -730,6 +856,29 @@ export function registerPlayerApi(app: Express) {
       ipAddress: req.ip || '',
     });
 
+    // Track connection history for analytics
+    const seriesStartTime = Date.now();
+    let seriesHistoryId: number | null = null;
+    try {
+      const historyEntry = await storage.createConnectionHistory({
+        lineId: line.id,
+        streamId: episode.seriesId,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || '',
+        playerType: detectPlayerType(req.get('user-agent') || ''),
+      });
+      seriesHistoryId = historyEntry.id;
+    } catch (e) {
+      console.error('Failed to create series connection history:', e);
+    }
+
+    // Update most watched analytics for series
+    try {
+      await storage.updateMostWatched(episode.seriesId, 'series');
+    } catch (e) {
+      console.error('Failed to update series most watched:', e);
+    }
+
     // Log activity
     await storage.logActivity({
       lineId: line.id,
@@ -743,6 +892,16 @@ export function registerPlayerApi(app: Express) {
     // Cleanup on disconnect
     req.on('close', async () => {
       await storage.deleteConnection(connection.id);
+      
+      // Update connection history with duration
+      if (seriesHistoryId) {
+        const durationSeconds = Math.floor((Date.now() - seriesStartTime) / 1000);
+        try {
+          await storage.updateConnectionHistory(seriesHistoryId, { duration: durationSeconds });
+        } catch (e) {
+          console.error('Failed to update series connection history duration:', e);
+        }
+      }
     });
 
     // Redirect to source
