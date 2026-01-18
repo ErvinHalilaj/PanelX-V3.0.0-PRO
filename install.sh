@@ -322,8 +322,8 @@ async function setupAdmin() {
         } else {
             // Create new admin
             await pool.query(
-                `INSERT INTO users (username, password, role, credits, status) 
-                 VALUES ($1, $2, 'admin', 0, 'active')`,
+                `INSERT INTO users (username, password, role, credits, enabled) 
+                 VALUES ($1, $2, 'admin', 0, true)`,
                 [username, hashedPassword]
             );
             console.log('Admin user created successfully');
