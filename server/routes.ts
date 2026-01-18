@@ -5,7 +5,10 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
-import { insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema } from "@shared/schema";
+import { 
+  insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema,
+  insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema
+} from "@shared/schema";
 
 // Auth rate limiting cache
 const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
@@ -2119,6 +2122,167 @@ export async function registerRoutes(
 
   app.delete("/api/reserved-usernames/:id", requireAdmin, async (req, res) => {
     await storage.deleteReservedUsername(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === CREATED CHANNELS (RTMP to HLS - Admin only) ===
+  app.get("/api/created-channels", requireAdmin, async (_req, res) => {
+    const channels = await storage.getCreatedChannels();
+    res.json(channels);
+  });
+
+  app.get("/api/created-channels/:id", requireAdmin, async (req, res) => {
+    const channel = await storage.getCreatedChannel(Number(req.params.id));
+    if (!channel) {
+      return res.status(404).json({ message: "Created channel not found" });
+    }
+    res.json(channel);
+  });
+
+  app.post("/api/created-channels", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertCreatedChannelSchema.parse(req.body);
+      const channel = await storage.createCreatedChannel(validated);
+      res.status(201).json(channel);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/created-channels/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertCreatedChannelSchema.partial().parse(req.body);
+      const channel = await storage.updateCreatedChannel(Number(req.params.id), validated);
+      res.json(channel);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/created-channels/:id", requireAdmin, async (req, res) => {
+    await storage.deleteCreatedChannel(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ENIGMA2 DEVICES (Admin only) ===
+  app.get("/api/enigma2-devices", requireAdmin, async (_req, res) => {
+    const devices = await storage.getEnigma2Devices();
+    res.json(devices);
+  });
+
+  app.get("/api/enigma2-devices/:id", requireAdmin, async (req, res) => {
+    const device = await storage.getEnigma2Device(Number(req.params.id));
+    if (!device) {
+      return res.status(404).json({ message: "Enigma2 device not found" });
+    }
+    res.json(device);
+  });
+
+  app.post("/api/enigma2-devices", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertEnigma2DeviceSchema.parse(req.body);
+      const device = await storage.createEnigma2Device(validated);
+      res.status(201).json(device);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/enigma2-devices/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertEnigma2DeviceSchema.partial().parse(req.body);
+      const device = await storage.updateEnigma2Device(Number(req.params.id), validated);
+      res.json(device);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/enigma2-devices/:id", requireAdmin, async (req, res) => {
+    await storage.deleteEnigma2Device(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ENIGMA2 ACTIONS (Admin only) ===
+  app.get("/api/enigma2-actions", requireAdmin, async (req, res) => {
+    const deviceId = req.query.deviceId ? Number(req.query.deviceId) : undefined;
+    const actions = await storage.getEnigma2Actions(deviceId);
+    res.json(actions);
+  });
+
+  app.post("/api/enigma2-actions", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertEnigma2ActionSchema.parse(req.body);
+      const action = await storage.createEnigma2Action(validated);
+      res.status(201).json(action);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/enigma2-actions/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertEnigma2ActionSchema.partial().parse(req.body);
+      const action = await storage.updateEnigma2Action(Number(req.params.id), validated);
+      res.json(action);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/enigma2-actions/:id", requireAdmin, async (req, res) => {
+    await storage.deleteEnigma2Action(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === SIGNALS (Triggers/Automation - Admin only) ===
+  app.get("/api/signals", requireAdmin, async (_req, res) => {
+    const signalsList = await storage.getSignals();
+    res.json(signalsList);
+  });
+
+  app.get("/api/signals/:id", requireAdmin, async (req, res) => {
+    const signal = await storage.getSignal(Number(req.params.id));
+    if (!signal) {
+      return res.status(404).json({ message: "Signal not found" });
+    }
+    res.json(signal);
+  });
+
+  app.post("/api/signals", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertSignalSchema.parse(req.body);
+      const signal = await storage.createSignal(validated);
+      res.status(201).json(signal);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/signals/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertSignalSchema.partial().parse(req.body);
+      const signal = await storage.updateSignal(Number(req.params.id), validated);
+      res.json(signal);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/signals/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSignal(Number(req.params.id));
     res.status(204).send();
   });
 

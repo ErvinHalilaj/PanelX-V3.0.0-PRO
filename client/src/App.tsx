@@ -37,6 +37,9 @@ import MagDevices from "@/pages/MagDevices";
 import StreamStatus from "@/pages/StreamStatus";
 import AccessOutputs from "@/pages/AccessOutputs";
 import ReservedUsernames from "@/pages/ReservedUsernames";
+import CreatedChannels from "@/pages/CreatedChannels";
+import Enigma2Devices from "@/pages/Enigma2Devices";
+import Signals from "@/pages/Signals";
 import { AdminAuthProvider } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -72,6 +75,9 @@ function AdminRouter() {
       <Route path="/stream-status" component={StreamStatus} />
       <Route path="/access-outputs" component={AccessOutputs} />
       <Route path="/reserved-usernames" component={ReservedUsernames} />
+      <Route path="/created-channels" component={CreatedChannels} />
+      <Route path="/enigma2-devices" component={Enigma2Devices} />
+      <Route path="/signals" component={Signals} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

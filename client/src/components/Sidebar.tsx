@@ -30,7 +30,9 @@ import {
   MonitorPlay,
   FileText,
   FileOutput,
-  ShieldBan
+  ShieldBan,
+  Zap,
+  Monitor
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -44,6 +46,7 @@ export function Sidebar() {
 
   const contentNav = [
     { icon: Tv, label: "Live Streams", href: "/streams" },
+    { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },
     { icon: Clapperboard, label: "Series", href: "/series" },
@@ -56,6 +59,7 @@ export function Sidebar() {
   const usersNav = [
     { icon: Users, label: "Lines", href: "/lines" },
     { icon: MonitorPlay, label: "MAG Devices", href: "/mag-devices" },
+    { icon: Monitor, label: "Enigma2 Devices", href: "/enigma2-devices" },
     { icon: UserCog, label: "Users/Resellers", href: "/users" },
     { icon: UsersRound, label: "Reseller Groups", href: "/reseller-groups" },
     { icon: Package, label: "Packages", href: "/packages" },
@@ -73,8 +77,9 @@ export function Sidebar() {
   const systemNav = [
     { icon: Server, label: "Servers", href: "/servers" },
     { icon: Smartphone, label: "Device Templates", href: "/devices" },
-    { icon: Radio, label: "Transcode", href: "/transcode" },
+    { icon: Zap, label: "Transcode", href: "/transcode" },
     { icon: FileOutput, label: "Output Types", href: "/access-outputs" },
+    { icon: Zap, label: "Signals", href: "/signals" },
     { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: Archive, label: "Backups", href: "/backups" },

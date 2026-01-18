@@ -301,6 +301,86 @@ export const reservedUsernames = pgTable("reserved_usernames", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Created Channels (RTMP to HLS live transcoding)
+export const createdChannels = pgTable("created_channels", {
+  id: serial("id").primaryKey(),
+  channelName: text("channel_name").notNull(),
+  categoryId: integer("category_id"),
+  streamIcon: text("stream_icon"),
+  notes: text("notes"),
+  rtmpSource: text("rtmp_source"), // RTMP input URL
+  hlsOutput: text("hls_output"), // HLS output path
+  transcodeEnabled: boolean("transcode_enabled").default(true),
+  transcodeProfileId: integer("transcode_profile_id"),
+  customFfmpeg: text("custom_ffmpeg"),
+  readNative: boolean("read_native").default(false),
+  streamAll: boolean("stream_all").default(false),
+  removeSubtitles: boolean("remove_subtitles").default(false),
+  genTimestamps: boolean("gen_timestamps").default(false),
+  epgChannelId: text("epg_channel_id"),
+  epgLang: text("epg_lang").default("en"),
+  channelOrder: integer("channel_order").default(0),
+  autoRestart: boolean("auto_restart").default(true),
+  allowRecord: boolean("allow_record").default(false),
+  delayMinutes: integer("delay_minutes").default(0),
+  rtmpOutput: boolean("rtmp_output").default(false),
+  externalPush: text("external_push"), // Push to external CDN
+  directSource: boolean("direct_source").default(false),
+  tvArchiveDuration: integer("tv_archive_duration").default(0),
+  tvArchiveServerId: integer("tv_archive_server_id"),
+  pid: integer("pid").default(0), // Process ID when running
+  status: text("status").default("stopped"), // stopped, running, error
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
+// Enigma2 Devices (STB device management)
+export const enigma2Devices = pgTable("enigma2_devices", {
+  id: serial("id").primaryKey(),
+  mac: text("mac").notNull().unique(),
+  userId: integer("user_id").references(() => users.id),
+  modemMac: text("modem_mac"),
+  localIp: text("local_ip"),
+  publicIp: text("public_ip"),
+  keyAuth: text("key_auth"),
+  enigmaVersion: text("enigma_version"),
+  cpu: text("cpu"),
+  deviceVersion: text("device_version"),
+  token: text("token"),
+  lastUpdated: timestamp("last_updated"),
+  watchdogTimeout: integer("watchdog_timeout").default(0),
+  lockDevice: boolean("lock_device").default(false),
+  telnetEnabled: boolean("telnet_enabled").default(true),
+  ftpEnabled: boolean("ftp_enabled").default(true),
+  sshEnabled: boolean("ssh_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Enigma2 Actions (remote commands for devices)
+export const enigma2Actions = pgTable("enigma2_actions", {
+  id: serial("id").primaryKey(),
+  deviceId: integer("device_id").references(() => enigma2Devices.id),
+  actionType: text("action_type").notNull(), // reboot, message, channel, volume, etc.
+  actionKey: text("action_key").notNull(),
+  command: text("command"),
+  command2: text("command2"),
+  status: text("status").default("pending"), // pending, sent, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Signals (triggers/automation for events)
+export const signals = pgTable("signals", {
+  id: serial("id").primaryKey(),
+  signalName: text("signal_name").notNull(),
+  signalType: text("signal_type").notNull(), // stream_down, user_expired, connection_limit, etc.
+  triggerCondition: text("trigger_condition"), // JSON condition
+  actionType: text("action_type").notNull(), // email, webhook, restart_stream, block_ip
+  actionConfig: jsonb("action_config"), // Action configuration
+  enabled: boolean("enabled").default(true),
+  lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Content Categories (e.g., "Sports", "Movies")
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -545,6 +625,10 @@ export const insertAccessOutputSchema = createInsertSchema(accessOutputs).omit({
 export const insertReservedUsernameSchema = createInsertSchema(reservedUsernames).omit({ id: true, createdAt: true });
 export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({ id: true, attemptedAt: true });
 export const insertRateLimitSettingsSchema = createInsertSchema(rateLimitSettings).omit({ id: true });
+export const insertCreatedChannelSchema = createInsertSchema(createdChannels).omit({ id: true, addedAt: true, pid: true, status: true });
+export const insertEnigma2DeviceSchema = createInsertSchema(enigma2Devices).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertEnigma2ActionSchema = createInsertSchema(enigma2Actions).omit({ id: true, createdAt: true, status: true });
+export const insertSignalSchema = createInsertSchema(signals).omit({ id: true, createdAt: true, lastTriggered: true, triggerCount: true });
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
@@ -649,6 +733,18 @@ export type InsertAccessOutput = z.infer<typeof insertAccessOutputSchema>;
 
 export type ReservedUsername = typeof reservedUsernames.$inferSelect;
 export type InsertReservedUsername = z.infer<typeof insertReservedUsernameSchema>;
+
+export type CreatedChannel = typeof createdChannels.$inferSelect;
+export type InsertCreatedChannel = z.infer<typeof insertCreatedChannelSchema>;
+
+export type Enigma2Device = typeof enigma2Devices.$inferSelect;
+export type InsertEnigma2Device = z.infer<typeof insertEnigma2DeviceSchema>;
+
+export type Enigma2Action = typeof enigma2Actions.$inferSelect;
+export type InsertEnigma2Action = z.infer<typeof insertEnigma2ActionSchema>;
+
+export type Signal = typeof signals.$inferSelect;
+export type InsertSignal = z.infer<typeof insertSignalSchema>;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;

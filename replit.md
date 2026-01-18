@@ -188,6 +188,10 @@ Preferred communication style: Simple, everyday language.
 - **Lines Bulk Operations** - Select multiple lines for bulk enable/disable/delete
 - **Lines Edit Dialog** - Complete editing with all security and advanced options
 - **Bulk API Endpoints** - `/api/lines/bulk-delete` and `/api/lines/bulk-toggle` for mass operations
+- **Created Channels Page** - RTMP to HLS live transcoding channel management with transcoding options
+- **Enigma2 Devices Page** - STB/Enigma2 device management with MAC registration and remote control settings
+- **Signals Page** - Event triggers and automation system (stream down alerts, webhooks, email notifications)
+- **New Database Tables** - createdChannels, enigma2Devices, enigma2Actions, signals for full OpenXC parity
 
 ## Feature Roadmap (Xtream Codes v2.9 Parity)
 
@@ -206,9 +210,9 @@ Preferred communication style: Simple, everyday language.
 2. **Restreaming/Encoding**
    - [ ] Live transcoding pipeline
    - [ ] HLS segment generation
-   - [ ] Created live channels (RTMP→HLS)
+   - [x] Created live channels (RTMP→HLS)
    - [ ] Encoding queue management
-   - [ ] Stream health monitoring
+   - [x] Stream health monitoring
 
 ### HIGH Priority
 3. **Lines Advanced Options**
@@ -232,13 +236,14 @@ Preferred communication style: Simple, everyday language.
    - [x] Xtream panel import
    - [x] Backup/restore system
    - [x] MAG device management
-   - [ ] Enigma2 plugin management
+   - [x] Enigma2 device management
    - [x] Real-time stats graphs
    - [x] Activity logging and viewing
    - [x] Credit transaction history
    - [x] Stream status monitoring
    - [x] Cron jobs scheduler UI
    - [x] EPG data browser
+   - [x] Signals/Triggers automation
 
 6. **Security**
    - [ ] Rate limiting

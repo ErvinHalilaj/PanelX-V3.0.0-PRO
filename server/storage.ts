@@ -4,6 +4,7 @@ import {
   servers, epgSources, epgData, series, episodes, vodInfo, tvArchive, blockedIps, blockedUserAgents,
   deviceTemplates, transcodeProfiles, streamErrors, clientLogs, cronJobs, resellerGroups, packages,
   tickets, ticketReplies, backups, webhooks, webhookLogs, settings, accessOutputs, reservedUsernames,
+  createdChannels, enigma2Devices, enigma2Actions, signals,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
@@ -11,11 +12,12 @@ import {
   type InsertDeviceTemplate, type InsertTranscodeProfile, type InsertStreamError, type InsertClientLog, type InsertCronJob,
   type InsertResellerGroup, type InsertPackage, type InsertTicket, type InsertTicketReply, type InsertBackup,
   type InsertWebhook, type InsertWebhookLog, type InsertSetting, type InsertAccessOutput, type InsertReservedUsername,
+  type InsertCreatedChannel, type InsertEnigma2Device, type InsertEnigma2Action, type InsertSignal,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
   type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog,
-  type Setting, type AccessOutput, type ReservedUsername
+  type Setting, type AccessOutput, type ReservedUsername, type CreatedChannel, type Enigma2Device, type Enigma2Action, type Signal
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull } from "drizzle-orm";
 
@@ -241,6 +243,34 @@ export interface IStorage {
   isUsernameReserved(username: string): Promise<boolean>;
   createReservedUsername(reserved: InsertReservedUsername): Promise<ReservedUsername>;
   deleteReservedUsername(id: number): Promise<void>;
+
+  // Created Channels (RTMP to HLS)
+  getCreatedChannels(): Promise<CreatedChannel[]>;
+  getCreatedChannel(id: number): Promise<CreatedChannel | undefined>;
+  createCreatedChannel(channel: InsertCreatedChannel): Promise<CreatedChannel>;
+  updateCreatedChannel(id: number, updates: Partial<InsertCreatedChannel>): Promise<CreatedChannel>;
+  deleteCreatedChannel(id: number): Promise<void>;
+
+  // Enigma2 Devices
+  getEnigma2Devices(): Promise<Enigma2Device[]>;
+  getEnigma2Device(id: number): Promise<Enigma2Device | undefined>;
+  getEnigma2DeviceByMac(mac: string): Promise<Enigma2Device | undefined>;
+  createEnigma2Device(device: InsertEnigma2Device): Promise<Enigma2Device>;
+  updateEnigma2Device(id: number, updates: Partial<InsertEnigma2Device>): Promise<Enigma2Device>;
+  deleteEnigma2Device(id: number): Promise<void>;
+
+  // Enigma2 Actions
+  getEnigma2Actions(deviceId?: number): Promise<Enigma2Action[]>;
+  createEnigma2Action(action: InsertEnigma2Action): Promise<Enigma2Action>;
+  updateEnigma2Action(id: number, updates: Partial<InsertEnigma2Action>): Promise<Enigma2Action>;
+  deleteEnigma2Action(id: number): Promise<void>;
+
+  // Signals (Triggers/Automation)
+  getSignals(): Promise<Signal[]>;
+  getSignal(id: number): Promise<Signal | undefined>;
+  createSignal(signal: InsertSignal): Promise<Signal>;
+  updateSignal(id: number, updates: Partial<InsertSignal>): Promise<Signal>;
+  deleteSignal(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1098,6 +1128,105 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReservedUsername(id: number): Promise<void> {
     await db.delete(reservedUsernames).where(eq(reservedUsernames.id, id));
+  }
+
+  // Created Channels (RTMP to HLS)
+  async getCreatedChannels(): Promise<CreatedChannel[]> {
+    return await db.select().from(createdChannels);
+  }
+
+  async getCreatedChannel(id: number): Promise<CreatedChannel | undefined> {
+    const [channel] = await db.select().from(createdChannels).where(eq(createdChannels.id, id));
+    return channel;
+  }
+
+  async createCreatedChannel(channel: InsertCreatedChannel): Promise<CreatedChannel> {
+    const [newChannel] = await db.insert(createdChannels).values(channel).returning();
+    return newChannel;
+  }
+
+  async updateCreatedChannel(id: number, updates: Partial<InsertCreatedChannel>): Promise<CreatedChannel> {
+    const [updated] = await db.update(createdChannels).set(updates).where(eq(createdChannels.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCreatedChannel(id: number): Promise<void> {
+    await db.delete(createdChannels).where(eq(createdChannels.id, id));
+  }
+
+  // Enigma2 Devices
+  async getEnigma2Devices(): Promise<Enigma2Device[]> {
+    return await db.select().from(enigma2Devices);
+  }
+
+  async getEnigma2Device(id: number): Promise<Enigma2Device | undefined> {
+    const [device] = await db.select().from(enigma2Devices).where(eq(enigma2Devices.id, id));
+    return device;
+  }
+
+  async getEnigma2DeviceByMac(mac: string): Promise<Enigma2Device | undefined> {
+    const [device] = await db.select().from(enigma2Devices).where(eq(enigma2Devices.mac, mac));
+    return device;
+  }
+
+  async createEnigma2Device(device: InsertEnigma2Device): Promise<Enigma2Device> {
+    const [newDevice] = await db.insert(enigma2Devices).values(device).returning();
+    return newDevice;
+  }
+
+  async updateEnigma2Device(id: number, updates: Partial<InsertEnigma2Device>): Promise<Enigma2Device> {
+    const [updated] = await db.update(enigma2Devices).set(updates).where(eq(enigma2Devices.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEnigma2Device(id: number): Promise<void> {
+    await db.delete(enigma2Devices).where(eq(enigma2Devices.id, id));
+  }
+
+  // Enigma2 Actions
+  async getEnigma2Actions(deviceId?: number): Promise<Enigma2Action[]> {
+    if (deviceId) {
+      return await db.select().from(enigma2Actions).where(eq(enigma2Actions.deviceId, deviceId)).orderBy(desc(enigma2Actions.createdAt));
+    }
+    return await db.select().from(enigma2Actions).orderBy(desc(enigma2Actions.createdAt));
+  }
+
+  async createEnigma2Action(action: InsertEnigma2Action): Promise<Enigma2Action> {
+    const [newAction] = await db.insert(enigma2Actions).values(action).returning();
+    return newAction;
+  }
+
+  async updateEnigma2Action(id: number, updates: Partial<InsertEnigma2Action>): Promise<Enigma2Action> {
+    const [updated] = await db.update(enigma2Actions).set(updates).where(eq(enigma2Actions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteEnigma2Action(id: number): Promise<void> {
+    await db.delete(enigma2Actions).where(eq(enigma2Actions.id, id));
+  }
+
+  // Signals (Triggers/Automation)
+  async getSignals(): Promise<Signal[]> {
+    return await db.select().from(signals);
+  }
+
+  async getSignal(id: number): Promise<Signal | undefined> {
+    const [signal] = await db.select().from(signals).where(eq(signals.id, id));
+    return signal;
+  }
+
+  async createSignal(signal: InsertSignal): Promise<Signal> {
+    const [newSignal] = await db.insert(signals).values(signal).returning();
+    return newSignal;
+  }
+
+  async updateSignal(id: number, updates: Partial<InsertSignal>): Promise<Signal> {
+    const [updated] = await db.update(signals).set(updates).where(eq(signals.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSignal(id: number): Promise<void> {
+    await db.delete(signals).where(eq(signals.id, id));
   }
 }
 
