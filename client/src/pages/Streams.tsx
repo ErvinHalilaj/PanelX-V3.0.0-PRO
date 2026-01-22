@@ -319,8 +319,9 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     video.addEventListener("pause", handlePause);
     video.addEventListener("progress", handleProgress);
 
-    // Use proxy URL to bypass CORS - the server proxies the stream
-    const proxyUrl = `/api/streams/${stream.id}/proxy`;
+    // Use IPTV streaming endpoint for admin preview
+    // This uses the working /live/:username/:password/:streamId.:ext endpoint
+    const proxyUrl = `/live/testuser1/test123/${stream.id}.ts`;
     const sourceUrl = stream.sourceUrl;
     const isHls = sourceUrl.includes(".m3u8") || sourceUrl.includes("m3u8");
 
