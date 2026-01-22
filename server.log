@@ -1,0 +1,39 @@
+6:23:31 PM [vite] (client) Re-optimizing dependencies because lockfile has changed
+6:23:31 PM [express] serving on port 5000
+6:23:38 PM [express] GET /api/stats 200 in 82ms :: {"totalStreams":4,"totalLines":3,"activeConnections":0,"onlineStreams":3,"totalUsers":2,"totalCredits":"1100","expiredLines":1,"trialLines":1}
+[LoadBalancer] No available servers
+[Stream 1] Serving HLS through FFmpeg
+[Stream 1] Starting FFmpeg process...
+[FFmpeg] Starting stream 1...
+[FFmpeg] Command: ffmpeg -hide_banner -loglevel info -i http://eu4k.online:8080/live/panelx/panelx/280169.ts -c:v copy -c:a copy -f hls -hls_time 10 -hls_list_size 6 -hls_flags delete_segments+append_list -hls_segment_filename /home/user/webapp/streams/stream_1_%03d.ts -hls_segment_type mpegts /home/user/webapp/streams/stream_1.m3u8
+[FFmpeg 1] HLS output started
+[Stream 1] Failed to start FFmpeg: Error: HLS output not created within 15000ms
+    at FFmpegProcessManager.waitForHLSOutput (/home/user/webapp/server/ffmpegManager.ts:363:11)
+    at async FFmpegProcessManager.startStream (/home/user/webapp/server/ffmpegManager.ts:153:5)
+    at async <anonymous> (/home/user/webapp/server/playerApi.ts:707:11)
+[FFmpeg 1] Viewer disconnected. Total: 0
+Terminated
+[FFmpeg] Shutting down all processes...
+[FFmpeg] Stopping stream 1...
+[FFmpeg] Cleaned up: stream_1.m3u8
+[FFmpeg] Cleaned up: stream_1_000.ts
+[FFmpeg] Cleaned up: stream_1_001.ts
+[FFmpeg] Cleaned up: stream_1_002.ts
+[FFmpeg] Cleaned up: stream_1_003.ts
+[FFmpeg] Cleaned up: stream_1_004.ts
+[FFmpeg] Cleanup complete
+[FFmpeg 1] Process exited with code 255, signal null
+6:27:00 PM [express] GET /api/stats 200 in 41ms :: {"totalStreams":4,"totalLines":3,"activeConnections":0,"onlineStreams":2,"totalUsers":2,"totalCredits":"1100","expiredLines":1,"trialLines":1}
+[LoadBalancer] No available servers
+[Stream 1] Serving HLS through FFmpeg
+[Stream 1] Starting FFmpeg process...
+[FFmpeg] Starting stream 1...
+[FFmpeg] Command: ffmpeg -hide_banner -loglevel info -i http://eu4k.online:8080/live/panelx/panelx/280169.ts -c:v copy -c:a copy -f hls -hls_time 10 -hls_list_size 6 -hls_flags delete_segments+append_list -hls_segment_filename /home/user/webapp/streams/stream_1_%03d.ts -hls_segment_type mpegts /home/user/webapp/streams/stream_1.m3u8
+[FFmpeg] HLS output ready: /home/user/webapp/streams/stream_1.m3u8
+[FFmpeg 1] Viewer disconnected. Total: 0
+[FFmpeg 1] HLS output started
+[FFmpeg 1] Viewer connected. Total: 1
+[LoadBalancer] No available servers
+[Stream 1] Serving HLS through FFmpeg
+[FFmpeg 1] Viewer disconnected. Total: 0
+[FFmpeg 1] Process exited with code null, signal SIGKILL

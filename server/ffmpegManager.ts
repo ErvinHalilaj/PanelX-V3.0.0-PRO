@@ -150,7 +150,7 @@ class FFmpegProcessManager {
     });
 
     // Wait for HLS playlist to be created
-    await this.waitForHLSOutput(outputPath, 15000);
+    await this.waitForHLSOutput(outputPath, 30000);
   }
 
   /**
@@ -329,6 +329,7 @@ class FFmpegProcessManager {
       '-hls_flags', 'delete_segments+append_list',
       '-hls_segment_filename', segmentPattern,
       '-hls_segment_type', 'mpegts',
+      '-hls_base_url', '/streams/',  // Make segments accessible via /streams/ path
     );
 
     // Custom FFmpeg parameters from stream
@@ -347,19 +348,30 @@ class FFmpegProcessManager {
    */
   private async waitForHLSOutput(outputPath: string, timeout: number): Promise<void> {
     const startTime = Date.now();
+    let lastCheck = '';
     
     while (Date.now() - startTime < timeout) {
       if (fs.existsSync(outputPath)) {
         // Check if playlist has segments
-        const content = fs.readFileSync(outputPath, 'utf-8');
-        if (content.includes('.ts')) {
-          console.log(`[FFmpeg] HLS output ready: ${outputPath}`);
-          return;
+        try {
+          const content = fs.readFileSync(outputPath, 'utf-8');
+          if (content.includes('.ts') && content.includes('#EXTINF:')) {
+            console.log(`[FFmpeg] HLS output ready: ${outputPath}`);
+            return;
+          }
+          lastCheck = `File exists but no segments yet (${content.length} bytes)`;
+        } catch (err) {
+          lastCheck = `File exists but cannot read: ${err}`;
         }
+      } else {
+        lastCheck = 'File does not exist yet';
       }
-      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Wait 1 second between checks
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
+    console.error(`[FFmpeg] Timeout waiting for HLS output. Last check: ${lastCheck}`);
     throw new Error(`HLS output not created within ${timeout}ms`);
   }
 

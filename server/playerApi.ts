@@ -714,17 +714,25 @@ export function registerPlayerApi(app: Express) {
       // Serve HLS playlist
       const hlsPath = ffmpegManager.getOutputPath(stream.id);
       
-      // Wait for file to exist (with timeout)
-      let attempts = 0;
-      while (!fs.existsSync(hlsPath) && attempts < 30) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
-
+      // Wait for file to exist (with timeout) - only if just started
       if (!fs.existsSync(hlsPath)) {
-        return res.status(502).send('Stream not ready');
+        let attempts = 0;
+        while (!fs.existsSync(hlsPath) && attempts < 30) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+
+        if (!fs.existsSync(hlsPath)) {
+          return res.status(502).send('Stream not ready');
+        }
       }
 
+      // Set proper headers for HLS
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       return res.sendFile(hlsPath);
     }
 
@@ -733,16 +741,28 @@ export function registerPlayerApi(app: Express) {
   });
 
   // HLS segment endpoint (serves .ts segments)
-  app.get('/streams/stream_:streamId_:segment.ts', async (req: Request, res: Response) => {
-    const { streamId, segment } = req.params;
-    const segmentName = `stream_${streamId}_${segment}.ts`;
-    const segmentPath = ffmpegManager.getSegmentPath(parseInt(streamId), segmentName);
+  app.get('/streams/:filename', async (req: Request, res: Response) => {
+    const { filename } = req.params;
+    
+    // Security: only allow .ts and .m3u8 files
+    if (!filename.endsWith('.ts') && !filename.endsWith('.m3u8')) {
+      return res.status(403).send('Forbidden');
+    }
+
+    // Get full path
+    const segmentPath = path.join(process.cwd(), 'streams', filename);
 
     if (!fs.existsSync(segmentPath)) {
       return res.status(404).send('Segment not found');
     }
 
-    res.setHeader('Content-Type', 'video/mp2t');
+    // Set appropriate content type
+    const contentType = filename.endsWith('.m3u8') 
+      ? 'application/vnd.apple.mpegurl'
+      : 'video/mp2t';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(segmentPath);
   });
 
