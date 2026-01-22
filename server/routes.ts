@@ -2858,5 +2858,133 @@ export async function registerRoutes(
     }
   });
 
+  // === RESELLER API ENDPOINTS ===
+  
+  // Reseller dashboard stats
+  app.get("/api/reseller/stats", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = await storage.getUser(userId);
+      const lines = await storage.getLines();
+      const myLines = lines.filter(l => l.memberId === userId);
+      const now = new Date();
+      
+      const stats = {
+        credits: user?.credits || 0,
+        totalLines: myLines.length,
+        activeLines: myLines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > now)).length,
+        expiredLines: myLines.filter(l => l.expDate && new Date(l.expDate) <= now).length,
+        disabledLines: myLines.filter(l => !l.enabled).length,
+        trialLines: myLines.filter(l => l.isTrial).length,
+      };
+      
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  
+  // Reseller's lines
+  app.get("/api/reseller/lines", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const lines = await storage.getLines();
+      const myLines = lines.filter(l => l.memberId === userId);
+      res.json(myLines);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  
+  // Reseller create line (with credit deduction)
+  app.post("/api/reseller/lines", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // If package is specified, get its cost
+      let creditCost = 0;
+      if (req.body.packageId) {
+        const pkg = await storage.getPackage(req.body.packageId);
+        if (pkg) {
+          creditCost = pkg.credits;
+        }
+      }
+      
+      // Check if reseller has enough credits
+      if (creditCost > 0 && (user.credits || 0) < creditCost) {
+        return res.status(400).json({ message: "Insufficient credits" });
+      }
+      
+      // Create line with reseller as member
+      const lineData = {
+        ...req.body,
+        memberId: userId,
+      };
+      
+      const line = await storage.createLine(lineData);
+      
+      // Deduct credits if package was used
+      if (creditCost > 0) {
+        await storage.addCredits(userId, -creditCost, 'line_create', line.id);
+      }
+      
+      res.status(201).json(line);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+  
+  // Reseller update line
+  app.put("/api/reseller/lines/:id", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const lineId = Number(req.params.id);
+      const line = await storage.getLine(lineId);
+      
+      if (!line || line.memberId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updated = await storage.updateLine(lineId, req.body);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+  
+  // Reseller delete line
+  app.delete("/api/reseller/lines/:id", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const lineId = Number(req.params.id);
+      const line = await storage.getLine(lineId);
+      
+      if (!line || line.memberId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteLine(lineId);
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+  
+  // Reseller credit transactions
+  app.get("/api/reseller/credit-transactions", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session!.userId;
+      const transactions = await storage.getCreditTransactions(userId);
+      res.json(transactions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }

@@ -26,6 +26,12 @@ export const servers = pgTable("servers", {
   rtmpPort: integer("rtmp_port").default(1935),
   httpBroadcastPort: integer("http_broadcast_port").default(25461),
   isMainServer: boolean("is_main_server").default(false),
+  // SSH Access for Load Balancing
+  sshHost: text("ssh_host"), // IP or hostname for SSH
+  sshPort: integer("ssh_port").default(22),
+  sshUsername: text("ssh_username").default("root"),
+  sshPassword: text("ssh_password"), // Should be encrypted in production
+  sshPrivateKey: text("ssh_private_key"), // Alternative to password
   status: text("status").default("offline"), // online, offline
   maxClients: integer("max_clients").default(1000),
   currentClients: integer("current_clients").default(0),

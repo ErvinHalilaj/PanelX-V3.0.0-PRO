@@ -53,6 +53,8 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading, initialDat
   const handleFormSubmit = (data: InsertLine) => {
     const formData = {
       ...data,
+      // Convert datetime-local string to Date object for proper backend handling
+      expDate: data.expDate ? new Date(data.expDate) : undefined,
       bouquets: selectedBouquets,
       allowedIps: allowedIpsText.split(',').map(s => s.trim()).filter(Boolean),
       allowedCountries: allowedCountriesText.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),

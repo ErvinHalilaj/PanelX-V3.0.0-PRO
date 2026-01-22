@@ -22,6 +22,11 @@ const defaultFormData = {
   isMainServer: false,
   maxClients: 1000,
   enabled: true,
+  sshHost: "",
+  sshPort: 22,
+  sshUsername: "root",
+  sshPassword: "",
+  sshPrivateKey: "",
 };
 
 export default function Servers() {
@@ -76,6 +81,11 @@ export default function Servers() {
       isMainServer: server.isMainServer ?? false,
       maxClients: server.maxClients ?? 1000,
       enabled: server.enabled ?? true,
+      sshHost: server.sshHost ?? "",
+      sshPort: server.sshPort ?? 22,
+      sshUsername: server.sshUsername ?? "root",
+      sshPassword: server.sshPassword ?? "",
+      sshPrivateKey: server.sshPrivateKey ?? "",
     });
     setIsOpen(true);
   };
@@ -152,6 +162,37 @@ export default function Servers() {
                     <Label>Enabled</Label>
                   </div>
                 </div>
+                
+                <div className="border-t pt-4 space-y-4">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <ServerIcon className="w-4 h-4" />
+                    SSH Access (for Load Balancing)
+                  </h4>
+                  <p className="text-xs text-muted-foreground">Configure SSH access to enable remote server management</p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>SSH Host</Label>
+                      <Input value={formData.sshHost} onChange={(e) => setFormData({ ...formData, sshHost: e.target.value })} placeholder="192.168.1.100" data-testid="input-ssh-host" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SSH Port</Label>
+                      <Input type="number" value={formData.sshPort} onChange={(e) => setFormData({ ...formData, sshPort: parseInt(e.target.value) || 22 })} data-testid="input-ssh-port" />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>SSH Username</Label>
+                      <Input value={formData.sshUsername} onChange={(e) => setFormData({ ...formData, sshUsername: e.target.value })} data-testid="input-ssh-username" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SSH Password</Label>
+                      <Input type="password" value={formData.sshPassword} onChange={(e) => setFormData({ ...formData, sshPassword: e.target.value })} placeholder="optional" data-testid="input-ssh-password" />
+                    </div>
+                  </div>
+                </div>
+                
                 <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-server">
                   {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingServer ? "Update Server" : "Create Server")}
                 </Button>
