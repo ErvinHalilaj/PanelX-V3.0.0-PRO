@@ -1,5 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
+import { ffmpegManager } from "./ffmpegManager";
+import { loadBalancerManager } from "./loadBalancerManager";
+import * as fs from 'fs';
+import * as path from 'path';
 import type { XtreamUserInfo, XtreamServerInfo, XtreamCategory, XtreamChannel, Line, Stream, Bouquet } from "@shared/schema";
 
 /**
@@ -629,11 +633,13 @@ export function registerPlayerApi(app: Express) {
 
     const ext = req.params.ext?.toLowerCase() || 'ts';
     const sourceUrl = stream.sourceUrl;
-    const isHlsSource = sourceUrl.includes('.m3u8') || sourceUrl.includes('m3u8');
 
     // Cleanup on client disconnect
     req.on('close', async () => {
       await storage.deleteConnection(connection.id);
+      
+      // Track viewer disconnect for On-Demand mode
+      await ffmpegManager.onViewerDisconnect(stream.id);
       
       // Update connection history with duration
       if (connectionHistoryId) {
@@ -655,11 +661,89 @@ export function registerPlayerApi(app: Express) {
       });
     });
 
-    // Redirect to the actual source URL
-    // Most IPTV players (VLC, Kodi, Smarters, etc.) can handle direct URLs
-    // This is the most reliable method and avoids proxy issues
-    // Note: Connection will be cleaned up on client disconnect
+    // Track viewer connection for On-Demand mode
+    await ffmpegManager.onViewerConnect(stream.id);
+
+    // Decision 1: Check if stream should use load balancer
+    const loadBalancerServer = await loadBalancerManager.selectServer(stream, req.ip);
+    
+    if (loadBalancerServer && !loadBalancerServer.isMainServer) {
+      // Route through load balancer server
+      console.log(`[Stream ${stream.id}] Routing through load balancer: ${loadBalancerServer.serverName}`);
+      
+      // Check if FFmpeg is running on remote server
+      const isRunning = await loadBalancerManager.isRemoteFFmpegRunning(loadBalancerServer, stream.id);
+      
+      if (!isRunning && stream.onDemand) {
+        console.log(`[Stream ${stream.id}] Starting remote FFmpeg...`);
+        try {
+          await loadBalancerManager.startRemoteFFmpeg(loadBalancerServer, stream);
+        } catch (err) {
+          console.error(`[Stream ${stream.id}] Failed to start remote FFmpeg:`, err);
+          // Fallback to local processing
+        }
+      }
+
+      // Redirect to load balancer server
+      const remoteUrl = loadBalancerManager.getRemoteStreamUrl(loadBalancerServer, stream.id, ext);
+      return res.redirect(remoteUrl);
+    }
+
+    // Decision 2: Direct stream vs Transcoded stream (local)
+    if (ext === 'ts' && stream.isDirect) {
+      // Direct TS stream - redirect to source
+      console.log(`[Stream ${stream.id}] Direct redirect to source`);
+      return res.redirect(sourceUrl);
+    }
+
+    if (ext === 'm3u8' || (!stream.isDirect && ext === 'ts')) {
+      // HLS stream - serve through FFmpeg
+      console.log(`[Stream ${stream.id}] Serving HLS through FFmpeg`);
+      
+      // Check if FFmpeg is running
+      if (!ffmpegManager.isRunning(stream.id)) {
+        console.log(`[Stream ${stream.id}] Starting FFmpeg process...`);
+        try {
+          await ffmpegManager.startStream(stream.id);
+        } catch (err) {
+          console.error(`[Stream ${stream.id}] Failed to start FFmpeg:`, err);
+          return res.status(502).send('Stream unavailable');
+        }
+      }
+
+      // Serve HLS playlist
+      const hlsPath = ffmpegManager.getOutputPath(stream.id);
+      
+      // Wait for file to exist (with timeout)
+      let attempts = 0;
+      while (!fs.existsSync(hlsPath) && attempts < 30) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+
+      if (!fs.existsSync(hlsPath)) {
+        return res.status(502).send('Stream not ready');
+      }
+
+      return res.sendFile(hlsPath);
+    }
+
+    // Fallback: redirect to source
     return res.redirect(sourceUrl);
+  });
+
+  // HLS segment endpoint (serves .ts segments)
+  app.get('/streams/stream_:streamId_:segment.ts', async (req: Request, res: Response) => {
+    const { streamId, segment } = req.params;
+    const segmentName = `stream_${streamId}_${segment}.ts`;
+    const segmentPath = ffmpegManager.getSegmentPath(parseInt(streamId), segmentName);
+
+    if (!fs.existsSync(segmentPath)) {
+      return res.status(404).send('Segment not found');
+    }
+
+    res.setHeader('Content-Type', 'video/mp2t');
+    res.sendFile(segmentPath);
   });
 
   // Movie/VOD stream endpoint
