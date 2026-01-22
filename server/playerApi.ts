@@ -655,62 +655,11 @@ export function registerPlayerApi(app: Express) {
       });
     });
 
-    // For direct streams or HLS sources, redirect to the actual source
-    // VLC and most players can handle HLS natively
-    if (stream.isDirect || isHlsSource) {
-      // For HLS sources, always redirect to the m3u8 regardless of requested extension
-      // Most modern players (VLC, ffplay, etc.) handle HLS natively
-      await storage.deleteConnection(connection.id); // Clean up since we're redirecting
-      return res.redirect(sourceUrl);
-    }
-
-    // For non-HLS sources, proxy the stream
-    try {
-      const response = await fetch(sourceUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      });
-      
-      if (!response.ok) {
-        await storage.deleteConnection(connection.id);
-        return res.status(502).send('Stream unavailable');
-      }
-
-      // Set appropriate content type
-      const contentType = response.headers.get('content-type') || 'video/mp2t';
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Transfer-Encoding', 'chunked');
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        await storage.deleteConnection(connection.id);
-        return res.status(502).send('Stream unavailable');
-      }
-
-      // Pipe the stream
-      const pump = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(value);
-            // Update ping periodically
-            await storage.updateConnectionPing(connection.id);
-          }
-          res.end();
-        } catch (err) {
-          console.error('Stream error:', err);
-          res.end();
-        }
-      };
-
-      pump();
-    } catch (err) {
-      console.error('Proxy error:', err);
-      await storage.deleteConnection(connection.id);
-      return res.status(502).send('Stream unavailable');
-    }
+    // Redirect to the actual source URL
+    // Most IPTV players (VLC, Kodi, Smarters, etc.) can handle direct URLs
+    // This is the most reliable method and avoids proxy issues
+    // Note: Connection will be cleaned up on client disconnect
+    return res.redirect(sourceUrl);
   });
 
   // Movie/VOD stream endpoint
