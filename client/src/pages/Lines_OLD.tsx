@@ -4,8 +4,7 @@ import { useLines, useCreateLine, useDeleteLine, useUpdateLine, useBulkDeleteLin
 import { useBouquets } from "@/hooks/use-bouquets";
 import { useServers } from "@/hooks/use-servers";
 import { usePackages } from "@/hooks/use-packages";
-import { useUsers } from "@/hooks/use-users";
-import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, Loader2, Power, PowerOff, Eye, EyeOff, Clock } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, ChevronDown, ChevronUp, Key, Users, CheckSquare, Square, Power, PowerOff, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,87 +15,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertLineSchema, type InsertLine, type Line } from "@shared/schema";
-import { format, addMonths, addDays } from "date-fns";
+import { format } from "date-fns";
 
-function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, initialData }: { 
+function LineForm({ onSubmit, bouquets, servers, packages, isLoading, initialData }: { 
   onSubmit: (data: InsertLine) => void, 
   bouquets: any[], 
   servers: any[],
   packages: any[],
-  users: any[],
   isLoading: boolean,
   initialData?: Partial<InsertLine>
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const form = useForm<InsertLine>({
     resolver: zodResolver(insertLineSchema),
     defaultValues: {
       maxConnections: initialData?.maxConnections || 1,
       enabled: initialData?.enabled ?? true,
-      adminEnabled: initialData?.adminEnabled ?? true,
       isTrial: initialData?.isTrial ?? false,
       username: initialData?.username || "",
       password: initialData?.password || "",
       allowedIps: initialData?.allowedIps || [],
       allowedCountries: initialData?.allowedCountries || [],
       allowedUserAgents: initialData?.allowedUserAgents || [],
-      allowedDomains: initialData?.allowedDomains || [],
-      allowedOutputs: initialData?.allowedOutputs || ["m3u8", "ts"],
       bouquets: initialData?.bouquets || [],
     }
   });
 
   const [selectedBouquets, setSelectedBouquets] = useState<number[]>(initialData?.bouquets || []);
-  const [bouquetType, setBouquetType] = useState<"all" | "selected">(
-    initialData?.bouquets && initialData.bouquets.length > 0 ? "selected" : "all"
-  );
-  const [connectionLimitType, setConnectionLimitType] = useState<"package" | "custom">("custom");
-  const [noExpiration, setNoExpiration] = useState(!initialData?.expDate);
-  const [showPassword, setShowPassword] = useState(false);
-  
   const [allowedIpsText, setAllowedIpsText] = useState((initialData?.allowedIps || []).join(", "));
   const [allowedCountriesText, setAllowedCountriesText] = useState((initialData?.allowedCountries || []).join(", "));
   const [allowedUserAgentsText, setAllowedUserAgentsText] = useState((initialData?.allowedUserAgents || []).join("\n"));
-  const [allowedDomainsText, setAllowedDomainsText] = useState((initialData?.allowedDomains || []).join(", "));
-
-  // Output formats state
-  const [selectedOutputs, setSelectedOutputs] = useState<string[]>(initialData?.allowedOutputs || ["m3u8", "ts"]);
-
-  const handleQuickDuration = (months: number) => {
-    const newDate = addMonths(new Date(), months);
-    form.setValue("expDate", newDate.toISOString().slice(0, 16) as any);
-    setNoExpiration(false);
-  };
-
-  const toggleOutput = (output: string) => {
-    setSelectedOutputs(prev => 
-      prev.includes(output) 
-        ? prev.filter(o => o !== output)
-        : [...prev, output]
-    );
-  };
 
   const handleFormSubmit = (data: InsertLine) => {
     console.log("[LineForm] Form submitted with data:", data);
-    
-    // Handle bouquet selection
-    const finalBouquets = bouquetType === "all" ? [] : selectedBouquets;
-    
     const formData = {
       ...data,
-      expDate: noExpiration ? undefined : (data.expDate ? new Date(data.expDate) : undefined),
-      bouquets: finalBouquets,
+      // Convert datetime-local string to Date object for proper backend handling
+      expDate: data.expDate ? new Date(data.expDate) : undefined,
+      bouquets: selectedBouquets,
       allowedIps: allowedIpsText.split(',').map(s => s.trim()).filter(Boolean),
       allowedCountries: allowedCountriesText.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       allowedUserAgents: allowedUserAgentsText.split('\n').map(s => s.trim()).filter(Boolean),
-      allowedDomains: allowedDomainsText.split(',').map(s => s.trim()).filter(Boolean),
-      allowedOutputs: selectedOutputs,
     };
-    
     console.log("[LineForm] Formatted data:", formData);
     onSubmit(formData);
   };
@@ -111,182 +75,41 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4 mt-4">
-          {/* Username and Password */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username *</Label>
+              <Label htmlFor="username">Username</Label>
               <Input id="username" {...form.register("username")} placeholder="john_doe" data-testid="input-line-username" />
               {form.formState.errors.username && <p className="text-red-500 text-xs">{form.formState.errors.username.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative">
-                <Input 
-                  id="password" 
-                  type={showPassword ? "text" : "password"}
-                  {...form.register("password")} 
-                  placeholder="Secr3t!" 
-                  data-testid="input-line-password" 
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" {...form.register("password")} placeholder="Secr3t!" data-testid="input-line-password" />
               {form.formState.errors.password && <p className="text-red-500 text-xs">{form.formState.errors.password.message}</p>}
             </div>
           </div>
 
-          {/* Owner/Member Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Owner / Member
-            </Label>
-            <Select onValueChange={(val) => form.setValue("memberId", val === "none" ? undefined : parseInt(val))}>
-              <SelectTrigger data-testid="select-owner">
-                <SelectValue placeholder="No owner (admin-owned)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No owner (admin-owned)</SelectItem>
-                {users.filter(u => u.role === 'reseller').map((user: any) => (
-                  <SelectItem key={user.id} value={String(user.id)}>{user.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Package Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Package
-            </Label>
-            <Select onValueChange={(val) => form.setValue("packageId", val === "none" ? undefined : parseInt(val))}>
-              <SelectTrigger data-testid="select-package">
-                <SelectValue placeholder="No package" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No package</SelectItem>
-                {packages.map((pkg: any) => (
-                  <SelectItem key={pkg.id} value={String(pkg.id)}>
-                    {pkg.packageName} - {pkg.durationDays} days - {pkg.maxConnections} conn
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Connection Limit */}
-          <div className="space-y-3">
-            <Label>Connection Limit</Label>
-            <RadioGroup value={connectionLimitType} onValueChange={(v: any) => setConnectionLimitType(v)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="package" id="conn-package" />
-                <Label htmlFor="conn-package" className="font-normal">Use package default</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="custom" id="conn-custom" />
-                <Label htmlFor="conn-custom" className="font-normal">Custom value</Label>
-              </div>
-            </RadioGroup>
-            {connectionLimitType === "custom" && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="maxConnections">Max Connections</Label>
               <Input 
+                id="maxConnections" 
                 type="number" 
                 {...form.register("maxConnections", { valueAsNumber: true })} 
                 data-testid="input-max-connections"
-                min="1"
               />
-            )}
-          </div>
-
-          {/* Expiration Date */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Expiration Date
-            </Label>
-            <div className="flex items-center gap-2 mb-2">
-              <Checkbox 
-                checked={noExpiration} 
-                onCheckedChange={(checked) => setNoExpiration(checked as boolean)}
-              />
-              <Label className="font-normal">No expiration</Label>
             </div>
-            {!noExpiration && (
-              <>
-                <Input 
-                  type="datetime-local" 
-                  {...form.register("expDate")}
-                  data-testid="input-exp-date"
-                />
-                <div className="flex gap-2 flex-wrap">
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleQuickDuration(1)}>
-                    <Clock className="w-3 h-3 mr-1" /> 1 Month
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleQuickDuration(3)}>
-                    <Clock className="w-3 h-3 mr-1" /> 3 Months
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleQuickDuration(6)}>
-                    <Clock className="w-3 h-3 mr-1" /> 6 Months
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleQuickDuration(12)}>
-                    <Clock className="w-3 h-3 mr-1" /> 1 Year
-                  </Button>
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="expDate">Expiration Date</Label>
+              <Input 
+                id="expDate" 
+                type="datetime-local" 
+                {...form.register("expDate")}
+                data-testid="input-exp-date"
+              />
+            </div>
           </div>
 
-          {/* Bouquets */}
-          <div className="space-y-3">
-            <Label>Bouquets</Label>
-            <RadioGroup value={bouquetType} onValueChange={(v: any) => setBouquetType(v)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="bouquet-all" />
-                <Label htmlFor="bouquet-all" className="font-normal">All bouquets (grant access to all)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="selected" id="bouquet-selected" />
-                <Label htmlFor="bouquet-selected" className="font-normal">Selected bouquets only</Label>
-              </div>
-            </RadioGroup>
-            
-            {bouquetType === "selected" && (
-              <div className="p-3 border border-white/10 rounded-md bg-background/50 max-h-40 overflow-y-auto">
-                {bouquets.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No bouquets available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {bouquets.map((bouquet: any) => (
-                      <div key={bouquet.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`bouquet-${bouquet.id}`}
-                          checked={selectedBouquets.includes(bouquet.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedBouquets([...selectedBouquets, bouquet.id]);
-                            } else {
-                              setSelectedBouquets(selectedBouquets.filter(id => id !== bouquet.id));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`bouquet-${bouquet.id}`} className="text-sm font-normal">{bouquet.bouquetName}</Label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Enabled and Trial Toggles */}
-          <div className="flex items-center gap-6 pt-2">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Switch 
                 checked={form.watch("enabled") ?? true} 
@@ -304,6 +127,34 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
               <Label>Trial Account</Label>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label>Assigned Bouquets</Label>
+            <div className="p-3 border border-white/10 rounded-md bg-background/50 max-h-32 overflow-y-auto">
+              {bouquets.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No bouquets available</p>
+              ) : (
+                <div className="space-y-2">
+                  {bouquets.map((bouquet: any) => (
+                    <div key={bouquet.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`bouquet-${bouquet.id}`}
+                        checked={selectedBouquets.includes(bouquet.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedBouquets([...selectedBouquets, bouquet.id]);
+                          } else {
+                            setSelectedBouquets(selectedBouquets.filter(id => id !== bouquet.id));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`bouquet-${bouquet.id}`} className="text-sm">{bouquet.bouquetName}</Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4 mt-4">
@@ -318,18 +169,6 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
               placeholder="US, UK, CA (leave empty for all)"
               data-testid="input-allowed-countries"
             />
-            <p className="text-xs text-muted-foreground">Comma-separated country codes (e.g., US, UK, CA). Leave empty to allow all countries.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Forced Country (Override GeoIP)</Label>
-            <Input 
-              {...form.register("forcedCountry")}
-              placeholder="US"
-              maxLength={2}
-              data-testid="input-forced-country"
-            />
-            <p className="text-xs text-muted-foreground">Force a specific country code for this line, ignoring actual GeoIP.</p>
           </div>
 
           <div className="space-y-2">
@@ -343,28 +182,6 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
               placeholder="192.168.1.1, 10.0.0.1 (leave empty for all)"
               data-testid="input-allowed-ips"
             />
-            <p className="text-xs text-muted-foreground">Comma-separated IP addresses. Leave empty to allow all IPs.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>ISP Lock</Label>
-            <Input 
-              {...form.register("ispLock")}
-              placeholder="Comcast, AT&T"
-              data-testid="input-isp-lock"
-            />
-            <p className="text-xs text-muted-foreground">Lock this line to specific ISP(s). Leave empty to allow all ISPs.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Allowed Domains (Web Players)</Label>
-            <Input 
-              value={allowedDomainsText}
-              onChange={(e) => setAllowedDomainsText(e.target.value)}
-              placeholder="example.com, mysite.com"
-              data-testid="input-allowed-domains"
-            />
-            <p className="text-xs text-muted-foreground">Comma-separated domains allowed to play this line. Leave empty to allow all.</p>
           </div>
 
           <div className="space-y-2">
@@ -377,7 +194,6 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
               placeholder="Device ID to lock account to"
               data-testid="input-locked-device"
             />
-            <p className="text-xs text-muted-foreground">Lock this line to a specific device ID.</p>
           </div>
 
           <div className="space-y-2">
@@ -387,19 +203,6 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
               placeholder="00:1A:79:XX:XX:XX"
               data-testid="input-locked-mac"
             />
-            <p className="text-xs text-muted-foreground">Lock this line to a specific MAC address.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Allowed User-Agents</Label>
-            <Textarea 
-              value={allowedUserAgentsText}
-              onChange={(e) => setAllowedUserAgentsText(e.target.value)}
-              placeholder="VLC&#10;Kodi&#10;TiviMate"
-              rows={3}
-              data-testid="input-allowed-user-agents"
-            />
-            <p className="text-xs text-muted-foreground">One user-agent per line. Leave empty to allow all.</p>
           </div>
         </TabsContent>
 
@@ -407,94 +210,52 @@ function LineForm({ onSubmit, bouquets, servers, packages, users, isLoading, ini
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Server className="w-4 h-4" />
-              Force Server
+              Force Server ID
             </Label>
-            <Select onValueChange={(val) => form.setValue("forcedServerId", val === "auto" ? undefined : parseInt(val))}>
+            <Select onValueChange={(val) => form.setValue("forceServerId", parseInt(val) || undefined)}>
               <SelectTrigger data-testid="select-force-server">
                 <SelectValue placeholder="Auto-select best server" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto-select best server</SelectItem>
+                <SelectItem value="0">Auto-select</SelectItem>
                 {servers.map((server: any) => (
-                  <SelectItem key={server.id} value={String(server.id)}>
-                    {server.serverName} ({server.status})
-                  </SelectItem>
+                  <SelectItem key={server.id} value={String(server.id)}>{server.serverName}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Output Formats</Label>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  checked={selectedOutputs.includes("m3u8")}
-                  onCheckedChange={() => toggleOutput("m3u8")}
-                />
-                <Label className="font-normal">M3U8 (HLS - Recommended for browsers)</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  checked={selectedOutputs.includes("ts")}
-                  onCheckedChange={() => toggleOutput("ts")}
-                />
-                <Label className="font-normal">TS (MPEG-TS - For VLC, Kodi, etc.)</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  checked={selectedOutputs.includes("rtmp")}
-                  onCheckedChange={() => toggleOutput("rtmp")}
-                />
-                <Label className="font-normal">RTMP (Real-Time Messaging Protocol)</Label>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">Select allowed output formats for this line.</p>
+            <Label className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Package
+            </Label>
+            <Select onValueChange={(val) => form.setValue("packageId", parseInt(val) || undefined)}>
+              <SelectTrigger data-testid="select-package">
+                <SelectValue placeholder="No package" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">No package</SelectItem>
+                {packages.map((pkg: any) => (
+                  <SelectItem key={pkg.id} value={String(pkg.id)}>{pkg.packageName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Play Token (Optional)</Label>
-            <Input 
-              {...form.register("playToken")}
-              placeholder="Custom secure token"
-              data-testid="input-play-token"
-            />
-            <p className="text-xs text-muted-foreground">Custom token required for playback (leave empty to disable).</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Admin Notes</Label>
+            <Label>Notes</Label>
             <Textarea 
               {...form.register("adminNotes")}
-              placeholder="Internal notes about this line (visible to admins only)"
+              placeholder="Internal notes about this line"
               data-testid="input-admin-notes"
-              rows={3}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Reseller Notes</Label>
-            <Textarea 
-              {...form.register("resellerNotes")}
-              placeholder="Notes visible to reseller"
-              data-testid="input-reseller-notes"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Switch 
-              checked={form.watch("adminEnabled") ?? true} 
-              onCheckedChange={(checked) => form.setValue("adminEnabled", checked)} 
-            />
-            <Label>Admin Enabled (Separate admin toggle)</Label>
           </div>
         </TabsContent>
       </Tabs>
 
       <DialogFooter>
         <Button type="submit" disabled={isLoading} className="w-full btn-primary" data-testid="button-submit-line">
-          {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {isLoading ? "Saving..." : (initialData ? "Save Changes" : "Create Line")}
         </Button>
       </DialogFooter>
@@ -511,7 +272,6 @@ export default function Lines() {
   const { data: bouquets } = useBouquets();
   const { data: servers } = useServers();
   const { data: packages } = usePackages();
-  const { data: users } = useUsers();
   const createLine = useCreateLine();
   const deleteLine = useDeleteLine();
   const updateLine = useUpdateLine();
@@ -639,25 +399,18 @@ export default function Lines() {
                 <Plus className="w-4 h-4" /> Create Line
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] bg-card border-white/10 text-white max-h-[90vh] overflow-hidden">
+            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
               <DialogHeader>
                 <DialogTitle>Create New Line</DialogTitle>
               </DialogHeader>
-              <LineForm 
-                onSubmit={handleCreate} 
-                bouquets={bouquets || []} 
-                servers={servers || []} 
-                packages={packages || []} 
-                users={users || []}
-                isLoading={createLine.isPending} 
-              />
+              <LineForm onSubmit={handleCreate} bouquets={bouquets || []} servers={servers || []} packages={packages || []} isLoading={createLine.isPending} />
             </DialogContent>
           </Dialog>
         </div>
       }
     >
       <Dialog open={!!editLine} onOpenChange={(open) => !open && setEditLine(null)}>
-        <DialogContent className="sm:max-w-[700px] bg-card border-white/10 text-white max-h-[90vh] overflow-hidden">
+        <DialogContent className="sm:max-w-[600px] bg-card border-white/10 text-white">
           <DialogHeader>
             <DialogTitle>Edit Line: {editLine?.username}</DialogTitle>
           </DialogHeader>
@@ -667,32 +420,19 @@ export default function Lines() {
               bouquets={bouquets || []} 
               servers={servers || []} 
               packages={packages || []} 
-              users={users || []}
               isLoading={updateLine.isPending}
               initialData={{
                 username: editLine.username,
                 password: editLine.password,
                 maxConnections: editLine.maxConnections,
                 enabled: editLine.enabled ?? true,
-                adminEnabled: editLine.adminEnabled ?? true,
                 isTrial: editLine.isTrial ?? false,
                 bouquets: editLine.bouquets || [],
                 allowedIps: editLine.allowedIps || [],
                 allowedCountries: editLine.allowedCountries || [],
                 allowedUserAgents: editLine.allowedUserAgents || [],
-                allowedDomains: editLine.allowedDomains || [],
-                allowedOutputs: editLine.allowedOutputs || ["m3u8", "ts"],
                 lockedDeviceId: editLine.lockedDeviceId || undefined,
                 lockedMac: editLine.lockedMac || undefined,
-                forcedCountry: editLine.forcedCountry || undefined,
-                ispLock: editLine.ispLock || undefined,
-                memberId: editLine.memberId || undefined,
-                packageId: editLine.packageId || undefined,
-                forcedServerId: editLine.forcedServerId || undefined,
-                playToken: editLine.playToken || undefined,
-                adminNotes: editLine.adminNotes || undefined,
-                resellerNotes: editLine.resellerNotes || undefined,
-                expDate: editLine.expDate || undefined,
               }}
             />
           )}
