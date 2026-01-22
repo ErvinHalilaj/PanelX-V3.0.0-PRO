@@ -358,11 +358,18 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
       video.addEventListener("error", () => setError("Stream unavailable. The source may be down or blocking connections."));
       video.play().catch(() => {});
     } else {
-      // For non-HLS streams (.ts files), use proxy to avoid CORS
-      video.src = proxyUrl;
-      video.addEventListener("canplay", () => setIsLoading(false));
-      video.addEventListener("error", () => setError("Stream unavailable. MPEG-TS streams require a compatible player."));
-      video.play().catch(() => {});
+      // For non-HLS streams (.ts files), browsers can't play them directly
+      // Show error with helpful message and link to open in VLC
+      setIsLoading(false);
+      setError(`This stream format (.ts) cannot be played in browsers. 
+        
+        ✅ To play this stream:
+        1. Copy this URL: ${proxyUrl}
+        2. Open VLC Media Player
+        3. Go to Media → Open Network Stream
+        4. Paste the URL and click Play
+        
+        Or use IPTV apps like IPTV Smarters, TiviMate, etc.`);
     }
 
     return () => {

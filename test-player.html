@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stream Player Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            background: #000;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Stream Player Test</h1>
+    
+    <div class="info">
+        <h3>Test Stream Info:</h3>
+        <p><strong>Stream ID:</strong> 1</p>
+        <p><strong>Name:</strong> Test Live Stream</p>
+        <p><strong>Source:</strong> http://eu4k.online:8080/live/panelx/panelx/280169.ts</p>
+        <p><strong>Endpoint:</strong> /live/testuser1/test123/1.ts</p>
+    </div>
+
+    <div class="controls">
+        <button onclick="playStream()">▶️ Play Stream</button>
+        <button onclick="stopStream()">⏹️ Stop Stream</button>
+        <button onclick="testDirect()">🔗 Test Direct URL</button>
+    </div>
+
+    <video id="video" controls></video>
+
+    <div id="status" class="info">
+        <p><strong>Status:</strong> <span id="statusText">Ready</span></p>
+        <p><strong>Error:</strong> <span id="errorText">None</span></p>
+    </div>
+
+    <div class="info">
+        <h3>Console Output:</h3>
+        <pre id="console" style="max-height: 300px; overflow-y: auto; background: #fff; padding: 10px;"></pre>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const statusText = document.getElementById('statusText');
+        const errorText = document.getElementById('errorText');
+        const consoleOutput = document.getElementById('console');
+        let hls = null;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.textContent += `[${timestamp}] ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            console.log(message);
+        }
+
+        function setStatus(text) {
+            statusText.textContent = text;
+            log(`Status: ${text}`);
+        }
+
+        function setError(text) {
+            errorText.textContent = text;
+            errorText.style.color = text === 'None' ? 'inherit' : 'red';
+            log(`Error: ${text}`);
+        }
+
+        function playStream() {
+            setStatus('Loading stream...');
+            setError('None');
+            
+            // Use the IPTV endpoint
+            const streamUrl = '/live/testuser1/test123/1.ts';
+            log(`Loading: ${streamUrl}`);
+
+            // Check if it's an HLS stream
+            if (streamUrl.includes('.m3u8')) {
+                if (Hls.isSupported()) {
+                    log('Using HLS.js');
+                    if (hls) {
+                        hls.destroy();
+                    }
+                    hls = new Hls();
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        log('HLS manifest parsed');
+                        setStatus('Playing...');
+                        video.play().catch(e => {
+                            setError(e.message);
+                        });
+                    });
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        log(`HLS Error: ${data.type} - ${data.details}`);
+                        if (data.fatal) {
+                            setError(`${data.type}: ${data.details}`);
+                            setStatus('Error');
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    log('Using native HLS support');
+                    video.src = streamUrl;
+                    video.play().catch(e => {
+                        setError(e.message);
+                    });
+                }
+            } else {
+                // For .ts or other formats, use direct playback
+                log('Using direct video playback');
+                video.src = streamUrl;
+                video.play().catch(e => {
+                    setError(e.message);
+                    setStatus('Error');
+                });
+            }
+        }
+
+        function stopStream() {
+            log('Stopping stream');
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            video.pause();
+            video.src = '';
+            setStatus('Stopped');
+            setError('None');
+        }
+
+        function testDirect() {
+            setStatus('Testing direct URL...');
+            log('Testing: http://eu4k.online:8080/live/panelx/panelx/280169.ts');
+            video.src = 'http://eu4k.online:8080/live/panelx/panelx/280169.ts';
+            video.play().catch(e => {
+                setError(e.message);
+                setStatus('Error');
+            });
+        }
+
+        // Video event listeners
+        video.addEventListener('loadstart', () => log('Video: loadstart'));
+        video.addEventListener('loadedmetadata', () => log('Video: loadedmetadata'));
+        video.addEventListener('loadeddata', () => log('Video: loadeddata'));
+        video.addEventListener('canplay', () => {
+            log('Video: canplay');
+            setStatus('Playing');
+        });
+        video.addEventListener('playing', () => log('Video: playing'));
+        video.addEventListener('error', (e) => {
+            log(`Video Error: ${e.message || 'Unknown error'}`);
+            setError(video.error ? `Code ${video.error.code}: ${video.error.message}` : 'Unknown error');
+            setStatus('Error');
+        });
+
+        log('Page loaded. Ready to test.');
+    </script>
+</body>
+</html>
