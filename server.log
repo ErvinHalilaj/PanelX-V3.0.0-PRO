@@ -37,3 +37,4 @@ Terminated
 [Stream 1] Serving HLS through FFmpeg
 [FFmpeg 1] Viewer disconnected. Total: 0
 [FFmpeg 1] Process exited with code null, signal SIGKILL
+6:39:24 PM [express] POST /api/lines 201 in 39ms :: {"id":4,"username":"testuser_new","password":"test123","memberId":null,"expDate":null,"adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":false,"bouquets":[],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-22T18:39:24.772Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null}

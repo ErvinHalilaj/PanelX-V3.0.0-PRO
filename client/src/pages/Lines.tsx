@@ -51,6 +51,7 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading, initialDat
   const [allowedUserAgentsText, setAllowedUserAgentsText] = useState((initialData?.allowedUserAgents || []).join("\n"));
 
   const handleFormSubmit = (data: InsertLine) => {
+    console.log("[LineForm] Form submitted with data:", data);
     const formData = {
       ...data,
       // Convert datetime-local string to Date object for proper backend handling
@@ -60,6 +61,7 @@ function LineForm({ onSubmit, bouquets, servers, packages, isLoading, initialDat
       allowedCountries: allowedCountriesText.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       allowedUserAgents: allowedUserAgentsText.split('\n').map(s => s.trim()).filter(Boolean),
     };
+    console.log("[LineForm] Formatted data:", formData);
     onSubmit(formData);
   };
 
@@ -278,11 +280,15 @@ export default function Lines() {
 
   const handleCreate = async (data: InsertLine) => {
     try {
-      await createLine.mutateAsync(data);
+      console.log("[Lines] Creating line with data:", data);
+      const result = await createLine.mutateAsync(data);
+      console.log("[Lines] Line created successfully:", result);
       toast({ title: "Success", description: "Line created successfully" });
       setIsCreateOpen(false);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to create line", variant: "destructive" });
+      console.error("[Lines] Failed to create line:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create line";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
