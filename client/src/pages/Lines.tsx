@@ -5,7 +5,7 @@ import { useBouquets } from "@/hooks/use-bouquets";
 import { useServers } from "@/hooks/use-servers";
 import { usePackages } from "@/hooks/use-packages";
 import { useUsers } from "@/hooks/use-users";
-import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, Loader2, Power, PowerOff, Eye, EyeOff, Clock } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Calendar, Search, Globe, Smartphone, Shield, Server, Package, Loader2, Power, PowerOff, Eye, EyeOff, Clock, Download, FileText, FileSpreadsheet, Music } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -574,6 +574,12 @@ export default function Lines() {
     }
   };
 
+  const handleExport = (format: 'csv' | 'excel' | 'm3u') => {
+    const url = `/api/lines/export/${format}`;
+    window.open(url, '_blank');
+    toast({ title: "Success", description: `Exporting lines to ${format.toUpperCase()}...` });
+  };
+
   const toggleSelectAll = () => {
     if (!filteredLines) return;
     if (selectedIds.length === filteredLines.length) {
@@ -633,6 +639,30 @@ export default function Lines() {
               </Button>
             </>
           )}
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={() => handleExport('csv')}
+            data-testid="button-export-csv"
+          >
+            <FileText className="w-4 h-4" /> CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={() => handleExport('excel')}
+            data-testid="button-export-excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Excel
+          </Button>
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={() => handleExport('m3u')}
+            data-testid="button-export-m3u"
+          >
+            <Music className="w-4 h-4" /> M3U
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="btn-primary gap-2" data-testid="button-add-line">

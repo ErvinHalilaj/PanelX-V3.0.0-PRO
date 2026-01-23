@@ -1121,6 +1121,98 @@ export async function registerRoutes(
     }
   });
 
+  // Export endpoints
+  app.get("/api/lines/export/csv", requireAuth, async (req, res) => {
+    try {
+      const lines = await storage.getLines();
+      const { exportService } = await import('./export-service');
+      const csv = exportService.exportLinesToCSV(lines);
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="lines_export_${Date.now()}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Export lines to CSV error:", error);
+      res.status(500).json({ message: "Failed to export lines" });
+    }
+  });
+
+  app.get("/api/lines/export/excel", requireAuth, async (req, res) => {
+    try {
+      const lines = await storage.getLines();
+      const { exportService } = await import('./export-service');
+      const excel = exportService.exportLinesToExcel(lines);
+      
+      res.setHeader('Content-Type', 'application/vnd.ms-excel');
+      res.setHeader('Content-Disposition', `attachment; filename="lines_export_${Date.now()}.xlsx"`);
+      res.send(excel);
+    } catch (error) {
+      console.error("Export lines to Excel error:", error);
+      res.status(500).json({ message: "Failed to export lines" });
+    }
+  });
+
+  app.get("/api/lines/export/m3u", requireAuth, async (req, res) => {
+    try {
+      const lines = await storage.getLines();
+      const { exportService } = await import('./export-service');
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const m3u = exportService.exportLinesToM3U(lines, baseUrl);
+      
+      res.setHeader('Content-Type', 'audio/x-mpegurl');
+      res.setHeader('Content-Disposition', `attachment; filename="lines_playlist_${Date.now()}.m3u"`);
+      res.send(m3u);
+    } catch (error) {
+      console.error("Export lines to M3U error:", error);
+      res.status(500).json({ message: "Failed to export lines" });
+    }
+  });
+
+  app.get("/api/streams/export/csv", requireAuth, async (req, res) => {
+    try {
+      const streams = await storage.getStreams();
+      const { exportService } = await import('./export-service');
+      const csv = exportService.exportStreamsToCSV(streams);
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="streams_export_${Date.now()}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Export streams to CSV error:", error);
+      res.status(500).json({ message: "Failed to export streams" });
+    }
+  });
+
+  app.get("/api/streams/export/excel", requireAuth, async (req, res) => {
+    try {
+      const streams = await storage.getStreams();
+      const { exportService } = await import('./export-service');
+      const excel = exportService.exportStreamsToExcel(streams);
+      
+      res.setHeader('Content-Type', 'application/vnd.ms-excel');
+      res.setHeader('Content-Disposition', `attachment; filename="streams_export_${Date.now()}.xlsx"`);
+      res.send(excel);
+    } catch (error) {
+      console.error("Export streams to Excel error:", error);
+      res.status(500).json({ message: "Failed to export streams" });
+    }
+  });
+
+  app.get("/api/users/export/csv", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      const { exportService } = await import('./export-service');
+      const csv = exportService.exportUsersToCSV(users);
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="users_export_${Date.now()}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Export users to CSV error:", error);
+      res.status(500).json({ message: "Failed to export users" });
+    }
+  });
+
   app.post(api.lines.extend.path, async (req, res) => {
     try {
       const { days, useCredits } = api.lines.extend.input.parse(req.body);

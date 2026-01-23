@@ -5,7 +5,7 @@ import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-stream
 import { useCategories } from "@/hooks/use-categories";
 import { useImportM3U, useBulkDeleteStreams } from "@/hooks/use-bulk";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw } from "lucide-react";
+import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw, Download, FileSpreadsheet } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -833,6 +833,12 @@ export default function Streams() {
     });
   };
 
+  const handleExport = (format: 'csv' | 'excel') => {
+    const url = `/api/streams/export/${format}`;
+    window.open(url, '_blank');
+    toast({ title: "Success", description: `Exporting streams to ${format.toUpperCase()}...` });
+  };
+
   const toggleSelectAll = () => {
     if (!streams) return;
     if (selectedStreams.size === streams.length) {
@@ -1022,6 +1028,22 @@ export default function Streams() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={() => handleExport('csv')}
+            data-testid="button-export-csv-streams"
+          >
+            <FileText className="w-4 h-4" /> CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={() => handleExport('excel')}
+            data-testid="button-export-excel-streams"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Excel
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="btn-primary gap-2" data-testid="button-add-stream">
