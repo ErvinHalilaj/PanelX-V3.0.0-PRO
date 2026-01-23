@@ -5,6 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { initializeWebSocket } from "./websocket";
+import { initializeDVRManager } from "./dvrManager";
 import crypto from "crypto";
 
 const app = express();
@@ -116,6 +117,10 @@ app.use((req, res, next) => {
   // Initialize WebSocket server for real-time updates
   const wsManager = initializeWebSocket(httpServer, storage);
   log('WebSocket server initialized for real-time monitoring');
+
+  // Initialize DVR manager for recording functionality
+  const dvrManager = initializeDVRManager(storage, './recordings');
+  log('DVR manager initialized for recording functionality');
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

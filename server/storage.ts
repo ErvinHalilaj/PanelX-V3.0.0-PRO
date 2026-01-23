@@ -135,6 +135,10 @@ export interface IStorage {
 
   // TV Archive
   getTvArchiveEntries(streamId: number, startTime?: Date, endTime?: Date): Promise<TvArchive[]>;
+  getTvArchive(id: number): Promise<TvArchive | null>;
+  getTvArchives(): Promise<TvArchive[]>;
+  updateTvArchive(id: number, updates: Partial<TvArchive>): Promise<void>;
+  deleteTvArchive(id: number): Promise<void>;
   createTvArchiveEntry(entry: InsertTvArchive): Promise<TvArchive>;
   deleteTvArchiveEntry(id: number): Promise<void>;
 
@@ -767,6 +771,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTvArchiveEntry(id: number): Promise<void> {
+    await db.delete(tvArchive).where(eq(tvArchive.id, id));
+  }
+
+  async getTvArchive(id: number): Promise<TvArchive | null> {
+    const [archive] = await db.select().from(tvArchive).where(eq(tvArchive.id, id));
+    return archive || null;
+  }
+
+  async getTvArchives(): Promise<TvArchive[]> {
+    return await db.select().from(tvArchive);
+  }
+
+  async updateTvArchive(id: number, updates: Partial<TvArchive>): Promise<void> {
+    await db.update(tvArchive).set(updates).where(eq(tvArchive.id, id));
+  }
+
+  async deleteTvArchive(id: number): Promise<void> {
     await db.delete(tvArchive).where(eq(tvArchive.id, id));
   }
 

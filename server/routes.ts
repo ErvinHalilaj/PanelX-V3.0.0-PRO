@@ -914,6 +914,129 @@ export async function registerRoutes(
     }
   });
 
+  // DVR Endpoints - Recording functionality
+  app.post("/api/streams/:id/record/start", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const { duration = 60 } = req.body; // duration in minutes
+
+      const stream = await storage.getStream(streamId);
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { getDVRManager } = await import('./dvrManager');
+      const dvrManager = getDVRManager();
+      
+      if (!dvrManager) {
+        return res.status(500).json({ message: "DVR manager not initialized" });
+      }
+
+      const recordingId = await dvrManager.startRecording(streamId, duration);
+      
+      res.json({ 
+        message: "Recording started",
+        recordingId,
+        streamId,
+        duration
+      });
+    } catch (error: any) {
+      console.error('[API] Start recording error:', error);
+      res.status(500).json({ message: error.message || "Failed to start recording" });
+    }
+  });
+
+  app.post("/api/recordings/:id/stop", requireAuth, async (req, res) => {
+    try {
+      const recordingId = Number(req.params.id);
+
+      const { getDVRManager } = await import('./dvrManager');
+      const dvrManager = getDVRManager();
+      
+      if (!dvrManager) {
+        return res.status(500).json({ message: "DVR manager not initialized" });
+      }
+
+      await dvrManager.stopRecording(recordingId);
+      
+      res.json({ message: "Recording stopped", recordingId });
+    } catch (error: any) {
+      console.error('[API] Stop recording error:', error);
+      res.status(500).json({ message: error.message || "Failed to stop recording" });
+    }
+  });
+
+  app.get("/api/recordings", requireAuth, async (req, res) => {
+    try {
+      const archives = await storage.getTvArchives();
+      
+      res.json(archives);
+    } catch (error: any) {
+      console.error('[API] Get recordings error:', error);
+      res.status(500).json({ message: error.message || "Failed to get recordings" });
+    }
+  });
+
+  app.get("/api/recordings/:id", requireAuth, async (req, res) => {
+    try {
+      const recordingId = Number(req.params.id);
+      const archive = await storage.getTvArchive(recordingId);
+      
+      if (!archive) {
+        return res.status(404).json({ message: "Recording not found" });
+      }
+
+      res.json(archive);
+    } catch (error: any) {
+      console.error('[API] Get recording error:', error);
+      res.status(500).json({ message: error.message || "Failed to get recording" });
+    }
+  });
+
+  app.delete("/api/recordings/:id", requireAuth, async (req, res) => {
+    try {
+      const recordingId = Number(req.params.id);
+
+      const { getDVRManager } = await import('./dvrManager');
+      const dvrManager = getDVRManager();
+      
+      if (!dvrManager) {
+        return res.status(500).json({ message: "DVR manager not initialized" });
+      }
+
+      await dvrManager.deleteRecording(recordingId);
+      
+      res.json({ message: "Recording deleted", recordingId });
+    } catch (error: any) {
+      console.error('[API] Delete recording error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete recording" });
+    }
+  });
+
+  app.get("/api/recordings/storage/usage", requireAuth, async (req, res) => {
+    try {
+      const { getDVRManager } = await import('./dvrManager');
+      const dvrManager = getDVRManager();
+      
+      if (!dvrManager) {
+        return res.status(500).json({ message: "DVR manager not initialized" });
+      }
+
+      const activeRecordings = dvrManager.getActiveRecordings();
+      const storageUsed = await dvrManager.getStorageUsed();
+      
+      res.json({ 
+        activeRecordings: activeRecordings.length,
+        storageUsed,
+        storageUsedMB: (storageUsed / (1024 * 1024)).toFixed(2),
+        storageUsedGB: (storageUsed / (1024 * 1024 * 1024)).toFixed(2)
+      });
+    } catch (error: any) {
+      console.error('[API] Get storage usage error:', error);
+      res.status(500).json({ message: error.message || "Failed to get storage usage" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
