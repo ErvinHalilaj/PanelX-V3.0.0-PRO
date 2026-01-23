@@ -1390,6 +1390,133 @@ export async function registerRoutes(
     }
   });
 
+  // TMDB API endpoints
+  app.get("/api/tmdb/search/movies", requireAuth, async (req, res) => {
+    try {
+      const { query, page } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      const { tmdbService } = await import('./tmdbService');
+      const results = await tmdbService.searchMovies(
+        query as string,
+        page ? Number(page) : 1
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      console.error('[API] TMDB search movies error:', error);
+      res.status(500).json({ message: error.message || "Failed to search movies" });
+    }
+  });
+
+  app.get("/api/tmdb/search/series", requireAuth, async (req, res) => {
+    try {
+      const { query, page } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      const { tmdbService } = await import('./tmdbService');
+      const results = await tmdbService.searchSeries(
+        query as string,
+        page ? Number(page) : 1
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      console.error('[API] TMDB search series error:', error);
+      res.status(500).json({ message: error.message || "Failed to search series" });
+    }
+  });
+
+  app.get("/api/tmdb/movie/:id", requireAuth, async (req, res) => {
+    try {
+      const movieId = Number(req.params.id);
+
+      const { tmdbService } = await import('./tmdbService');
+      const movie = await tmdbService.getMovieDetails(movieId);
+
+      res.json(movie);
+    } catch (error: any) {
+      console.error('[API] TMDB get movie error:', error);
+      res.status(500).json({ message: error.message || "Failed to get movie details" });
+    }
+  });
+
+  app.get("/api/tmdb/series/:id", requireAuth, async (req, res) => {
+    try {
+      const seriesId = Number(req.params.id);
+
+      const { tmdbService } = await import('./tmdbService');
+      const series = await tmdbService.getSeriesDetails(seriesId);
+
+      res.json(series);
+    } catch (error: any) {
+      console.error('[API] TMDB get series error:', error);
+      res.status(500).json({ message: error.message || "Failed to get series details" });
+    }
+  });
+
+  app.get("/api/tmdb/popular/movies", requireAuth, async (req, res) => {
+    try {
+      const { page } = req.query;
+
+      const { tmdbService } = await import('./tmdbService');
+      const results = await tmdbService.getPopularMovies(
+        page ? Number(page) : 1
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      console.error('[API] TMDB popular movies error:', error);
+      res.status(500).json({ message: error.message || "Failed to get popular movies" });
+    }
+  });
+
+  app.get("/api/tmdb/popular/series", requireAuth, async (req, res) => {
+    try {
+      const { page } = req.query;
+
+      const { tmdbService } = await import('./tmdbService');
+      const results = await tmdbService.getPopularSeries(
+        page ? Number(page) : 1
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      console.error('[API] TMDB popular series error:', error);
+      res.status(500).json({ message: error.message || "Failed to get popular series" });
+    }
+  });
+
+  app.get("/api/tmdb/genres/movies", requireAuth, async (req, res) => {
+    try {
+      const { tmdbService } = await import('./tmdbService');
+      const genres = await tmdbService.getMovieGenres();
+
+      res.json({ genres });
+    } catch (error: any) {
+      console.error('[API] TMDB movie genres error:', error);
+      res.status(500).json({ message: error.message || "Failed to get movie genres" });
+    }
+  });
+
+  app.get("/api/tmdb/genres/series", requireAuth, async (req, res) => {
+    try {
+      const { tmdbService } = await import('./tmdbService');
+      const genres = await tmdbService.getTVGenres();
+
+      res.json({ genres });
+    } catch (error: any) {
+      console.error('[API] TMDB TV genres error:', error);
+      res.status(500).json({ message: error.message || "Failed to get TV genres" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
