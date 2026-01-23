@@ -1,0 +1,33 @@
+9:07:40 PM [express] serving on port 5000
+9:10:44 PM [express] GET /api/stats 200 in 36ms :: {"totalStreams":4,"totalLines":4,"activeConnections":0,"onlineStreams":1,"totalUsers":2,"totalCredits":"1600","expiredLines":1,"trialLines":1}
+9:11:01 PM [express] POST /api/auth/login 200 in 36ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+/home/user/webapp/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+error: invalid input syntax for type integer: "NaN"
+    at /home/user/webapp/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/user/webapp/node_modules/src/node-postgres/session.ts:104:19)
+    at async DatabaseStorage.getStream (/home/user/webapp/server/storage.ts:439:22)
+    at async <anonymous> (/home/user/webapp/server/routes.ts:758:20) {
+  length: 141,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: "unnamed portal parameter $1 = '...'",
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'numutils.c',
+  line: '232',
+  routine: 'pg_strtoint32'
+}
+
+Node.js v20.19.6

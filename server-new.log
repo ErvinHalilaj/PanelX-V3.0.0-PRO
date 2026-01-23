@@ -1391,3 +1391,45 @@
 7:20:41 PM [vite] (client) hmr update /src/pages/Streams.tsx, /src/index.css
 7:20:41 PM [vite] (client) hmr update /src/pages/Streams.tsx, /src/index.css
 7:21:34 PM [express] GET /api/stats 200 in 36ms :: {"totalStreams":4,"totalLines":4,"activeConnections":0,"onlineStreams":1,"totalUsers":2,"totalCredits":"1600","expiredLines":1,"trialLines":1}
+8:56:44 PM [express] GET /api/auth/me 401 in 1ms :: {"message":"Not authenticated"}
+8:56:59 PM [express] POST /api/auth/login 200 in 8ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+8:56:59 PM [express] GET /api/auth/me 304 in 3ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+8:57:00 PM [express] GET /api/connections 304 in 8ms :: []
+8:57:00 PM [express] GET /api/lines 304 in 25ms :: [{"id":2,"username":"testuser2","password":"test456","memberId":2,"expDate":"2026-02-22T17:06:28.403Z","adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":true,"bouquets":[1],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-22T17:06:28.407Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null},{"id":3,"username":"expireduser","password":"expired123","memberId":2,"expDate":"2026-01-17T17:06:28.403Z","adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":false,"bouquets":[1],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-22T17:06:28.409Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null},{"id":1,"username":"testuser1","password":"test123","memberId":2,"expDate":"2026-02-22T17:06:28.403Z","adminNotes":null,"resellerNotes":null,"maxConnections":2,"isTrial":false,"bouquets":[2],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-22T17:06:28.404Z","enabled":true,"lastActivity":"2026-01-22T17:15:02.974Z","forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null},{"id":4,"username":"testuser_new","password":"test123","memberId":null,"expDate":null,"adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":false,"bouquets":[],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-22T18:39:24.772Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null}]
+8:57:00 PM [express] GET /api/stats 304 in 39ms :: {"totalStreams":4,"totalLines":4,"activeConnections":0,"onlineStreams":1,"totalUsers":2,"totalCredits":"1600","expiredLines":1,"trialLines":1}
+8:57:10 PM [express] GET /api/connections 304 in 30ms :: []
+8:57:18 PM [express] GET /api/streams 304 in 6ms :: [{"id":3,"name":"Action Movie Channel","streamType":"movie","sourceUrl":"http://example.com/movies.m3u8","backupUrls":[],"categoryId":3,"transcodeProfileId":null,"serverId":null,"streamIcon":"https://via.placeholder.com/150/9B59B6/FFFFFF?text=Movies","epgChannelId":null,"notes":null,"isDirect":true,"isMonitored":true,"monitorStatus":"online","lastChecked":null,"createdAt":"2026-01-22T17:06:28.395Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":false,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":null,"externalPush":null,"customFfmpeg":null,"readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":false,"probesizeOndemand":0,"allowRecord":true,"customSid":null,"streamOrder":0},{"id":4,"name":"Entertainment Plus","streamType":"live","sourceUrl":"http://example.com/entertainment.m3u8","backupUrls":[],"categoryId":4,"transcodeProfileId":null,"serverId":null,"streamIcon":"https://via.placeholder.com/150/E74C3C/FFFFFF?text=Ent","epgChannelId":null,"notes":null,"isDirect":false,"isMonitored":true,"monitorStatus":"offline","lastChecked":null,"createdAt":"2026-01-22T17:06:28.398Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":false,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":null,"externalPush":null,"customFfmpeg":null,"readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":false,"probesizeOndemand":0,"allowRecord":true,"customSid":null,"streamOrder":0},{"id":2,"name":"World News 24","streamType":"live","sourceUrl":"http://example.com/news.m3u8","backupUrls":[],"categoryId":2,"transcodeProfileId":null,"serverId":null,"streamIcon":"https://via.placeholder.com/150/3498DB/FFFFFF?text=News","epgChannelId":null,"notes":"International news channel","isDirect":false,"isMonitored":true,"monitorStatus":"offline","lastChecked":null,"createdAt":"2026-01-22T17:06:28.392Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":false,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":null,"externalPush":null,"customFfmpeg":null,"readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":false,"probesizeOndemand":0,"allowRecord":true,"customSid":null,"streamOrder":0},{"id":1,"name":"Test Live Stream","streamType":"live","sourceUrl":"http://eu4k.online:8080/live/panelx/panelx/280169.ts","backupUrls":[],"categoryId":1,"transcodeProfileId":null,"serverId":null,"streamIcon":"https://via.placeholder.com/150/FF5733/FFFFFF?text=Sports","epgChannelId":null,"notes":"24/7 Sports coverage","isDirect":false,"isMonitored":true,"monitorStatus":"offline","lastChecked":null,"createdAt":"2026-01-22T17:06:28.384Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":false,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":null,"externalPush":null,"customFfmpeg":null,"readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":false,"probesizeOndemand":0,"allowRecord":true,"customSid":null,"streamOrder":0}]
+8:57:18 PM [express] GET /api/categories 304 in 3ms :: [{"id":1,"categoryName":"Sports","categoryType":"live","parentId":null},{"id":2,"categoryName":"News","categoryType":"live","parentId":null},{"id":3,"categoryName":"Movies","categoryType":"movie","parentId":null},{"id":4,"categoryName":"Entertainment","categoryType":"live","parentId":null},{"id":5,"categoryName":"TV Shows","categoryType":"series","parentId":null}]
+8:59:23 PM [express] GET /api/auth/me 401 in 1ms :: {"message":"Not authenticated"}
+8:59:34 PM [express] GET /api/stats 200 in 12ms :: {"totalStreams":4,"totalLines":4,"activeConnections":0,"onlineStreams":1,"totalUsers":2,"totalCredits":"1600","expiredLines":1,"trialLines":1}
+8:59:38 PM [express] POST /api/auth/login 200 in 7ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+/home/user/webapp/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+error: invalid input syntax for type integer: "NaN"
+    at /home/user/webapp/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/user/webapp/node_modules/src/node-postgres/session.ts:104:19)
+    at async DatabaseStorage.getStream (/home/user/webapp/server/storage.ts:439:22)
+    at async <anonymous> (/home/user/webapp/server/routes.ts:758:20) {
+  length: 141,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: "unnamed portal parameter $1 = '...'",
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'numutils.c',
+  line: '232',
+  routine: 'pg_strtoint32'
+}
+
+Node.js v20.19.6
