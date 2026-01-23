@@ -14,6 +14,18 @@ export function useBulkDeleteStreams() {
   });
 }
 
+export function useBulkUpdateStreams() {
+  return useMutation({
+    mutationFn: async ({ ids, updates }: { ids: number[]; updates: any }) => {
+      const res = await apiRequest("POST", "/api/streams/bulk-update", { ids, updates });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+    },
+  });
+}
+
 export function useBulkDeleteLines() {
   return useMutation({
     mutationFn: async (ids: number[]) => {

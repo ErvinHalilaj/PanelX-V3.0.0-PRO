@@ -2116,6 +2116,44 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk update streams
+  app.post("/api/streams/bulk-update", requiresAdmin, async (req, res) => {
+    try {
+      const { ids, updates } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No stream IDs provided" });
+      }
+
+      // Update each stream with the provided data
+      const updatePromises = ids.map(async (id: number) => {
+        const cleanUpdates: any = {};
+        
+        // Only include fields that are actually set
+        if (updates.categoryId !== undefined) cleanUpdates.categoryId = updates.categoryId;
+        if (updates.streamType !== undefined) cleanUpdates.streamType = updates.streamType;
+        if (updates.serverId !== undefined) cleanUpdates.serverId = updates.serverId;
+        if (updates.transcodeProfileId !== undefined) cleanUpdates.transcodeProfileId = updates.transcodeProfileId;
+        if (updates.tvArchiveEnabled !== undefined) cleanUpdates.tvArchiveEnabled = updates.tvArchiveEnabled;
+        if (updates.tvArchiveDuration !== undefined) cleanUpdates.tvArchiveDuration = updates.tvArchiveDuration;
+        
+        if (Object.keys(cleanUpdates).length > 0) {
+          await storage.updateStream(id, cleanUpdates);
+        }
+      });
+
+      await Promise.all(updatePromises);
+      
+      res.json({ 
+        message: `Updated ${ids.length} streams`, 
+        updated: ids.length 
+      });
+    } catch (err: any) {
+      console.error("Bulk update error:", err);
+      res.status(500).json({ message: "Failed to update streams" });
+    }
+  });
+
   app.post(api.bulk.deleteLines.path, async (req, res) => {
     try {
       const { ids } = api.bulk.deleteLines.input.parse(req.body);

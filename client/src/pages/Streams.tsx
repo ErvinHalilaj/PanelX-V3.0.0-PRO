@@ -5,7 +5,7 @@ import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-stream
 import { useCategories } from "@/hooks/use-categories";
 import { useServers } from "@/hooks/use-servers";
 import { useTranscodeProfiles } from "@/hooks/use-transcode-profiles";
-import { useImportM3U, useBulkDeleteStreams } from "@/hooks/use-bulk";
+import { useImportM3U, useBulkDeleteStreams, useBulkUpdateStreams } from "@/hooks/use-bulk";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw, Download, FileSpreadsheet, Power, Server as ServerIcon, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -783,7 +783,14 @@ export default function Streams() {
   const [editFormData, setEditFormData] = useState<Partial<Stream>>({});
   const [isEditPending, setIsEditPending] = useState(false);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
-  const [bulkEditData, setBulkEditData] = useState<{categoryId?: number, streamType?: string}>({});
+  const [bulkEditData, setBulkEditData] = useState<{
+    categoryId?: number, 
+    streamType?: string,
+    serverId?: number,
+    transcodeProfileId?: number,
+    tvArchiveEnabled?: boolean,
+    tvArchiveDuration?: number
+  }>({});
   
   const { data: streams, isLoading } = useStreams(selectedCategory);
   const { data: categories } = useCategories();
@@ -793,6 +800,7 @@ export default function Streams() {
   const deleteStream = useDeleteStream();
   const importM3U = useImportM3U();
   const bulkDelete = useBulkDeleteStreams();
+  const bulkUpdate = useBulkUpdateStreams();
 
   const handleCreate = async (data: InsertStream) => {
     try {
@@ -880,12 +888,10 @@ export default function Streams() {
   const handleBulkEdit = async () => {
     if (selectedStreams.size === 0) return;
     try {
-      // Update each selected stream
-      const updates = Array.from(selectedStreams).map(id => 
-        apiRequest("PATCH", `/api/streams/${id}`, bulkEditData)
-      );
-      await Promise.all(updates);
-      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+      await bulkUpdate.mutateAsync({
+        ids: Array.from(selectedStreams),
+        updates: bulkEditData
+      });
       toast({ title: "Success", description: `Updated ${selectedStreams.size} streams` });
       setIsBulkEditOpen(false);
       setSelectedStreams(new Set());
@@ -1212,7 +1218,7 @@ export default function Streams() {
       </Dialog>
 
       <Dialog open={isBulkEditOpen} onOpenChange={setIsBulkEditOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-card border-white/10 text-white">
+        <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-white max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit2 className="w-5 h-5" /> Bulk Edit Streams
@@ -1222,6 +1228,7 @@ export default function Streams() {
             <p className="text-sm text-muted-foreground">
               Editing {selectedStreams.size} selected stream{selectedStreams.size > 1 ? 's' : ''}. Only fill the fields you want to update.
             </p>
+            
             <div className="space-y-2">
               <Label>Category</Label>
               <Select
@@ -1239,6 +1246,7 @@ export default function Streams() {
                 </SelectContent>
               </Select>
             </div>
+            
             <div className="space-y-2">
               <Label>Stream Type</Label>
               <Select
@@ -1255,6 +1263,91 @@ export default function Streams() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <ServerIcon className="h-4 w-4" />
+                Server
+              </Label>
+              <Select
+                value={bulkEditData.serverId?.toString() || ""}
+                onValueChange={(val) => setBulkEditData({ ...bulkEditData, serverId: val ? parseInt(val) : undefined })}
+              >
+                <SelectTrigger data-testid="select-bulk-server">
+                  <SelectValue placeholder="Keep current servers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Keep current servers</SelectItem>
+                  {servers?.map((server) => (
+                    <SelectItem key={server.id} value={server.id.toString()}>
+                      {server.serverName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Transcode Profile
+              </Label>
+              <Select
+                value={bulkEditData.transcodeProfileId?.toString() || ""}
+                onValueChange={(val) => setBulkEditData({ ...bulkEditData, transcodeProfileId: val ? parseInt(val) : undefined })}
+              >
+                <SelectTrigger data-testid="select-bulk-transcode">
+                  <SelectValue placeholder="Keep current profiles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Keep current profiles</SelectItem>
+                  {transcodeProfiles?.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id.toString()}>
+                      {profile.profileName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>TV Archive (Catchup)</Label>
+              <Select
+                value={bulkEditData.tvArchiveEnabled?.toString() || ""}
+                onValueChange={(val) => {
+                  if (val === "") {
+                    setBulkEditData({ ...bulkEditData, tvArchiveEnabled: undefined });
+                  } else {
+                    setBulkEditData({ ...bulkEditData, tvArchiveEnabled: val === "true" });
+                  }
+                }}
+              >
+                <SelectTrigger data-testid="select-bulk-archive">
+                  <SelectValue placeholder="Keep current settings" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Keep current settings</SelectItem>
+                  <SelectItem value="true">Enable Archive</SelectItem>
+                  <SelectItem value="false">Disable Archive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {bulkEditData.tvArchiveEnabled === true && (
+              <div className="space-y-2">
+                <Label>Archive Duration (days)</Label>
+                <Input
+                  type="number"
+                  value={bulkEditData.tvArchiveDuration || ""}
+                  onChange={(e) => setBulkEditData({ 
+                    ...bulkEditData, 
+                    tvArchiveDuration: e.target.value ? parseInt(e.target.value) : undefined 
+                  })}
+                  placeholder="7"
+                  data-testid="input-bulk-archive-duration"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
