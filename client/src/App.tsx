@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Streams from "@/pages/Streams";
+import Recordings from "@/pages/Recordings";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
 import Bouquets from "@/pages/Bouquets";
@@ -58,6 +59,7 @@ function AdminRouter() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/streams" component={Streams} />
+      <Route path="/recordings" component={Recordings} />
       <Route path="/movies" component={Movies} />
       <Route path="/series" component={Series} />
       <Route path="/series/:seriesId/episodes" component={Episodes} />

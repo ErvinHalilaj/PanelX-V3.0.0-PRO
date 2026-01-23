@@ -1,22 +1,5 @@
-WARNING: SESSION_SECRET not set. Using random secret for development. Set SESSION_SECRET in production!
-10:05:06 PM [express] WebSocket server initialized for real-time monitoring
-node:events:502
-      throw er; // Unhandled 'error' event
-      ^
-
-Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
-    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
-    at listenInCluster (node:net:1965:12)
-    at doListen (node:net:2139:7)
-    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
-Emitted 'error' event on Server instance at:
-    at emitErrorNT (node:net:1944:8)
-    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
-  code: 'EADDRINUSE',
-  errno: -98,
-  syscall: 'listen',
-  address: '0.0.0.0',
-  port: 5000
-}
-
-Node.js v20.19.6
+npm error Missing script: "dev:sandbox"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run
+npm error A complete log of this run can be found in: /opt/npm-cache/_logs/2026-01-23T22_19_15_765Z-debug-0.log

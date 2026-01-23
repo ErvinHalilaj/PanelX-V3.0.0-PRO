@@ -45,7 +45,8 @@ import {
   Repeat,
   ShieldAlert,
   BarChart3,
-  UserCheck
+  UserCheck,
+  Video
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -59,6 +60,7 @@ export function Sidebar() {
 
   const contentNav = [
     { icon: Tv, label: "Live Streams", href: "/streams" },
+    { icon: Video, label: "Recordings (DVR)", href: "/recordings" },
     { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },
