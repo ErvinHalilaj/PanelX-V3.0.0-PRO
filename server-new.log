@@ -1390,3 +1390,4 @@
 7:20:41 PM [vite] (client) hmr update /src/pages/Streams.tsx, /src/index.css
 7:20:41 PM [vite] (client) hmr update /src/pages/Streams.tsx, /src/index.css
 7:20:41 PM [vite] (client) hmr update /src/pages/Streams.tsx, /src/index.css
+7:21:34 PM [express] GET /api/stats 200 in 36ms :: {"totalStreams":4,"totalLines":4,"activeConnections":0,"onlineStreams":1,"totalUsers":2,"totalCredits":"1600","expiredLines":1,"trialLines":1}
