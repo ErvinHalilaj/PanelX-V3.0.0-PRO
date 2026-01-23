@@ -61,6 +61,7 @@ export function Sidebar() {
   const contentNav = [
     { icon: Tv, label: "Live Streams", href: "/streams" },
     { icon: Video, label: "Recordings (DVR)", href: "/recordings" },
+    { icon: Clock, label: "Timeshift & Catchup", href: "/timeshift" },
     { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },

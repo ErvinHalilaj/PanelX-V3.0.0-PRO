@@ -1037,6 +1037,151 @@ export async function registerRoutes(
     }
   });
 
+  // Timeshift/Catchup endpoints
+  app.post("/api/streams/:id/timeshift/start", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const stream = await storage.getStream(streamId);
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      if (!stream.tvArchiveEnabled) {
+        return res.status(400).json({ message: "TV Archive not enabled for this stream" });
+      }
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const session = await timeshiftManager.startTimeshift(stream);
+      
+      res.json({ 
+        message: "Timeshift started",
+        streamId,
+        session: {
+          status: session.status,
+          startTime: session.startTime,
+          bufferPath: session.bufferPath
+        }
+      });
+    } catch (error: any) {
+      console.error('[API] Start timeshift error:', error);
+      res.status(500).json({ message: error.message || "Failed to start timeshift" });
+    }
+  });
+
+  app.post("/api/streams/:id/timeshift/stop", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      await timeshiftManager.stopTimeshift(streamId);
+      
+      res.json({ message: "Timeshift stopped", streamId });
+    } catch (error: any) {
+      console.error('[API] Stop timeshift error:', error);
+      res.status(500).json({ message: error.message || "Failed to stop timeshift" });
+    }
+  });
+
+  app.get("/api/streams/:id/timeshift/position", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const position = timeshiftManager.getPosition(streamId);
+      
+      if (!position) {
+        return res.status(404).json({ message: "No active timeshift session" });
+      }
+
+      res.json(position);
+    } catch (error: any) {
+      console.error('[API] Get timeshift position error:', error);
+      res.status(500).json({ message: error.message || "Failed to get timeshift position" });
+    }
+  });
+
+  app.post("/api/streams/:id/timeshift/seek", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const { position } = req.body;
+
+      if (typeof position !== 'number') {
+        return res.status(400).json({ message: "Position must be a number" });
+      }
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const playlistPath = await timeshiftManager.seekTo(streamId, position);
+      
+      res.json({ 
+        message: "Seek successful",
+        streamId,
+        position,
+        playlistPath
+      });
+    } catch (error: any) {
+      console.error('[API] Timeshift seek error:', error);
+      res.status(500).json({ message: error.message || "Failed to seek" });
+    }
+  });
+
+  app.post("/api/streams/:id/timeshift/watch-from-start", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const playlistPath = await timeshiftManager.watchFromStart(streamId);
+      
+      res.json({ 
+        message: "Watching from start",
+        streamId,
+        position: 0,
+        playlistPath
+      });
+    } catch (error: any) {
+      console.error('[API] Watch from start error:', error);
+      res.status(500).json({ message: error.message || "Failed to watch from start" });
+    }
+  });
+
+  app.post("/api/streams/:id/timeshift/go-live", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const playlistPath = await timeshiftManager.goLive(streamId);
+      
+      res.json({ 
+        message: "Switched to live",
+        streamId,
+        playlistPath
+      });
+    } catch (error: any) {
+      console.error('[API] Go live error:', error);
+      res.status(500).json({ message: error.message || "Failed to switch to live" });
+    }
+  });
+
+  app.get("/api/timeshift/sessions", requireAuth, async (req, res) => {
+    try {
+      const { timeshiftManager } = await import('./timeshiftManager');
+      const sessions = timeshiftManager.getAllSessions();
+      
+      res.json({ 
+        sessions: sessions.map(s => ({
+          streamId: s.streamId,
+          status: s.status,
+          startTime: s.startTime,
+          currentPosition: s.currentPosition,
+          segmentCount: s.segments.length
+        }))
+      });
+    } catch (error: any) {
+      console.error('[API] Get timeshift sessions error:', error);
+      res.status(500).json({ message: error.message || "Failed to get sessions" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
