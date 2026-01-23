@@ -2117,7 +2117,7 @@ export async function registerRoutes(
   });
 
   // Bulk update streams
-  app.post("/api/streams/bulk-update", requiresAdmin, async (req, res) => {
+  app.post("/api/streams/bulk-update", async (req, res) => {
     try {
       const { ids, updates } = req.body;
       

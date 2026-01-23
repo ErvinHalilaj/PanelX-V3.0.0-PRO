@@ -1,7 +1,8 @@
 import { Layout } from "@/components/Layout";
 import { useStats } from "@/hooks/use-stats";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Tv, Users, Wifi, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Shield } from "lucide-react";
+import { Activity, Tv, Users, Wifi, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Shield, Radio } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line as RechartsLine, CartesianGrid } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,6 +86,14 @@ function MiniCard({ title, value, icon: Icon, color }: { title: string; value: s
 export default function Dashboard() {
   const { data: stats, isLoading } = useStats();
   
+  // Real-time WebSocket connection
+  const { 
+    connected, 
+    dashboardStats, 
+    activeConnections: liveConnections,
+    bandwidthData 
+  } = useWebSocket();
+  
   const { data: recentConnections = [] } = useQuery<ActiveConnection[]>({
     queryKey: ["/api/connections"],
     refetchInterval: 10000,
@@ -93,6 +102,10 @@ export default function Dashboard() {
   const { data: lines = [] } = useQuery<LineType[]>({
     queryKey: ["/api/lines"]
   });
+
+  // Use WebSocket data if available, otherwise fallback to API data
+  const displayStats = dashboardStats || stats;
+  const displayConnections = liveConnections.length > 0 ? liveConnections : recentConnections;
 
   const expiredLines = lines.filter(l => l.expDate && new Date(l.expDate) < new Date()).length;
   const trialLines = lines.filter(l => l.isTrial).length;
@@ -110,18 +123,32 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard">
+      {/* Real-time connection indicator */}
+      <div className="flex items-center gap-2 mb-4 text-xs">
+        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+        <span className="text-muted-foreground">
+          {connected ? 'Live monitoring active' : 'Reconnecting...'}
+        </span>
+        {bandwidthData && (
+          <span className="ml-4 text-muted-foreground flex items-center gap-1">
+            <Radio className="w-3 h-3" />
+            Bandwidth: {bandwidthData.total}
+          </span>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard 
           title="Active Connections" 
-          value={stats?.activeConnections || 0}
+          value={displayStats?.activeConnections || 0}
           icon={Activity}
           color="text-emerald-500 bg-emerald-500"
-          subtext={<span className="text-emerald-400">Live Now</span>}
+          subtext={<span className="text-emerald-400">{connected ? 'Live Now' : 'Last known'}</span>}
           trend={8}
         />
         <StatsCard 
           title="Total Lines" 
-          value={stats?.totalLines || 0}
+          value={displayStats?.totalLines || 0}
           icon={Users}
           color="text-blue-500 bg-blue-500"
           subtext={`${activeLines} active, ${expiredLines} expired`}
@@ -129,7 +156,7 @@ export default function Dashboard() {
         />
         <StatsCard 
           title="Online Streams" 
-          value={stats?.onlineStreams || 0}
+          value={displayStats?.onlineStreams || 0}
           icon={Tv}
           color="text-primary bg-primary"
           subtext={`${stats?.totalStreams || 0} Total Streams`}

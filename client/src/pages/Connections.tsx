@@ -1,6 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { useConnections, useKillConnection } from "@/hooks/use-connections";
-import { Wifi, WifiOff, Monitor, Clock, MapPin, XCircle } from "lucide-react";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { Wifi, WifiOff, Monitor, Clock, MapPin, XCircle, Globe, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,12 @@ import { formatDistanceToNow } from "date-fns";
 export default function Connections() {
   const { data: connections, isLoading } = useConnections();
   const killConnection = useKillConnection();
+  
+  // Real-time WebSocket connection
+  const { connected, activeConnections: liveConnections } = useWebSocket();
+  
+  // Use WebSocket data if available, otherwise fallback to API data
+  const displayConnections = liveConnections.length > 0 ? liveConnections : connections || [];
 
   const handleKill = async (id: number) => {
     try {
@@ -18,9 +25,32 @@ export default function Connections() {
       toast({ title: "Error", description: "Failed to kill connection", variant: "destructive" });
     }
   };
+  
+  // Calculate average duration
+  const avgDuration = displayConnections.length > 0 
+    ? Math.floor(displayConnections.reduce((sum, conn) => sum + (conn.duration || 0), 0) / displayConnections.length)
+    : 0;
+  
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  };
 
   return (
     <Layout title="Active Connections">
+      {/* Real-time connection indicator */}
+      <div className="flex items-center gap-2 mb-4 text-xs">
+        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+        <span className="text-muted-foreground">
+          {connected ? 'Real-time monitoring active' : 'Using cached data - reconnecting...'}
+        </span>
+        <span className="ml-4 text-muted-foreground flex items-center gap-1">
+          <Radio className="w-3 h-3" />
+          Updates every 5s
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 p-6 rounded-2xl">
           <div className="flex items-center gap-3 mb-2">
@@ -29,7 +59,10 @@ export default function Connections() {
             </div>
             <span className="text-muted-foreground font-medium">Active Now</span>
           </div>
-          <p className="text-3xl font-display font-bold text-white" data-testid="text-active-count">{connections?.length || 0}</p>
+          <p className="text-3xl font-display font-bold text-white" data-testid="text-active-count">
+            {displayConnections.length}
+            {connected && <span className="text-xs ml-2 text-green-500 font-normal">LIVE</span>}
+          </p>
         </div>
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 p-6 rounded-2xl">
           <div className="flex items-center gap-3 mb-2">
@@ -39,7 +72,7 @@ export default function Connections() {
             <span className="text-muted-foreground font-medium">Unique IPs</span>
           </div>
           <p className="text-3xl font-display font-bold text-white" data-testid="text-unique-ips">
-            {new Set(connections?.map((c) => c.ipAddress)).size || 0}
+            {new Set(displayConnections.map((c) => c.ip)).size || 0}
           </p>
         </div>
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 p-6 rounded-2xl">
@@ -49,7 +82,9 @@ export default function Connections() {
             </div>
             <span className="text-muted-foreground font-medium">Avg. Duration</span>
           </div>
-          <p className="text-3xl font-display font-bold text-white" data-testid="text-avg-duration">--</p>
+          <p className="text-3xl font-display font-bold text-white" data-testid="text-avg-duration">
+            {avgDuration > 0 ? formatDuration(avgDuration) : '--'}
+          </p>
         </div>
       </div>
 
@@ -57,14 +92,14 @@ export default function Connections() {
         <div className="p-4 border-b border-white/5 flex items-center justify-between">
           <h3 className="font-semibold text-white">Live Connections</h3>
           <Badge variant="outline" className="gap-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Real-time
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`} />
+            {connected ? 'Real-time' : 'Cached'}
           </Badge>
         </div>
 
-        {isLoading ? (
+        {isLoading && displayConnections.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">Loading connections...</div>
-        ) : connections?.length === 0 ? (
+        ) : displayConnections.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
               <WifiOff className="w-6 h-6 text-muted-foreground" />
@@ -76,34 +111,45 @@ export default function Connections() {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 text-muted-foreground font-medium uppercase text-xs">
               <tr>
-                <th className="px-6 py-4">Line ID</th>
+                <th className="px-6 py-4">Username</th>
                 <th className="px-6 py-4">Stream</th>
-                <th className="px-6 py-4">IP Address</th>
-                <th className="px-6 py-4">User Agent</th>
-                <th className="px-6 py-4">Started</th>
+                <th className="px-6 py-4">Location</th>
+                <th className="px-6 py-4">Duration</th>
+                <th className="px-6 py-4">Bandwidth</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {connections?.map((conn) => (
-                <tr key={conn.id} className="hover:bg-white/5 transition-colors" data-testid={`row-connection-${conn.id}`}>
+              {displayConnections.map((conn, index) => (
+                <tr key={conn.id || index} className="hover:bg-white/5 transition-colors" data-testid={`row-connection-${conn.id}`}>
                   <td className="px-6 py-4">
-                    <Badge variant="secondary" data-testid={`text-lineid-${conn.id}`}>#{conn.lineId}</Badge>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-white">{conn.username}</span>
+                      <span className="text-xs text-muted-foreground">{conn.ip}</span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-white" data-testid={`text-streamid-${conn.id}`}>
-                    Stream #{conn.streamId}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-white">{conn.streamName}</span>
+                      <Badge variant="secondary" className="w-fit mt-1">{conn.streamType}</Badge>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="w-3 h-3" />
-                      <span data-testid={`text-ip-${conn.id}`}>{conn.ipAddress || "Unknown"}</span>
+                      <Globe className="w-3 h-3" />
+                      <div className="flex flex-col">
+                        {conn.country && <span>{conn.country}</span>}
+                        {conn.city && <span className="text-xs">{conn.city}</span>}
+                        {conn.isp && <span className="text-xs">{conn.isp}</span>}
+                        {!conn.country && !conn.city && <span>Unknown</span>}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground max-w-[200px] truncate" title={conn.userAgent || ""}>
-                    {conn.userAgent?.slice(0, 30) || "Unknown"}...
+                  <td className="px-6 py-4 text-muted-foreground">
+                    {conn.duration ? formatDuration(conn.duration) : formatDistanceToNow(new Date(conn.connectedAt), { addSuffix: true })}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">
-                    {conn.startedAt ? formatDistanceToNow(new Date(conn.startedAt), { addSuffix: true }) : "Unknown"}
+                    {conn.bytesTransferred ? `${(conn.bytesTransferred / (1024 * 1024)).toFixed(2)} MB` : '--'}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Button

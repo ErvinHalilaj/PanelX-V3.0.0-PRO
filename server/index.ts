@@ -4,6 +4,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import { initializeWebSocket } from "./websocket";
+import crypto from "crypto";
 
 const app = express();
 
@@ -13,7 +15,7 @@ if (!sessionSecret) {
   console.warn('WARNING: SESSION_SECRET not set. Using random secret for development. Set SESSION_SECRET in production!');
 }
 app.use(session({
-  secret: sessionSecret || require('crypto').randomBytes(32).toString('hex'),
+  secret: sessionSecret || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -110,6 +112,10 @@ app.use((req, res, next) => {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
+
+  // Initialize WebSocket server for real-time updates
+  const wsManager = initializeWebSocket(httpServer, storage);
+  log('WebSocket server initialized for real-time monitoring');
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
