@@ -2035,6 +2035,226 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Reseller Management Endpoints =====
+
+  // Create reseller
+  app.post("/api/resellers", requireAuth, async (req, res) => {
+    try {
+      const { username, email, password, initialCredits, maxCredits, parentResellerId } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+
+      const { resellerService } = await import('./resellerService');
+      const reseller = await resellerService.createReseller(
+        username,
+        email,
+        password,
+        initialCredits,
+        maxCredits,
+        parentResellerId
+      );
+
+      res.json(reseller);
+    } catch (error: any) {
+      console.error('[API] Create reseller error:', error);
+      res.status(500).json({ message: error.message || "Failed to create reseller" });
+    }
+  });
+
+  // Get reseller
+  app.get("/api/resellers/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resellerService } = await import('./resellerService');
+      const reseller = await resellerService.getReseller(Number(id));
+
+      if (!reseller) {
+        return res.status(404).json({ message: "Reseller not found" });
+      }
+
+      res.json(reseller);
+    } catch (error: any) {
+      console.error('[API] Get reseller error:', error);
+      res.status(500).json({ message: error.message || "Failed to get reseller" });
+    }
+  });
+
+  // Update reseller
+  app.put("/api/resellers/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const { resellerService } = await import('./resellerService');
+      const reseller = await resellerService.updateReseller(Number(id), updates);
+
+      if (!reseller) {
+        return res.status(404).json({ message: "Reseller not found" });
+      }
+
+      res.json(reseller);
+    } catch (error: any) {
+      console.error('[API] Update reseller error:', error);
+      res.status(500).json({ message: error.message || "Failed to update reseller" });
+    }
+  });
+
+  // List resellers
+  app.get("/api/resellers", requireAuth, async (req, res) => {
+    try {
+      const { parentId } = req.query;
+      const { resellerService } = await import('./resellerService');
+      const resellers = await resellerService.listResellers(
+        parentId ? Number(parentId) : undefined
+      );
+
+      res.json({ resellers });
+    } catch (error: any) {
+      console.error('[API] List resellers error:', error);
+      res.status(500).json({ message: error.message || "Failed to list resellers" });
+    }
+  });
+
+  // Add credits
+  app.post("/api/resellers/:id/credits/add", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount, reason, referenceId } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      const { resellerService } = await import('./resellerService');
+      const result = await resellerService.addCredits(
+        Number(id),
+        amount,
+        reason || 'Credit addition',
+        referenceId
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Add credits error:', error);
+      res.status(500).json({ message: error.message || "Failed to add credits" });
+    }
+  });
+
+  // Deduct credits
+  app.post("/api/resellers/:id/credits/deduct", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount, reason, referenceId } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      const { resellerService } = await import('./resellerService');
+      const result = await resellerService.deductCredits(
+        Number(id),
+        amount,
+        reason || 'Credit deduction',
+        referenceId
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Deduct credits error:', error);
+      res.status(500).json({ message: error.message || "Failed to deduct credits" });
+    }
+  });
+
+  // Transfer credits
+  app.post("/api/resellers/credits/transfer", requireAuth, async (req, res) => {
+    try {
+      const { fromResellerId, toResellerId, amount, reason } = req.body;
+
+      if (!fromResellerId || !toResellerId || !amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid transfer parameters" });
+      }
+
+      const { resellerService } = await import('./resellerService');
+      const result = await resellerService.transferCredits(
+        fromResellerId,
+        toResellerId,
+        amount,
+        reason
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Transfer credits error:', error);
+      res.status(500).json({ message: error.message || "Failed to transfer credits" });
+    }
+  });
+
+  // Get credit packages
+  app.get("/api/resellers/packages", requireAuth, async (req, res) => {
+    try {
+      const { resellerService } = await import('./resellerService');
+      const packages = resellerService.getCreditPackages();
+
+      res.json({ packages });
+    } catch (error: any) {
+      console.error('[API] Get credit packages error:', error);
+      res.status(500).json({ message: error.message || "Failed to get credit packages" });
+    }
+  });
+
+  // Purchase package
+  app.post("/api/resellers/:id/packages/:packageId/purchase", requireAuth, async (req, res) => {
+    try {
+      const { id, packageId } = req.params;
+      const { paymentReference } = req.body;
+
+      if (!paymentReference) {
+        return res.status(400).json({ message: "Payment reference required" });
+      }
+
+      const { resellerService } = await import('./resellerService');
+      const result = await resellerService.purchasePackage(
+        Number(id),
+        packageId,
+        paymentReference
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Purchase package error:', error);
+      res.status(500).json({ message: error.message || "Failed to purchase package" });
+    }
+  });
+
+  // Get reseller stats
+  app.get("/api/resellers/:id/stats", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resellerService } = await import('./resellerService');
+      const stats = await resellerService.getResellerStats(Number(id));
+
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[API] Get reseller stats error:', error);
+      res.status(500).json({ message: error.message || "Failed to get reseller stats" });
+    }
+  });
+
+  // Get reseller hierarchy
+  app.get("/api/resellers/:id/hierarchy", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resellerService } = await import('./resellerService');
+      const hierarchy = await resellerService.getResellerHierarchy(Number(id));
+
+      res.json(hierarchy);
+    } catch (error: any) {
+      console.error('[API] Get reseller hierarchy error:', error);
+      res.status(500).json({ message: error.message || "Failed to get reseller hierarchy" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
