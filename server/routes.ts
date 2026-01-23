@@ -1856,6 +1856,185 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Enhanced Authentication Endpoints =====
+
+  // Get user sessions
+  app.get("/api/auth/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { authService } = await import('./authService');
+      const sessions = await authService.getUserSessions(userId);
+
+      res.json({ sessions });
+    } catch (error: any) {
+      console.error('[API] Get sessions error:', error);
+      res.status(500).json({ message: error.message || "Failed to get sessions" });
+    }
+  });
+
+  // Destroy session
+  app.delete("/api/auth/sessions/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { authService } = await import('./authService');
+      
+      const success = await authService.destroySession(sessionId);
+
+      if (!success) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      res.json({ message: "Session destroyed successfully" });
+    } catch (error: any) {
+      console.error('[API] Destroy session error:', error);
+      res.status(500).json({ message: error.message || "Failed to destroy session" });
+    }
+  });
+
+  // Generate 2FA secret
+  app.post("/api/auth/2fa/generate", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const username = (req as any).user?.username;
+      if (!userId || !username) return res.status(401).json({ message: "Unauthorized" });
+
+      const { authService } = await import('./authService');
+      const result = await authService.generate2FASecret(userId, username);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Generate 2FA error:', error);
+      res.status(500).json({ message: error.message || "Failed to generate 2FA secret" });
+    }
+  });
+
+  // Enable 2FA
+  app.post("/api/auth/2fa/enable", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ message: "Token required" });
+      }
+
+      const { authService } = await import('./authService');
+      const success = await authService.enable2FA(userId, token);
+
+      if (!success) {
+        return res.status(400).json({ message: "Invalid token" });
+      }
+
+      res.json({ message: "2FA enabled successfully" });
+    } catch (error: any) {
+      console.error('[API] Enable 2FA error:', error);
+      res.status(500).json({ message: error.message || "Failed to enable 2FA" });
+    }
+  });
+
+  // Disable 2FA
+  app.post("/api/auth/2fa/disable", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { authService } = await import('./authService');
+      const success = await authService.disable2FA(userId);
+
+      if (!success) {
+        return res.status(400).json({ message: "2FA not enabled" });
+      }
+
+      res.json({ message: "2FA disabled successfully" });
+    } catch (error: any) {
+      console.error('[API] Disable 2FA error:', error);
+      res.status(500).json({ message: error.message || "Failed to disable 2FA" });
+    }
+  });
+
+  // Verify 2FA token
+  app.post("/api/auth/2fa/verify", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ message: "Token required" });
+      }
+
+      const { authService } = await import('./authService');
+      const valid = await authService.verify2FAToken(userId, token);
+
+      res.json({ valid });
+    } catch (error: any) {
+      console.error('[API] Verify 2FA error:', error);
+      res.status(500).json({ message: error.message || "Failed to verify 2FA token" });
+    }
+  });
+
+  // Create API key
+  app.post("/api/auth/api-keys", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { name, permissions = [], expiresInDays } = req.body;
+      if (!name) {
+        return res.status(400).json({ message: "Name required" });
+      }
+
+      const { authService } = await import('./authService');
+      const result = await authService.createApiKey(userId, name, permissions, expiresInDays);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Create API key error:', error);
+      res.status(500).json({ message: error.message || "Failed to create API key" });
+    }
+  });
+
+  // List API keys
+  app.get("/api/auth/api-keys", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { authService } = await import('./authService');
+      const keys = await authService.listApiKeys(userId);
+
+      res.json({ keys });
+    } catch (error: any) {
+      console.error('[API] List API keys error:', error);
+      res.status(500).json({ message: error.message || "Failed to list API keys" });
+    }
+  });
+
+  // Revoke API key
+  app.delete("/api/auth/api-keys/:keyId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { keyId } = req.params;
+      const { authService } = await import('./authService');
+      
+      const success = await authService.revokeApiKey(userId, keyId);
+
+      if (!success) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+
+      res.json({ message: "API key revoked successfully" });
+    } catch (error: any) {
+      console.error('[API] Revoke API key error:', error);
+      res.status(500).json({ message: error.message || "Failed to revoke API key" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));

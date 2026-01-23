@@ -97,6 +97,7 @@ export function Sidebar() {
   ];
 
   const securityNav = [
+    { icon: Shield, label: "Security Settings", href: "/security" },
     { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
     { icon: ShieldBan, label: "Reserved Usernames", href: "/reserved-usernames" },

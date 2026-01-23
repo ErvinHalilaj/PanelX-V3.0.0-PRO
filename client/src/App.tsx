@@ -12,6 +12,7 @@ import AdaptiveBitrate from "@/pages/AdaptiveBitrate";
 import Schedules from "@/pages/Schedules";
 import MediaManager from "@/pages/MediaManager";
 import Analytics from "@/pages/Analytics";
+import Security from "@/pages/Security";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
 import Bouquets from "@/pages/Bouquets";
@@ -70,6 +71,7 @@ function AdminRouter() {
       <Route path="/schedules" component={Schedules} />
       <Route path="/media-manager" component={MediaManager} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/security" component={Security} />
       <Route path="/movies" component={Movies} />
       <Route path="/series" component={Series} />
       <Route path="/series/:seriesId/episodes" component={Episodes} />
