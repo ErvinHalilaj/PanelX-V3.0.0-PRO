@@ -3,9 +3,11 @@ import Hls from "hls.js";
 import { Layout } from "@/components/Layout";
 import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-streams";
 import { useCategories } from "@/hooks/use-categories";
+import { useServers } from "@/hooks/use-servers";
+import { useTranscodeProfiles } from "@/hooks/use-transcode-profiles";
 import { useImportM3U, useBulkDeleteStreams } from "@/hooks/use-bulk";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw, Download, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw, Download, FileSpreadsheet, Power, Server as ServerIcon, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertStreamSchema, type InsertStream, type Stream } from "@shared/schema";
 
-function StreamForm({ onSubmit, categories, isLoading, initialData }: { onSubmit: (data: InsertStream) => void, categories: any[], isLoading: boolean, initialData?: Partial<Stream> }) {
+function StreamForm({ onSubmit, categories, servers, transcodeProfiles, isLoading, initialData }: { onSubmit: (data: InsertStream) => void, categories: any[], servers: any[], transcodeProfiles: any[], isLoading: boolean, initialData?: Partial<Stream> }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [backupUrls, setBackupUrls] = useState<string[]>(initialData?.backupUrls || []);
   const [newBackupUrl, setNewBackupUrl] = useState("");
@@ -32,6 +34,11 @@ function StreamForm({ onSubmit, categories, isLoading, initialData }: { onSubmit
       sourceUrl: initialData?.sourceUrl || "",
       categoryId: initialData?.categoryId || undefined,
       streamType: initialData?.streamType || "live",
+      serverId: initialData?.serverId || undefined,
+      transcodeProfileId: initialData?.transcodeProfileId || undefined,
+      streamIcon: initialData?.streamIcon || "",
+      customSid: initialData?.customSid || "",
+      notes: initialData?.notes || "",
       isDirect: initialData?.isDirect || false,
       onDemand: initialData?.onDemand || false,
       autoRestartHours: initialData?.autoRestartHours || 0,
@@ -42,6 +49,8 @@ function StreamForm({ onSubmit, categories, isLoading, initialData }: { onSubmit
       removeSubtitles: initialData?.removeSubtitles || false,
       genTimestamps: initialData?.genTimestamps || false,
       allowRecord: initialData?.allowRecord !== false,
+      tvArchiveEnabled: initialData?.tvArchiveEnabled || false,
+      tvArchiveDuration: initialData?.tvArchiveDuration || 0,
       backupUrls: initialData?.backupUrls || [],
       customFfmpeg: initialData?.customFfmpeg || "",
     }
@@ -108,6 +117,116 @@ function StreamForm({ onSubmit, categories, isLoading, initialData }: { onSubmit
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <ServerIcon className="h-4 w-4" />
+            Server (Optional)
+          </Label>
+          <Select 
+            value={form.watch("serverId")?.toString() || ""} 
+            onValueChange={(val) => form.setValue("serverId", val ? parseInt(val) : undefined)}
+          >
+            <SelectTrigger data-testid="select-server">
+              <SelectValue placeholder="Auto (Main Server)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Auto (Main Server)</SelectItem>
+              {servers.map((server) => (
+                <SelectItem key={server.id} value={server.id.toString()}>
+                  {server.serverName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Assign stream to specific server</p>
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Transcode Profile (Optional)
+          </Label>
+          <Select 
+            value={form.watch("transcodeProfileId")?.toString() || ""} 
+            onValueChange={(val) => form.setValue("transcodeProfileId", val ? parseInt(val) : undefined)}
+          >
+            <SelectTrigger data-testid="select-transcode">
+              <SelectValue placeholder="No Transcoding (Copy)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No Transcoding (Copy)</SelectItem>
+              {transcodeProfiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id.toString()}>
+                  {profile.profileName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Apply transcoding to stream</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="streamIcon">Stream Icon URL</Label>
+          <Input 
+            id="streamIcon" 
+            {...form.register("streamIcon")} 
+            placeholder="https://example.com/icon.png" 
+            data-testid="input-stream-icon" 
+          />
+          <p className="text-xs text-muted-foreground">Channel logo/icon URL</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="customSid">Custom Service ID</Label>
+          <Input 
+            id="customSid" 
+            {...form.register("customSid")} 
+            placeholder="e.g. 1:0:1:..." 
+            data-testid="input-custom-sid" 
+          />
+          <p className="text-xs text-muted-foreground">For Enigma2 devices</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">Admin/Reseller Notes</Label>
+        <Textarea 
+          id="notes" 
+          {...form.register("notes")} 
+          placeholder="Internal notes about this stream..."
+          rows={2}
+          data-testid="input-notes" 
+        />
+        <p className="text-xs text-muted-foreground">Private notes (not visible to end users)</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center gap-2 p-3 border border-white/10 rounded-lg">
+          <Checkbox
+            id="tvArchiveEnabled"
+            checked={form.watch("tvArchiveEnabled") || false}
+            onCheckedChange={(v) => form.setValue("tvArchiveEnabled", !!v)}
+            data-testid="checkbox-archive-enabled"
+          />
+          <Label htmlFor="tvArchiveEnabled" className="text-sm cursor-pointer">
+            Enable TV Archive (Catchup)
+          </Label>
+        </div>
+        {form.watch("tvArchiveEnabled") && (
+          <div className="space-y-2">
+            <Label htmlFor="tvArchiveDuration">Archive Duration (days)</Label>
+            <Input
+              id="tvArchiveDuration"
+              type="number"
+              {...form.register("tvArchiveDuration", { valueAsNumber: true })}
+              placeholder="7"
+              data-testid="input-archive-duration"
+            />
+          </div>
+        )}
       </div>
 
       <Button
@@ -668,6 +787,8 @@ export default function Streams() {
   
   const { data: streams, isLoading } = useStreams(selectedCategory);
   const { data: categories } = useCategories();
+  const { data: servers } = useServers();
+  const { data: transcodeProfiles } = useTranscodeProfiles();
   const createStream = useCreateStream();
   const deleteStream = useDeleteStream();
   const importM3U = useImportM3U();
@@ -714,11 +835,11 @@ export default function Streams() {
     });
   };
 
-  const handleEditSubmit = async () => {
+  const handleEditSubmit = async (data: InsertStream) => {
     if (!editingStream) return;
     setIsEditPending(true);
     try {
-      await apiRequest("PATCH", `/api/streams/${editingStream.id}`, editFormData);
+      await apiRequest("PATCH", `/api/streams/${editingStream.id}`, data);
       queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
       toast({ title: "Success", description: "Stream updated successfully" });
       setEditingStream(null);
@@ -1054,7 +1175,13 @@ export default function Streams() {
               <DialogHeader>
                 <DialogTitle>Add New Stream</DialogTitle>
               </DialogHeader>
-              <StreamForm onSubmit={handleCreate} categories={categories || []} isLoading={createStream.isPending} />
+              <StreamForm 
+                onSubmit={handleCreate} 
+                categories={categories || []} 
+                servers={servers || []}
+                transcodeProfiles={transcodeProfiles || []}
+                isLoading={createStream.isPending} 
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -1072,87 +1199,14 @@ export default function Streams() {
             </DialogTitle>
           </DialogHeader>
           {editingStream && (
-            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Stream Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editFormData.name || ""}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  data-testid="input-edit-stream-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-sourceUrl">Source URL</Label>
-                <Input
-                  id="edit-sourceUrl"
-                  value={editFormData.sourceUrl || ""}
-                  onChange={(e) => setEditFormData({ ...editFormData, sourceUrl: e.target.value })}
-                  data-testid="input-edit-source-url"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={editFormData.categoryId?.toString() || ""}
-                    onValueChange={(val) => setEditFormData({ ...editFormData, categoryId: parseInt(val) })}
-                  >
-                    <SelectTrigger data-testid="select-edit-category">
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories?.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Stream Type</Label>
-                  <Select
-                    value={editFormData.streamType || "live"}
-                    onValueChange={(val) => setEditFormData({ ...editFormData, streamType: val })}
-                  >
-                    <SelectTrigger data-testid="select-edit-type">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="live">Live Stream</SelectItem>
-                      <SelectItem value="movie">Movie</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="edit-onDemand"
-                    checked={editFormData.onDemand || false}
-                    onCheckedChange={(v) => setEditFormData({ ...editFormData, onDemand: !!v })}
-                  />
-                  <Label htmlFor="edit-onDemand" className="text-sm">On-Demand Mode</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="edit-isDirect"
-                    checked={editFormData.isDirect || false}
-                    onCheckedChange={(v) => setEditFormData({ ...editFormData, isDirect: !!v })}
-                  />
-                  <Label htmlFor="edit-isDirect" className="text-sm">Direct Source</Label>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleEditSubmit}
-                  disabled={isEditPending}
-                  className="w-full btn-primary"
-                  data-testid="button-save-stream"
-                >
-                  {isEditPending ? "Saving..." : "Save Changes"}
-                </Button>
-              </DialogFooter>
-            </div>
+            <StreamForm 
+              onSubmit={handleEditSubmit} 
+              categories={categories || []} 
+              servers={servers || []}
+              transcodeProfiles={transcodeProfiles || []}
+              isLoading={isEditPending}
+              initialData={editingStream}
+            />
           )}
         </DialogContent>
       </Dialog>
