@@ -776,13 +776,21 @@ export default function Streams() {
 
   const handleStreamAction = async (streamId: number, action: 'start' | 'stop' | 'restart') => {
     try {
-      await apiRequest("POST", `/api/streams/${streamId}/${action}`, {});
-      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
-      toast({ title: "Success", description: `Stream ${action}ed successfully` });
+      const response = await apiRequest("POST", `/api/streams/${streamId}/${action}`, {});
+      if (response.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+        toast({ 
+          title: "Success", 
+          description: `Stream ${action}ed successfully` 
+        });
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || `Failed to ${action} stream`);
+      }
     } catch (error: any) {
       toast({ 
         title: "Error", 
-        description: error.message || `Failed to ${action} stream. This feature requires backend implementation.`, 
+        description: error.message || `Failed to ${action} stream`,
         variant: "destructive" 
       });
     }

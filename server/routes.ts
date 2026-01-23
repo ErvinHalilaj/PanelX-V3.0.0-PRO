@@ -816,6 +816,104 @@ export async function registerRoutes(
     }
   });
 
+  // Stream control endpoints
+  app.post("/api/streams/:id/start", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const stream = await storage.getStream(streamId);
+      
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { ffmpegManager } = await import('./ffmpegManager');
+      await ffmpegManager.startStream(streamId);
+      
+      res.json({ 
+        success: true, 
+        message: "Stream started successfully",
+        status: ffmpegManager.getStatus(streamId)
+      });
+    } catch (error: any) {
+      console.error('[API] Stream start error:', error);
+      res.status(500).json({ message: error.message || "Failed to start stream" });
+    }
+  });
+
+  app.post("/api/streams/:id/stop", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const stream = await storage.getStream(streamId);
+      
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { ffmpegManager } = await import('./ffmpegManager');
+      await ffmpegManager.stopStream(streamId);
+      
+      res.json({ 
+        success: true, 
+        message: "Stream stopped successfully" 
+      });
+    } catch (error: any) {
+      console.error('[API] Stream stop error:', error);
+      res.status(500).json({ message: error.message || "Failed to stop stream" });
+    }
+  });
+
+  app.post("/api/streams/:id/restart", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const stream = await storage.getStream(streamId);
+      
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { ffmpegManager } = await import('./ffmpegManager');
+      await ffmpegManager.restartStream(streamId);
+      
+      res.json({ 
+        success: true, 
+        message: "Stream restarted successfully",
+        status: ffmpegManager.getStatus(streamId)
+      });
+    } catch (error: any) {
+      console.error('[API] Stream restart error:', error);
+      res.status(500).json({ message: error.message || "Failed to restart stream" });
+    }
+  });
+
+  app.get("/api/streams/:id/status", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const stream = await storage.getStream(streamId);
+      
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { ffmpegManager } = await import('./ffmpegManager');
+      const isRunning = ffmpegManager.isRunning(streamId);
+      const status = ffmpegManager.getStatus(streamId);
+      const activeProcesses = ffmpegManager.getActiveProcesses();
+      const processInfo = activeProcesses.get(streamId);
+      
+      res.json({ 
+        streamId,
+        isRunning,
+        status: status || stream.monitorStatus || 'offline',
+        viewerCount: processInfo?.viewerCount || 0,
+        startedAt: processInfo?.startedAt || null,
+        pid: processInfo?.pid || null
+      });
+    } catch (error: any) {
+      console.error('[API] Stream status error:', error);
+      res.status(500).json({ message: error.message || "Failed to get stream status" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
