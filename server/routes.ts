@@ -1517,6 +1517,229 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Media Upload Endpoints =====
+
+  // Configure multer for file uploads
+  const multer = await import('multer');
+  const upload = multer.default({ storage: multer.memoryStorage() });
+
+  // Upload poster
+  app.post("/api/media/posters/upload", requireAuth, upload.single('poster'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { movieId } = req.body;
+      if (!movieId) {
+        return res.status(400).json({ message: "Movie ID required" });
+      }
+
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const result = await mediaUploadManager.uploadPoster(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        Number(movieId)
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Upload poster error:', error);
+      res.status(500).json({ message: error.message || "Failed to upload poster" });
+    }
+  });
+
+  // Upload backdrop
+  app.post("/api/media/backdrops/upload", requireAuth, upload.single('backdrop'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { movieId } = req.body;
+      if (!movieId) {
+        return res.status(400).json({ message: "Movie ID required" });
+      }
+
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const result = await mediaUploadManager.uploadBackdrop(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        Number(movieId)
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Upload backdrop error:', error);
+      res.status(500).json({ message: error.message || "Failed to upload backdrop" });
+    }
+  });
+
+  // Upload subtitle
+  app.post("/api/media/subtitles/upload", requireAuth, upload.single('subtitle'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { movieId, language } = req.body;
+      if (!movieId || !language) {
+        return res.status(400).json({ message: "Movie ID and language required" });
+      }
+
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const result = await mediaUploadManager.uploadSubtitle(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        Number(movieId),
+        language
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Upload subtitle error:', error);
+      res.status(500).json({ message: error.message || "Failed to upload subtitle" });
+    }
+  });
+
+  // Get poster
+  app.get("/api/media/posters/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const buffer = await mediaUploadManager.getPoster(filename);
+
+      if (!buffer) {
+        return res.status(404).json({ message: "Poster not found" });
+      }
+
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error('[API] Get poster error:', error);
+      res.status(500).json({ message: "Failed to get poster" });
+    }
+  });
+
+  // Get backdrop
+  app.get("/api/media/backdrops/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const buffer = await mediaUploadManager.getBackdrop(filename);
+
+      if (!buffer) {
+        return res.status(404).json({ message: "Backdrop not found" });
+      }
+
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error('[API] Get backdrop error:', error);
+      res.status(500).json({ message: "Failed to get backdrop" });
+    }
+  });
+
+  // Get subtitle
+  app.get("/api/media/subtitles/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const buffer = await mediaUploadManager.getSubtitle(filename);
+
+      if (!buffer) {
+        return res.status(404).json({ message: "Subtitle not found" });
+      }
+
+      // Determine content type from extension
+      const ext = filename.toLowerCase().split('.').pop();
+      let contentType = 'text/plain';
+      if (ext === 'vtt') contentType = 'text/vtt';
+      else if (ext === 'srt') contentType = 'application/x-subrip';
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error('[API] Get subtitle error:', error);
+      res.status(500).json({ message: "Failed to get subtitle" });
+    }
+  });
+
+  // List posters for movie
+  app.get("/api/media/posters/movie/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const posters = await mediaUploadManager.listPosters(Number(id));
+
+      res.json({ posters: posters.map(p => ({ filename: p, url: `/api/media/posters/${p}` })) });
+    } catch (error: any) {
+      console.error('[API] List posters error:', error);
+      res.status(500).json({ message: "Failed to list posters" });
+    }
+  });
+
+  // List subtitles for movie
+  app.get("/api/media/subtitles/movie/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const subtitles = await mediaUploadManager.listSubtitles(Number(id));
+
+      res.json({ 
+        subtitles: subtitles.map(s => ({ 
+          ...s, 
+          url: `/api/media/subtitles/${s.filename}` 
+        })) 
+      });
+    } catch (error: any) {
+      console.error('[API] List subtitles error:', error);
+      res.status(500).json({ message: "Failed to list subtitles" });
+    }
+  });
+
+  // Delete poster
+  app.delete("/api/media/posters/:filename", requireAuth, async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const deleted = await mediaUploadManager.deletePoster(filename);
+
+      if (!deleted) {
+        return res.status(404).json({ message: "Poster not found" });
+      }
+
+      res.json({ message: "Poster deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete poster error:', error);
+      res.status(500).json({ message: "Failed to delete poster" });
+    }
+  });
+
+  // Delete subtitle
+  app.delete("/api/media/subtitles/:filename", requireAuth, async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { mediaUploadManager } = await import('./mediaUploadManager');
+      const deleted = await mediaUploadManager.deleteSubtitle(filename);
+
+      if (!deleted) {
+        return res.status(404).json({ message: "Subtitle not found" });
+      }
+
+      res.json({ message: "Subtitle deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete subtitle error:', error);
+      res.status(500).json({ message: "Failed to delete subtitle" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));

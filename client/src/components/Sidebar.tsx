@@ -46,7 +46,9 @@ import {
   ShieldAlert,
   BarChart3,
   UserCheck,
-  Video
+  Video,
+  ImagePlus,
+  Calendar
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -64,6 +66,7 @@ export function Sidebar() {
     { icon: Clock, label: "Timeshift & Catchup", href: "/timeshift" },
     { icon: Settings, label: "Adaptive Bitrate", href: "/adaptive-bitrate" },
     { icon: Calendar, label: "Stream Schedules", href: "/schedules" },
+    { icon: ImagePlus, label: "Media Manager", href: "/media-manager" },
     { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },
