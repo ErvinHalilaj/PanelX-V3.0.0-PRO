@@ -13,6 +13,7 @@ import Schedules from "@/pages/Schedules";
 import MediaManager from "@/pages/MediaManager";
 import Analytics from "@/pages/Analytics";
 import Security from "@/pages/Security";
+import AdvancedSecurity from "@/pages/AdvancedSecurity";
 import ResellerManagement from "@/pages/ResellerManagement";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
@@ -73,6 +74,7 @@ function AdminRouter() {
       <Route path="/media-manager" component={MediaManager} />
       <Route path="/analytics" component={Analytics} />
       <Route path="/security" component={Security} />
+      <Route path="/advanced-security" component={AdvancedSecurity} />
       <Route path="/reseller-management" component={ResellerManagement} />
       <Route path="/movies" component={Movies} />
       <Route path="/series" component={Series} />

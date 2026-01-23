@@ -2255,6 +2255,239 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Advanced Security Endpoints =====
+
+  // Set IP restrictions
+  app.post("/api/security/ip-restrictions", requireAuth, async (req, res) => {
+    try {
+      const { userId, allowedIps, deniedIps } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const { securityService } = await import('./securityService');
+      const restriction = await securityService.setIpRestrictions(userId, allowedIps || [], deniedIps || []);
+
+      res.json(restriction);
+    } catch (error: any) {
+      console.error('[API] Set IP restrictions error:', error);
+      res.status(500).json({ message: error.message || "Failed to set IP restrictions" });
+    }
+  });
+
+  // Get IP restrictions
+  app.get("/api/security/ip-restrictions/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { securityService } = await import('./securityService');
+      const restriction = await securityService.getIpRestrictions(Number(userId));
+
+      res.json(restriction || { allowedIps: [], deniedIps: [] });
+    } catch (error: any) {
+      console.error('[API] Get IP restrictions error:', error);
+      res.status(500).json({ message: error.message || "Failed to get IP restrictions" });
+    }
+  });
+
+  // Register device
+  app.post("/api/security/devices/register", requireAuth, async (req, res) => {
+    try {
+      const { userId, fingerprint, deviceInfo } = req.body;
+      
+      if (!userId || !fingerprint || !deviceInfo) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const { securityService } = await import('./securityService');
+      const device = await securityService.registerDevice(userId, fingerprint, deviceInfo);
+
+      res.json(device);
+    } catch (error: any) {
+      console.error('[API] Register device error:', error);
+      res.status(500).json({ message: error.message || "Failed to register device" });
+    }
+  });
+
+  // Get user devices
+  app.get("/api/security/devices/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { securityService } = await import('./securityService');
+      const devices = securityService.getUserDevices(Number(userId));
+
+      res.json({ devices });
+    } catch (error: any) {
+      console.error('[API] Get user devices error:', error);
+      res.status(500).json({ message: error.message || "Failed to get user devices" });
+    }
+  });
+
+  // Update device trust level
+  app.put("/api/security/devices/:fingerprint/trust", requireAuth, async (req, res) => {
+    try {
+      const { fingerprint } = req.params;
+      const { trustLevel } = req.body;
+
+      if (!['trusted', 'suspicious', 'blocked'].includes(trustLevel)) {
+        return res.status(400).json({ message: "Invalid trust level" });
+      }
+
+      const { securityService } = await import('./securityService');
+      const success = await securityService.updateDeviceTrustLevel(fingerprint, trustLevel);
+
+      if (!success) {
+        return res.status(404).json({ message: "Device not found" });
+      }
+
+      res.json({ message: "Device trust level updated successfully" });
+    } catch (error: any) {
+      console.error('[API] Update device trust level error:', error);
+      res.status(500).json({ message: error.message || "Failed to update device trust level" });
+    }
+  });
+
+  // Remove device
+  app.delete("/api/security/devices/:fingerprint", requireAuth, async (req, res) => {
+    try {
+      const { fingerprint } = req.params;
+      const { securityService } = await import('./securityService');
+      const success = await securityService.removeDevice(fingerprint);
+
+      if (!success) {
+        return res.status(404).json({ message: "Device not found" });
+      }
+
+      res.json({ message: "Device removed successfully" });
+    } catch (error: any) {
+      console.error('[API] Remove device error:', error);
+      res.status(500).json({ message: error.message || "Failed to remove device" });
+    }
+  });
+
+  // Get security events
+  app.get("/api/security/events", requireAuth, async (req, res) => {
+    try {
+      const { userId, severity, limit } = req.query;
+      const { securityService } = await import('./securityService');
+      
+      const events = await securityService.getSecurityEvents(
+        userId ? Number(userId) : undefined,
+        severity as any,
+        limit ? Number(limit) : 100
+      );
+
+      res.json({ events });
+    } catch (error: any) {
+      console.error('[API] Get security events error:', error);
+      res.status(500).json({ message: error.message || "Failed to get security events" });
+    }
+  });
+
+  // Get security stats
+  app.get("/api/security/stats", requireAuth, async (req, res) => {
+    try {
+      const { securityService } = await import('./securityService');
+      const stats = await securityService.getSecurityStats();
+
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[API] Get security stats error:', error);
+      res.status(500).json({ message: error.message || "Failed to get security stats" });
+    }
+  });
+
+  // Get security settings
+  app.get("/api/security/settings", requireAuth, async (req, res) => {
+    try {
+      const { securityService } = await import('./securityService');
+      const settings = securityService.getSettings();
+
+      res.json(settings);
+    } catch (error: any) {
+      console.error('[API] Get security settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to get security settings" });
+    }
+  });
+
+  // Update security settings
+  app.put("/api/security/settings", requireAuth, async (req, res) => {
+    try {
+      const updates = req.body;
+      const { securityService } = await import('./securityService');
+      const settings = await securityService.updateSettings(updates);
+
+      res.json(settings);
+    } catch (error: any) {
+      console.error('[API] Update security settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to update security settings" });
+    }
+  });
+
+  // Get rate limit rules
+  app.get("/api/security/rate-limits", requireAuth, async (req, res) => {
+    try {
+      const { securityService } = await import('./securityService');
+      const rules = securityService.getRateLimitRules();
+
+      res.json({ rules });
+    } catch (error: any) {
+      console.error('[API] Get rate limit rules error:', error);
+      res.status(500).json({ message: error.message || "Failed to get rate limit rules" });
+    }
+  });
+
+  // Create rate limit rule
+  app.post("/api/security/rate-limits", requireAuth, async (req, res) => {
+    try {
+      const rule = req.body;
+      const { securityService } = await import('./securityService');
+      const created = await securityService.createRateLimitRule(rule);
+
+      res.json(created);
+    } catch (error: any) {
+      console.error('[API] Create rate limit rule error:', error);
+      res.status(500).json({ message: error.message || "Failed to create rate limit rule" });
+    }
+  });
+
+  // Update rate limit rule
+  app.put("/api/security/rate-limits/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const { securityService } = await import('./securityService');
+      const updated = await securityService.updateRateLimitRule(id, updates);
+
+      if (!updated) {
+        return res.status(404).json({ message: "Rate limit rule not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Update rate limit rule error:', error);
+      res.status(500).json({ message: error.message || "Failed to update rate limit rule" });
+    }
+  });
+
+  // Delete rate limit rule
+  app.delete("/api/security/rate-limits/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { securityService } = await import('./securityService');
+      const success = await securityService.deleteRateLimitRule(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Rate limit rule not found" });
+      }
+
+      res.json({ message: "Rate limit rule deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete rate limit rule error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete rate limit rule" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));

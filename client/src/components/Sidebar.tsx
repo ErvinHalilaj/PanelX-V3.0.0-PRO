@@ -98,6 +98,7 @@ export function Sidebar() {
 
   const securityNav = [
     { icon: Shield, label: "Security Settings", href: "/security" },
+    { icon: ShieldAlert, label: "Advanced Security", href: "/advanced-security" },
     { icon: Users, label: "Reseller Management", href: "/reseller-management" },
     { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
