@@ -5,7 +5,7 @@ import { useStreams, useCreateStream, useDeleteStream } from "@/hooks/use-stream
 import { useCategories } from "@/hooks/use-categories";
 import { useImportM3U, useBulkDeleteStreams } from "@/hooks/use-bulk";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe } from "lucide-react";
+import { Plus, Trash2, Edit2, Play, AlertCircle, Filter, X, Maximize2, Minimize2, Volume1, Volume2, VolumeX, Info, Tv, Radio, Film, Gauge, Clock, Wifi, Upload, FileText, CheckSquare, Square, Globe, PlayCircle, StopCircle, RotateCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,26 +20,30 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertStreamSchema, type InsertStream, type Stream } from "@shared/schema";
 
-function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: InsertStream) => void, categories: any[], isLoading: boolean }) {
+function StreamForm({ onSubmit, categories, isLoading, initialData }: { onSubmit: (data: InsertStream) => void, categories: any[], isLoading: boolean, initialData?: Partial<Stream> }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [backupUrls, setBackupUrls] = useState<string[]>([]);
+  const [backupUrls, setBackupUrls] = useState<string[]>(initialData?.backupUrls || []);
   const [newBackupUrl, setNewBackupUrl] = useState("");
   
   const form = useForm<InsertStream>({
     resolver: zodResolver(insertStreamSchema),
     defaultValues: {
-      streamType: "live",
-      isDirect: false,
-      onDemand: false,
-      autoRestartHours: 0,
-      delayMinutes: 0,
-      rtmpOutput: "",
-      readNative: false,
-      streamAll: false,
-      removeSubtitles: false,
-      genTimestamps: false,
-      allowRecord: true,
-      backupUrls: [],
+      name: initialData?.name || "",
+      sourceUrl: initialData?.sourceUrl || "",
+      categoryId: initialData?.categoryId || undefined,
+      streamType: initialData?.streamType || "live",
+      isDirect: initialData?.isDirect || false,
+      onDemand: initialData?.onDemand || false,
+      autoRestartHours: initialData?.autoRestartHours || 0,
+      delayMinutes: initialData?.delayMinutes || 0,
+      rtmpOutput: initialData?.rtmpOutput || "",
+      readNative: initialData?.readNative || false,
+      streamAll: initialData?.streamAll || false,
+      removeSubtitles: initialData?.removeSubtitles || false,
+      genTimestamps: initialData?.genTimestamps || false,
+      allowRecord: initialData?.allowRecord !== false,
+      backupUrls: initialData?.backupUrls || [],
+      customFfmpeg: initialData?.customFfmpeg || "",
     }
   });
 
@@ -75,7 +79,10 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Category</Label>
-          <Select onValueChange={(val) => form.setValue("categoryId", parseInt(val))}>
+          <Select 
+            value={form.watch("categoryId")?.toString() || ""} 
+            onValueChange={(val) => form.setValue("categoryId", parseInt(val))}
+          >
             <SelectTrigger data-testid="select-category">
               <SelectValue placeholder="Select Category" />
             </SelectTrigger>
@@ -88,7 +95,10 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
         </div>
         <div className="space-y-2">
           <Label>Stream Type</Label>
-          <Select defaultValue="live" onValueChange={(val) => form.setValue("streamType", val)}>
+          <Select 
+            value={form.watch("streamType") || "live"} 
+            onValueChange={(val) => form.setValue("streamType", val)}
+          >
             <SelectTrigger data-testid="select-type">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -257,7 +267,7 @@ function StreamForm({ onSubmit, categories, isLoading }: { onSubmit: (data: Inse
 
       <DialogFooter>
         <Button type="submit" disabled={isLoading} className="w-full btn-primary" data-testid="button-submit-stream">
-          {isLoading ? "Creating..." : "Add Stream"}
+          {isLoading ? (initialData ? "Updating..." : "Creating...") : (initialData ? "Update Stream" : "Add Stream")}
         </Button>
       </DialogFooter>
     </form>
@@ -653,6 +663,8 @@ export default function Streams() {
   const [editingStream, setEditingStream] = useState<Stream | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Stream>>({});
   const [isEditPending, setIsEditPending] = useState(false);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [bulkEditData, setBulkEditData] = useState<{categoryId?: number, streamType?: string}>({});
   
   const { data: streams, isLoading } = useStreams(selectedCategory);
   const { data: categories } = useCategories();
@@ -744,6 +756,38 @@ export default function Streams() {
     }
   };
 
+  const handleBulkEdit = async () => {
+    if (selectedStreams.size === 0) return;
+    try {
+      // Update each selected stream
+      const updates = Array.from(selectedStreams).map(id => 
+        apiRequest("PATCH", `/api/streams/${id}`, bulkEditData)
+      );
+      await Promise.all(updates);
+      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+      toast({ title: "Success", description: `Updated ${selectedStreams.size} streams` });
+      setIsBulkEditOpen(false);
+      setSelectedStreams(new Set());
+      setBulkEditData({});
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update streams", variant: "destructive" });
+    }
+  };
+
+  const handleStreamAction = async (streamId: number, action: 'start' | 'stop' | 'restart') => {
+    try {
+      await apiRequest("POST", `/api/streams/${streamId}/${action}`, {});
+      queryClient.invalidateQueries({ queryKey: ["/api/streams"] });
+      toast({ title: "Success", description: `Stream ${action}ed successfully` });
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || `Failed to ${action} stream. This feature requires backend implementation.`, 
+        variant: "destructive" 
+      });
+    }
+  };
+
   const handleXtreamImport = async () => {
     if (!xtreamUrl || !xtreamUsername || !xtreamPassword) {
       toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
@@ -796,15 +840,25 @@ export default function Streams() {
       actions={
         <div className="flex gap-2">
           {selectedStreams.size > 0 && (
-            <Button 
-              variant="destructive" 
-              className="gap-2" 
-              onClick={handleBulkDelete}
-              disabled={bulkDelete.isPending}
-              data-testid="button-bulk-delete"
-            >
-              <Trash2 className="w-4 h-4" /> Delete ({selectedStreams.size})
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                className="gap-2" 
+                onClick={() => setIsBulkEditOpen(true)}
+                data-testid="button-bulk-edit"
+              >
+                <Edit2 className="w-4 h-4" /> Edit ({selectedStreams.size})
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="gap-2" 
+                onClick={handleBulkDelete}
+                disabled={bulkDelete.isPending}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="w-4 h-4" /> Delete ({selectedStreams.size})
+              </Button>
+            </>
           )}
           <Dialog open={isXtreamImportOpen} onOpenChange={setIsXtreamImportOpen}>
             <DialogTrigger asChild>
@@ -1073,6 +1127,63 @@ export default function Streams() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isBulkEditOpen} onOpenChange={setIsBulkEditOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-card border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="w-5 h-5" /> Bulk Edit Streams
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Editing {selectedStreams.size} selected stream{selectedStreams.size > 1 ? 's' : ''}. Only fill the fields you want to update.
+            </p>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={bulkEditData.categoryId?.toString() || ""}
+                onValueChange={(val) => setBulkEditData({ ...bulkEditData, categoryId: val ? parseInt(val) : undefined })}
+              >
+                <SelectTrigger data-testid="select-bulk-category">
+                  <SelectValue placeholder="Keep current categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Keep current categories</SelectItem>
+                  {categories?.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Stream Type</Label>
+              <Select
+                value={bulkEditData.streamType || ""}
+                onValueChange={(val) => setBulkEditData({ ...bulkEditData, streamType: val || undefined })}
+              >
+                <SelectTrigger data-testid="select-bulk-type">
+                  <SelectValue placeholder="Keep current types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Keep current types</SelectItem>
+                  <SelectItem value="live">Live Stream</SelectItem>
+                  <SelectItem value="movie">Movie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleBulkEdit}
+              className="w-full btn-primary"
+              data-testid="button-submit-bulk-edit"
+            >
+              Update {selectedStreams.size} Stream{selectedStreams.size > 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="bg-card/40 border border-white/5 rounded-xl overflow-hidden backdrop-blur-sm">
         <div className="p-4 border-b border-white/5 flex gap-4 items-center">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -1208,6 +1319,48 @@ export default function Streams() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-emerald-500/20 hover:text-emerald-500 text-muted-foreground"
+                            onClick={() => handleStreamAction(stream.id, 'start')}
+                            data-testid={`button-start-stream-${stream.id}`}
+                          >
+                            <PlayCircle className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Start Stream</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-red-500/20 hover:text-red-500 text-muted-foreground"
+                            onClick={() => handleStreamAction(stream.id, 'stop')}
+                            data-testid={`button-stop-stream-${stream.id}`}
+                          >
+                            <StopCircle className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Stop Stream</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-blue-500/20 hover:text-blue-500 text-muted-foreground"
+                            onClick={() => handleStreamAction(stream.id, 'restart')}
+                            data-testid={`button-restart-stream-${stream.id}`}
+                          >
+                            <RotateCw className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Restart Stream</TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button 
