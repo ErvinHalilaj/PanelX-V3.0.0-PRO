@@ -15,6 +15,7 @@ import Analytics from "@/pages/Analytics";
 import Security from "@/pages/Security";
 import AdvancedSecurity from "@/pages/AdvancedSecurity";
 import Branding from "@/pages/Branding";
+import BackupsManager from "@/pages/BackupsManager";
 import ResellerManagement from "@/pages/ResellerManagement";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
@@ -95,7 +96,7 @@ function AdminRouter() {
       <Route path="/packages" component={Packages} />
       <Route path="/reseller-groups" component={ResellerGroups} />
       <Route path="/tickets" component={Tickets} />
-      <Route path="/backups" component={Backups} />
+      <Route path="/backups" component={BackupsManager} />
       <Route path="/webhooks" component={Webhooks} />
       <Route path="/activity-logs" component={ActivityLogs} />
       <Route path="/credit-transactions" component={CreditTransactions} />

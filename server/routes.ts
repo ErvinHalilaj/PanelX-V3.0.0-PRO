@@ -2733,6 +2733,218 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Backup & Recovery Endpoints =====
+
+  // Create backup
+  app.post("/api/backups", requireAuth, async (req, res) => {
+    try {
+      const { type } = req.body;
+      
+      if (!['full', 'incremental', 'database', 'files'].includes(type)) {
+        return res.status(400).json({ message: "Invalid backup type" });
+      }
+
+      const { backupService } = await import('./backupService');
+      const backup = await backupService.createBackup(type);
+
+      res.json(backup);
+    } catch (error: any) {
+      console.error('[API] Create backup error:', error);
+      res.status(500).json({ message: error.message || "Failed to create backup" });
+    }
+  });
+
+  // List backups
+  app.get("/api/backups", requireAuth, async (req, res) => {
+    try {
+      const { type, limit } = req.query;
+      const { backupService } = await import('./backupService');
+      const backups = backupService.listBackups(
+        type as any,
+        limit ? Number(limit) : 50
+      );
+
+      res.json({ backups });
+    } catch (error: any) {
+      console.error('[API] List backups error:', error);
+      res.status(500).json({ message: error.message || "Failed to list backups" });
+    }
+  });
+
+  // Get backup
+  app.get("/api/backups/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backupService } = await import('./backupService');
+      const backup = backupService.getBackup(id);
+
+      if (!backup) {
+        return res.status(404).json({ message: "Backup not found" });
+      }
+
+      res.json(backup);
+    } catch (error: any) {
+      console.error('[API] Get backup error:', error);
+      res.status(500).json({ message: error.message || "Failed to get backup" });
+    }
+  });
+
+  // Delete backup
+  app.delete("/api/backups/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backupService } = await import('./backupService');
+      const success = await backupService.deleteBackup(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Backup not found" });
+      }
+
+      res.json({ message: "Backup deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete backup error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete backup" });
+    }
+  });
+
+  // Restore backup
+  app.post("/api/backups/:id/restore", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { verify } = req.body;
+      const { backupService } = await import('./backupService');
+      
+      await backupService.restoreBackup(id, { verify });
+
+      res.json({ message: "Backup restored successfully" });
+    } catch (error: any) {
+      console.error('[API] Restore backup error:', error);
+      res.status(500).json({ message: error.message || "Failed to restore backup" });
+    }
+  });
+
+  // Verify backup
+  app.post("/api/backups/:id/verify", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backupService } = await import('./backupService');
+      const valid = await backupService.verifyBackup(id);
+
+      res.json({ valid });
+    } catch (error: any) {
+      console.error('[API] Verify backup error:', error);
+      res.status(500).json({ message: error.message || "Failed to verify backup" });
+    }
+  });
+
+  // Get backup stats
+  app.get("/api/backups/stats/summary", requireAuth, async (req, res) => {
+    try {
+      const { backupService } = await import('./backupService');
+      const stats = backupService.getBackupStats();
+
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[API] Get backup stats error:', error);
+      res.status(500).json({ message: error.message || "Failed to get backup stats" });
+    }
+  });
+
+  // Create backup schedule
+  app.post("/api/backups/schedules", requireAuth, async (req, res) => {
+    try {
+      const schedule = req.body;
+      const { backupService } = await import('./backupService');
+      const created = await backupService.createSchedule(schedule);
+
+      res.json(created);
+    } catch (error: any) {
+      console.error('[API] Create backup schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to create backup schedule" });
+    }
+  });
+
+  // List backup schedules
+  app.get("/api/backups/schedules/all", requireAuth, async (req, res) => {
+    try {
+      const { backupService } = await import('./backupService');
+      const schedules = backupService.listSchedules();
+
+      res.json({ schedules });
+    } catch (error: any) {
+      console.error('[API] List backup schedules error:', error);
+      res.status(500).json({ message: error.message || "Failed to list backup schedules" });
+    }
+  });
+
+  // Get backup schedule
+  app.get("/api/backups/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backupService } = await import('./backupService');
+      const schedule = backupService.getSchedule(id);
+
+      if (!schedule) {
+        return res.status(404).json({ message: "Backup schedule not found" });
+      }
+
+      res.json(schedule);
+    } catch (error: any) {
+      console.error('[API] Get backup schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to get backup schedule" });
+    }
+  });
+
+  // Update backup schedule
+  app.put("/api/backups/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const { backupService } = await import('./backupService');
+      const updated = await backupService.updateSchedule(id, updates);
+
+      if (!updated) {
+        return res.status(404).json({ message: "Backup schedule not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Update backup schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to update backup schedule" });
+    }
+  });
+
+  // Delete backup schedule
+  app.delete("/api/backups/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backupService } = await import('./backupService');
+      const success = await backupService.deleteSchedule(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Backup schedule not found" });
+      }
+
+      res.json({ message: "Backup schedule deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete backup schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete backup schedule" });
+    }
+  });
+
+  // Get restore points
+  app.get("/api/backups/restore-points", requireAuth, async (req, res) => {
+    try {
+      const { backupService } = await import('./backupService');
+      const restorePoints = backupService.getRestorePoints();
+
+      res.json({ restorePoints });
+    } catch (error: any) {
+      console.error('[API] Get restore points error:', error);
+      res.status(500).json({ message: error.message || "Failed to get restore points" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
