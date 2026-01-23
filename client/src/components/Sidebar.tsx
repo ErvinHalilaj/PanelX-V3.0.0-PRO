@@ -63,6 +63,7 @@ export function Sidebar() {
     { icon: Video, label: "Recordings (DVR)", href: "/recordings" },
     { icon: Clock, label: "Timeshift & Catchup", href: "/timeshift" },
     { icon: Settings, label: "Adaptive Bitrate", href: "/adaptive-bitrate" },
+    { icon: Calendar, label: "Stream Schedules", href: "/schedules" },
     { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },

@@ -185,6 +185,24 @@ export const streamErrors = pgTable("stream_errors", {
   occurredAt: timestamp("occurred_at").defaultNow(),
 });
 
+// Stream Schedules (Auto start/stop)
+export const streamSchedules = pgTable("stream_schedules", {
+  id: serial("id").primaryKey(),
+  streamId: integer("stream_id").references(() => streams.id).notNull(),
+  scheduleType: text("schedule_type").notNull(), // once, daily, weekly, custom
+  startTime: text("start_time"), // HH:MM format
+  stopTime: text("stop_time"), // HH:MM format
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  daysOfWeek: text("days_of_week"), // JSON array of 0-6 (Sunday-Saturday)
+  timezone: text("timezone").default("UTC"),
+  enabled: boolean("enabled").default(true),
+  action: text("action").notNull(), // start, stop, both
+  cronExpression: text("cron_expression"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Client Logs (detailed connection logs)
 export const clientLogs = pgTable("client_logs", {
   id: serial("id").primaryKey(),
@@ -1048,3 +1066,8 @@ export interface XtreamChannel {
   direct_source: string;
   tv_archive_duration: number;
 }
+
+// Stream Schedule types
+export type StreamSchedule = typeof streamSchedules.$inferSelect;
+export type InsertStreamSchedule = typeof streamSchedules.$inferInsert;
+

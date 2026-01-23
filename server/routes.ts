@@ -1294,6 +1294,102 @@ export async function registerRoutes(
     }
   });
 
+  // Stream Schedule endpoints (in-memory for now)
+  const schedules = new Map(); // Simple in-memory storage
+
+  app.post("/api/streams/:id/schedules", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const scheduleData = req.body;
+
+      const stream = await storage.getStream(streamId);
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const schedule = {
+        id: Date.now(),
+        streamId,
+        ...scheduleData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      schedules.set(schedule.id, schedule);
+
+      res.json({ message: "Schedule created", schedule });
+    } catch (error: any) {
+      console.error('[API] Create schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to create schedule" });
+    }
+  });
+
+  app.get("/api/streams/:id/schedules", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const streamSchedules = Array.from(schedules.values()).filter(
+        (s: any) => s.streamId === streamId
+      );
+
+      res.json({ schedules: streamSchedules });
+    } catch (error: any) {
+      console.error('[API] Get schedules error:', error);
+      res.status(500).json({ message: error.message || "Failed to get schedules" });
+    }
+  });
+
+  app.put("/api/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const scheduleId = Number(req.params.id);
+      const updates = req.body;
+
+      const schedule = schedules.get(scheduleId);
+      if (!schedule) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+
+      const updated = {
+        ...schedule,
+        ...updates,
+        updatedAt: new Date()
+      };
+
+      schedules.set(scheduleId, updated);
+
+      res.json({ message: "Schedule updated", schedule: updated });
+    } catch (error: any) {
+      console.error('[API] Update schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to update schedule" });
+    }
+  });
+
+  app.delete("/api/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const scheduleId = Number(req.params.id);
+
+      if (!schedules.has(scheduleId)) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+
+      schedules.delete(scheduleId);
+
+      res.json({ message: "Schedule deleted" });
+    } catch (error: any) {
+      console.error('[API] Delete schedule error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete schedule" });
+    }
+  });
+
+  app.get("/api/schedules", requireAuth, async (req, res) => {
+    try {
+      const allSchedules = Array.from(schedules.values());
+      res.json({ schedules: allSchedules });
+    } catch (error: any) {
+      console.error('[API] Get all schedules error:', error);
+      res.status(500).json({ message: error.message || "Failed to get schedules" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
