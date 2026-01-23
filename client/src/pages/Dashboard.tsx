@@ -1,4 +1,6 @@
 import { Layout } from "@/components/Layout";
+import { BandwidthChart } from "@/components/BandwidthChart";
+import { StreamHealthDashboard } from "@/components/StreamHealthDashboard";
 import { useStats } from "@/hooks/use-stats";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +10,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import type { Line as LineType, ActiveConnection } from "@shared/schema";
+import type { Line as LineType, ActiveConnection, Stream } from "@shared/schema";
 
 // Sample data - Replace with real API data when analytics endpoints are implemented
 const SAMPLE_bandwidthData = [
@@ -103,6 +105,10 @@ export default function Dashboard() {
     queryKey: ["/api/lines"]
   });
 
+  const { data: streams = [] } = useQuery<Stream[]>({
+    queryKey: ["/api/streams"]
+  });
+
   // Use WebSocket data if available, otherwise fallback to API data
   const displayStats = dashboardStats || stats;
   const displayConnections = liveConnections.length > 0 ? liveConnections : recentConnections;
@@ -175,6 +181,16 @@ export default function Dashboard() {
         <MiniCard title="Expired Lines" value={expiredLines} icon={AlertCircle} color="text-red-500" />
         <MiniCard title="Active Lines" value={activeLines} icon={CheckCircle} color="text-green-500" />
         <MiniCard title="Servers" value="3" icon={Server} color="text-purple-500" />
+      </div>
+
+      {/* Bandwidth Monitoring Charts */}
+      <div className="mt-8">
+        <BandwidthChart bandwidthData={bandwidthData} connected={connected} />
+      </div>
+
+      {/* Stream Health Monitoring */}
+      <div className="mt-8">
+        <StreamHealthDashboard streams={streams} connected={connected} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">

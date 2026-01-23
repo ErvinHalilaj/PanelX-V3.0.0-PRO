@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { GeographicHeatmap } from "@/components/GeographicHeatmap";
 import { useConnections, useKillConnection } from "@/hooks/use-connections";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Wifi, WifiOff, Monitor, Clock, MapPin, XCircle, Globe, Radio } from "lucide-react";
@@ -167,6 +168,14 @@ export default function Connections() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Geographic Heatmap */}
+      <div className="mt-8">
+        <GeographicHeatmap 
+          connections={displayConnections} 
+          connected={connected} 
+        />
       </div>
     </Layout>
   );
