@@ -48,7 +48,8 @@ import {
   UserCheck,
   Video,
   ImagePlus,
-  Calendar
+  Calendar,
+  Palette
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -100,6 +101,7 @@ export function Sidebar() {
     { icon: Shield, label: "Security Settings", href: "/security" },
     { icon: ShieldAlert, label: "Advanced Security", href: "/advanced-security" },
     { icon: Users, label: "Reseller Management", href: "/reseller-management" },
+    { icon: Palette, label: "Branding & Customization", href: "/branding" },
     { icon: Ban, label: "Blocked IPs", href: "/blocked-ips" },
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
     { icon: ShieldBan, label: "Reserved Usernames", href: "/reserved-usernames" },

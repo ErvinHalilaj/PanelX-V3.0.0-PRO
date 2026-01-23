@@ -2488,6 +2488,251 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Branding & Customization Endpoints =====
+
+  // Create branding config
+  app.post("/api/branding", requireAuth, async (req, res) => {
+    try {
+      const { userId, ...config } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const { brandingService } = await import('./brandingService');
+      const branding = await brandingService.createBrandingConfig(userId, config);
+
+      res.json(branding);
+    } catch (error: any) {
+      console.error('[API] Create branding config error:', error);
+      res.status(500).json({ message: error.message || "Failed to create branding config" });
+    }
+  });
+
+  // Get branding config
+  app.get("/api/branding/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const branding = await brandingService.getBrandingConfig(Number(userId));
+
+      res.json(branding || { message: "No branding config found" });
+    } catch (error: any) {
+      console.error('[API] Get branding config error:', error);
+      res.status(500).json({ message: error.message || "Failed to get branding config" });
+    }
+  });
+
+  // Update branding config
+  app.put("/api/branding/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const updates = req.body;
+      const { brandingService } = await import('./brandingService');
+      const branding = await brandingService.updateBrandingConfig(Number(userId), updates);
+
+      if (!branding) {
+        return res.status(404).json({ message: "Branding config not found" });
+      }
+
+      res.json(branding);
+    } catch (error: any) {
+      console.error('[API] Update branding config error:', error);
+      res.status(500).json({ message: error.message || "Failed to update branding config" });
+    }
+  });
+
+  // Delete branding config
+  app.delete("/api/branding/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const success = await brandingService.deleteBrandingConfig(Number(userId));
+
+      if (!success) {
+        return res.status(404).json({ message: "Branding config not found" });
+      }
+
+      res.json({ message: "Branding config deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete branding config error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete branding config" });
+    }
+  });
+
+  // Get all themes
+  app.get("/api/branding/themes/all", requireAuth, async (req, res) => {
+    try {
+      const { brandingService } = await import('./brandingService');
+      const themes = brandingService.getAllThemes();
+
+      res.json({ themes });
+    } catch (error: any) {
+      console.error('[API] Get themes error:', error);
+      res.status(500).json({ message: error.message || "Failed to get themes" });
+    }
+  });
+
+  // Get theme by ID
+  app.get("/api/branding/themes/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const theme = brandingService.getTheme(id);
+
+      if (!theme) {
+        return res.status(404).json({ message: "Theme not found" });
+      }
+
+      res.json(theme);
+    } catch (error: any) {
+      console.error('[API] Get theme error:', error);
+      res.status(500).json({ message: error.message || "Failed to get theme" });
+    }
+  });
+
+  // Create custom theme
+  app.post("/api/branding/themes", requireAuth, async (req, res) => {
+    try {
+      const theme = req.body;
+      const { brandingService } = await import('./brandingService');
+      const created = await brandingService.createCustomTheme(theme);
+
+      res.json(created);
+    } catch (error: any) {
+      console.error('[API] Create theme error:', error);
+      res.status(500).json({ message: error.message || "Failed to create theme" });
+    }
+  });
+
+  // Update theme
+  app.put("/api/branding/themes/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const { brandingService } = await import('./brandingService');
+      const updated = await brandingService.updateTheme(id, updates);
+
+      if (!updated) {
+        return res.status(404).json({ message: "Theme not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Update theme error:', error);
+      res.status(500).json({ message: error.message || "Failed to update theme" });
+    }
+  });
+
+  // Delete theme
+  app.delete("/api/branding/themes/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const success = await brandingService.deleteTheme(id);
+
+      if (!success) {
+        return res.status(400).json({ message: "Cannot delete default theme or theme not found" });
+      }
+
+      res.json({ message: "Theme deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete theme error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete theme" });
+    }
+  });
+
+  // Create custom page
+  app.post("/api/branding/pages", requireAuth, async (req, res) => {
+    try {
+      const { userId, ...page } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const { brandingService } = await import('./brandingService');
+      const created = await brandingService.createCustomPage(userId, page);
+
+      res.json(created);
+    } catch (error: any) {
+      console.error('[API] Create custom page error:', error);
+      res.status(500).json({ message: error.message || "Failed to create custom page" });
+    }
+  });
+
+  // Get custom pages for user
+  app.get("/api/branding/pages/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const pages = brandingService.getUserCustomPages(Number(userId));
+
+      res.json({ pages });
+    } catch (error: any) {
+      console.error('[API] Get custom pages error:', error);
+      res.status(500).json({ message: error.message || "Failed to get custom pages" });
+    }
+  });
+
+  // Update custom page
+  app.put("/api/branding/pages/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const { brandingService } = await import('./brandingService');
+      const updated = await brandingService.updateCustomPage(id, updates);
+
+      if (!updated) {
+        return res.status(404).json({ message: "Custom page not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Update custom page error:', error);
+      res.status(500).json({ message: error.message || "Failed to update custom page" });
+    }
+  });
+
+  // Delete custom page
+  app.delete("/api/branding/pages/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const success = await brandingService.deleteCustomPage(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Custom page not found" });
+      }
+
+      res.json({ message: "Custom page deleted successfully" });
+    } catch (error: any) {
+      console.error('[API] Delete custom page error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete custom page" });
+    }
+  });
+
+  // Generate custom CSS
+  app.get("/api/branding/:userId/css", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { brandingService } = await import('./brandingService');
+      const branding = await brandingService.getBrandingConfig(Number(userId));
+
+      if (!branding) {
+        return res.status(404).json({ message: "Branding config not found" });
+      }
+
+      const css = brandingService.generateCustomCss(branding);
+      
+      res.setHeader('Content-Type', 'text/css');
+      res.send(css);
+    } catch (error: any) {
+      console.error('[API] Generate CSS error:', error);
+      res.status(500).json({ message: error.message || "Failed to generate CSS" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
