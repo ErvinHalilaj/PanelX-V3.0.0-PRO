@@ -1182,6 +1182,118 @@ export async function registerRoutes(
     }
   });
 
+  // Multi-Bitrate (ABR) endpoints
+  app.post("/api/streams/:id/abr/start", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+      const { variants } = req.body;
+
+      const stream = await storage.getStream(streamId);
+      if (!stream) {
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const { multiBitrateManager } = await import('./multiBitrateManager');
+      const session = await multiBitrateManager.startABR(stream, variants);
+      
+      res.json({ 
+        message: "Adaptive bitrate streaming started",
+        streamId,
+        session: {
+          status: session.status,
+          variants: session.variants.map(v => ({
+            id: v.id,
+            label: v.label,
+            resolution: v.resolution,
+            bandwidth: v.bandwidth
+          })),
+          masterPlaylist: session.masterPlaylist
+        }
+      });
+    } catch (error: any) {
+      console.error('[API] Start ABR error:', error);
+      res.status(500).json({ message: error.message || "Failed to start ABR" });
+    }
+  });
+
+  app.post("/api/streams/:id/abr/stop", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { multiBitrateManager } = await import('./multiBitrateManager');
+      await multiBitrateManager.stopABR(streamId);
+      
+      res.json({ message: "Adaptive bitrate streaming stopped", streamId });
+    } catch (error: any) {
+      console.error('[API] Stop ABR error:', error);
+      res.status(500).json({ message: error.message || "Failed to stop ABR" });
+    }
+  });
+
+  app.get("/api/streams/:id/abr/session", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { multiBitrateManager } = await import('./multiBitrateManager');
+      const session = multiBitrateManager.getSession(streamId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "No active ABR session" });
+      }
+
+      res.json({
+        streamId: session.streamId,
+        status: session.status,
+        variants: session.variants.map(v => ({
+          id: v.id,
+          label: v.label,
+          resolution: v.resolution,
+          videoBitrate: v.videoBitrate,
+          audioBitrate: v.audioBitrate,
+          bandwidth: v.bandwidth,
+          enabled: v.enabled
+        })),
+        masterPlaylist: session.masterPlaylist
+      });
+    } catch (error: any) {
+      console.error('[API] Get ABR session error:', error);
+      res.status(500).json({ message: error.message || "Failed to get ABR session" });
+    }
+  });
+
+  app.get("/api/streams/:id/abr/variants", requireAuth, async (req, res) => {
+    try {
+      const streamId = Number(req.params.id);
+
+      const { multiBitrateManager } = await import('./multiBitrateManager');
+      const variants = multiBitrateManager.getVariants(streamId);
+      
+      res.json({ streamId, variants });
+    } catch (error: any) {
+      console.error('[API] Get ABR variants error:', error);
+      res.status(500).json({ message: error.message || "Failed to get variants" });
+    }
+  });
+
+  app.get("/api/abr/sessions", requireAuth, async (req, res) => {
+    try {
+      const { multiBitrateManager } = await import('./multiBitrateManager');
+      const sessions = multiBitrateManager.getAllSessions();
+      
+      res.json({ 
+        sessions: sessions.map(s => ({
+          streamId: s.streamId,
+          status: s.status,
+          variantCount: s.variants.length,
+          masterPlaylist: s.masterPlaylist
+        }))
+      });
+    } catch (error: any) {
+      console.error('[API] Get ABR sessions error:', error);
+      res.status(500).json({ message: error.message || "Failed to get ABR sessions" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));

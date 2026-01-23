@@ -8,6 +8,7 @@ import Dashboard from "@/pages/Dashboard";
 import Streams from "@/pages/Streams";
 import Recordings from "@/pages/Recordings";
 import Timeshift from "@/pages/Timeshift";
+import AdaptiveBitrate from "@/pages/AdaptiveBitrate";
 import Lines from "@/pages/Lines";
 import Categories from "@/pages/Categories";
 import Bouquets from "@/pages/Bouquets";
@@ -62,6 +63,7 @@ function AdminRouter() {
       <Route path="/streams" component={Streams} />
       <Route path="/recordings" component={Recordings} />
       <Route path="/timeshift" component={Timeshift} />
+      <Route path="/adaptive-bitrate" component={AdaptiveBitrate} />
       <Route path="/movies" component={Movies} />
       <Route path="/series" component={Series} />
       <Route path="/series/:seriesId/episodes" component={Episodes} />
