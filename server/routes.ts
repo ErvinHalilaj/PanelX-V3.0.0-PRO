@@ -1740,6 +1740,122 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Analytics & Reporting Endpoints =====
+
+  // Get stream analytics
+  app.get("/api/analytics/streams", requireAuth, async (req, res) => {
+    try {
+      const { streamId, days = '7' } = req.query;
+      const { analyticsService } = await import('./analyticsService');
+      
+      const analytics = await analyticsService.getStreamAnalytics(
+        streamId ? Number(streamId) : undefined,
+        Number(days)
+      );
+
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error('[API] Get stream analytics error:', error);
+      res.status(500).json({ message: error.message || "Failed to get stream analytics" });
+    }
+  });
+
+  // Get viewer analytics
+  app.get("/api/analytics/viewers", requireAuth, async (req, res) => {
+    try {
+      const { days = '7' } = req.query;
+      const { analyticsService } = await import('./analyticsService');
+      
+      const analytics = await analyticsService.getViewerAnalytics(Number(days));
+
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error('[API] Get viewer analytics error:', error);
+      res.status(500).json({ message: error.message || "Failed to get viewer analytics" });
+    }
+  });
+
+  // Get revenue analytics
+  app.get("/api/analytics/revenue", requireAuth, async (req, res) => {
+    try {
+      const { days = '30' } = req.query;
+      const { analyticsService } = await import('./analyticsService');
+      
+      const analytics = await analyticsService.getRevenueAnalytics(Number(days));
+
+      res.json(analytics);
+    } catch (error: any) {
+      console.error('[API] Get revenue analytics error:', error);
+      res.status(500).json({ message: error.message || "Failed to get revenue analytics" });
+    }
+  });
+
+  // Get system analytics
+  app.get("/api/analytics/system", requireAuth, async (req, res) => {
+    try {
+      const { analyticsService } = await import('./analyticsService');
+      
+      const analytics = await analyticsService.getSystemAnalytics();
+
+      res.json(analytics);
+    } catch (error: any) {
+      console.error('[API] Get system analytics error:', error);
+      res.status(500).json({ message: error.message || "Failed to get system analytics" });
+    }
+  });
+
+  // Get time series data
+  app.get("/api/analytics/timeseries", requireAuth, async (req, res) => {
+    try {
+      const { metric, hours = '24' } = req.query;
+      
+      if (!metric || !['viewers', 'bandwidth', 'revenue'].includes(metric as string)) {
+        return res.status(400).json({ message: "Invalid metric. Must be: viewers, bandwidth, or revenue" });
+      }
+
+      const { analyticsService } = await import('./analyticsService');
+      
+      const data = await analyticsService.getTimeSeriesData(
+        metric as 'viewers' | 'bandwidth' | 'revenue',
+        Number(hours)
+      );
+
+      res.json({ data });
+    } catch (error: any) {
+      console.error('[API] Get time series data error:', error);
+      res.status(500).json({ message: error.message || "Failed to get time series data" });
+    }
+  });
+
+  // Get popular content
+  app.get("/api/analytics/popular", requireAuth, async (req, res) => {
+    try {
+      const { limit = '10', days = '7' } = req.query;
+      const { analyticsService } = await import('./analyticsService');
+      
+      const content = await analyticsService.getPopularContent(Number(limit), Number(days));
+
+      res.json({ content });
+    } catch (error: any) {
+      console.error('[API] Get popular content error:', error);
+      res.status(500).json({ message: error.message || "Failed to get popular content" });
+    }
+  });
+
+  // Clear analytics cache
+  app.post("/api/analytics/cache/clear", requireAuth, async (req, res) => {
+    try {
+      const { analyticsService } = await import('./analyticsService');
+      
+      analyticsService.clearCache();
+
+      res.json({ message: "Analytics cache cleared successfully" });
+    } catch (error: any) {
+      console.error('[API] Clear analytics cache error:', error);
+      res.status(500).json({ message: error.message || "Failed to clear analytics cache" });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));

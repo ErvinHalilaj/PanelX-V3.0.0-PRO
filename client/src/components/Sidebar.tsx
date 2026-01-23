@@ -67,6 +67,7 @@ export function Sidebar() {
     { icon: Settings, label: "Adaptive Bitrate", href: "/adaptive-bitrate" },
     { icon: Calendar, label: "Stream Schedules", href: "/schedules" },
     { icon: ImagePlus, label: "Media Manager", href: "/media-manager" },
+    { icon: BarChart3, label: "Analytics & Reports", href: "/analytics" },
     { icon: Radio, label: "Created Channels", href: "/created-channels" },
     { icon: Activity, label: "Stream Status", href: "/stream-status" },
     { icon: Film, label: "Movies (VOD)", href: "/movies" },
