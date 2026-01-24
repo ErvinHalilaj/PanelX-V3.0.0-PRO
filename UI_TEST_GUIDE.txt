@@ -1,0 +1,214 @@
+╔════════════════════════════════════════════════════════════════╗
+║               🎯 QUICK UI VERIFICATION GUIDE                   ║
+║                 http://69.169.102.47:5000/                     ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  🔑 LOGIN CREDENTIALS                                          ║
+║  ├─ Username: admin                                            ║
+║  └─ Password: admin123                                         ║
+║                                                                ║
+║  ⚠️  IMPORTANT: Clear cache first! Press Ctrl+Shift+R         ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  ✅ BACKEND STATUS: ALL UPDATES DEPLOYED                       ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  Stream Control API:   ✅ WORKING                              ║
+║  Export Lines API:     ✅ WORKING                              ║
+║  Export Streams API:   ✅ WORKING                              ║
+║  Server Stats:         ✅ WORKING                              ║
+║                                                                ║
+║  Total Streams: 4                                              ║
+║  Total Lines:   3                                              ║
+║  Total Users:   2                                              ║
+║  Online:        3 streams                                      ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  🧪 TEST #1: STREAM CONTROL BUTTONS                            ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  1. Go to: Streams page                                        ║
+║  2. Hover over any stream row                                  ║
+║  3. Look for these buttons:                                    ║
+║                                                                ║
+║     OLD (you should see):                                      ║
+║     [▶️ Play] [✏️ Edit] [🗑️ Delete]                            ║
+║                                                                ║
+║     NEW (you should NOW see):                                  ║
+║     [▶️ Play] [▶️ Start] [⏹️ Stop] [🔄 Restart] [✏️ Edit] [🗑️]  ║
+║              ↑ GREEN   ↑ RED    ↑ BLUE                         ║
+║                                                                ║
+║  ✅ Expected: 5 buttons total (3 new control buttons)          ║
+║  ❌ Problem:  Only 3 buttons → Need to clear cache            ║
+║                                                                ║
+║  4. Test clicking:                                             ║
+║     Click "Start"   → Should see "✅ Stream started"           ║
+║     Click "Stop"    → Should see "✅ Stream stopped"           ║
+║     Click "Restart" → Should see "✅ Stream restarted"         ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  🧪 TEST #2: LINES EXPORT BUTTONS                              ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  1. Go to: Lines page                                          ║
+║  2. Look at the top button area                                ║
+║  3. You should see:                                            ║
+║                                                                ║
+║     [📥 Bulk ▼] [📄 CSV] [📊 Excel] [📺 M3U] [➕ Create]       ║
+║                  ↑ NEW   ↑ NEW     ↑ NEW                       ║
+║                                                                ║
+║  ✅ Expected: 3 new export buttons (CSV, Excel, M3U)           ║
+║  ❌ Problem:  Buttons missing → Need to clear cache           ║
+║                                                                ║
+║  4. Test clicking:                                             ║
+║     Click "CSV"   → Download: lines_export_[timestamp].csv     ║
+║     Click "Excel" → Download: lines_export_[timestamp].xlsx    ║
+║     Click "M3U"   → Download: lines_playlist_[timestamp].m3u   ║
+║                                                                ║
+║  5. Open downloaded files:                                     ║
+║     CSV:   Should contain username, password, expires, etc.    ║
+║     Excel: Should be formatted table                           ║
+║     M3U:   Should contain playlist URLs                        ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  🧪 TEST #3: STREAMS EXPORT BUTTONS                            ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  1. Go to: Streams page                                        ║
+║  2. Look at the top button area                                ║
+║  3. You should see:                                            ║
+║                                                                ║
+║     [📥 Import] [🔄 Category] [📄 CSV] [📊 Excel] [➕ Add]     ║
+║                                ↑ NEW   ↑ NEW                   ║
+║                                                                ║
+║  ✅ Expected: 2 new export buttons (CSV, Excel)                ║
+║  ❌ Problem:  Buttons missing → Need to clear cache           ║
+║                                                                ║
+║  4. Test clicking:                                             ║
+║     Click "CSV"   → Download: streams_export_[timestamp].csv   ║
+║     Click "Excel" → Download: streams_export_[timestamp].xlsx  ║
+║                                                                ║
+║  5. Open downloaded files:                                     ║
+║     CSV:   Should contain name, URL, category, type, status    ║
+║     Excel: Should be formatted table                           ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  🔧 IF BUTTONS ARE NOT VISIBLE                                 ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  SOLUTION 1: Hard Refresh (Try this first!)                    ║
+║  ├─ Windows/Linux: Ctrl + Shift + R                            ║
+║  ├─ Mac:           Cmd + Shift + R                             ║
+║  └─ Repeat 3-5 times                                           ║
+║                                                                ║
+║  SOLUTION 2: Clear All Cache                                   ║
+║  ├─ Press: Ctrl + Shift + Delete                               ║
+║  ├─ Select: "Cached images and files"                          ║
+║  ├─ Choose: "All time"                                         ║
+║  └─ Click: "Clear data"                                        ║
+║                                                                ║
+║  SOLUTION 3: Incognito Window                                  ║
+║  ├─ Chrome:  Ctrl + Shift + N                                  ║
+║  ├─ Firefox: Ctrl + Shift + P                                  ║
+║  └─ Safari:  Cmd + Shift + N                                   ║
+║                                                                ║
+║  SOLUTION 4: Different Browser                                 ║
+║  └─ Try Chrome, Firefox, Edge, or Safari                       ║
+║                                                                ║
+║  SOLUTION 5: Check Console (F12)                               ║
+║  ├─ Press F12                                                  ║
+║  ├─ Click "Console" tab                                        ║
+║  ├─ Look for red error messages                                ║
+║  └─ Take screenshot and send to me                             ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  📊 VERIFICATION RESULTS CHECKLIST                             ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  Stream Control (Test #1):                                     ║
+║  □ Start button visible (green)                                ║
+║  □ Stop button visible (red)                                   ║
+║  □ Restart button visible (blue)                               ║
+║  □ Click Start → Success message                               ║
+║  □ Click Stop → Success message                                ║
+║  □ Click Restart → Success message                             ║
+║                                                                ║
+║  Lines Export (Test #2):                                       ║
+║  □ CSV button visible                                          ║
+║  □ Excel button visible                                        ║
+║  □ M3U button visible                                          ║
+║  □ Click CSV → File downloads                                  ║
+║  □ Click Excel → File downloads                                ║
+║  □ Click M3U → File downloads                                  ║
+║  □ Files contain correct data                                  ║
+║                                                                ║
+║  Streams Export (Test #3):                                     ║
+║  □ CSV button visible                                          ║
+║  □ Excel button visible                                        ║
+║  □ Click CSV → File downloads                                  ║
+║  □ Click Excel → File downloads                                ║
+║  □ Files contain correct data                                  ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  📞 REPORT YOUR RESULTS                                        ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  ✅ ALL WORKING: "Everything works perfectly!"                 ║
+║                                                                ║
+║  ⚠️  PARTIAL:    "X works, but Y doesn't work"                 ║
+║     └─ Send: Which features work, which don't                  ║
+║                                                                ║
+║  ❌ NOT WORKING: "No new buttons visible"                      ║
+║     └─ Send: Screenshot of Streams page                        ║
+║              Screenshot of Lines page                          ║
+║              Browser console (F12)                             ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  💡 EXPECTED DOWNLOAD FILENAMES                                ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  Lines Export:                                                 ║
+║  ├─ lines_export_1769293966863.csv                             ║
+║  ├─ lines_export_1769293966863.xlsx                            ║
+║  └─ lines_playlist_1769293966863.m3u                           ║
+║                                                                ║
+║  Streams Export:                                               ║
+║  ├─ streams_export_1769293966913.csv                           ║
+║  └─ streams_export_1769293966913.xlsx                          ║
+║                                                                ║
+║  Note: Timestamps will be different                            ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║  🎯 QUICK API TEST (Advanced Users)                            ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  You can also test the API directly:                           ║
+║                                                                ║
+║  # Login and save cookie                                       ║
+║  curl -c cookies.txt -X POST \                                 ║
+║    http://69.169.102.47:5000/api/auth/login \                  ║
+║    -H "Content-Type: application/json" \                       ║
+║    -d '{"username":"admin","password":"admin123"}'             ║
+║                                                                ║
+║  # Test stream status                                          ║
+║  curl -b cookies.txt \                                         ║
+║    http://69.169.102.47:5000/api/streams/1/status              ║
+║                                                                ║
+║  # Download lines CSV                                          ║
+║  curl -b cookies.txt \                                         ║
+║    http://69.169.102.47:5000/api/lines/export/csv > lines.csv  ║
+║                                                                ║
+║  # Download streams CSV                                        ║
+║  curl -b cookies.txt \                                         ║
+║    http://69.169.102.47:5000/api/streams/export/csv > str.csv  ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════
+                    ⚠️  REMEMBER: CLEAR CACHE FIRST!
+                       Press: Ctrl + Shift + R
+═══════════════════════════════════════════════════════════════════
+
+Server:  http://69.169.102.47:5000/
+Status:  ✅ Backend deployed, frontend needs verification
+Action:  Clear cache → Test UI → Report results
