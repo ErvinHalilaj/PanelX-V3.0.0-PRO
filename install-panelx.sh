@@ -26,11 +26,15 @@ echo "           🚀 PanelX Installation Script v3.0.0                  "
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${NC}"
 
-# Check if running as root
+# Check if running as root and set variables accordingly
 if [[ $EUID -eq 0 ]]; then
-   echo -e "${RED}❌ This script should NOT be run as root${NC}"
-   echo -e "${YELLOW}Run it as a regular user with sudo privileges${NC}"
-   exit 1
+   print_info "Running as root user"
+   RUN_USER="root"
+   SUDO_CMD=""
+else
+   print_info "Running as regular user with sudo"
+   RUN_USER="$USER"
+   SUDO_CMD="sudo"
 fi
 
 # Function to print status
@@ -53,8 +57,8 @@ print_info() {
 # Step 1: Update system
 echo ""
 echo -e "${BLUE}━━━ Step 1/12: Updating System ━━━${NC}"
-sudo apt update
-sudo apt upgrade -y
+$SUDO_CMD apt update
+$SUDO_CMD apt upgrade -y
 print_status "System updated"
 
 # Step 2: Install Node.js 20.x
@@ -64,15 +68,15 @@ if command -v node &> /dev/null; then
     NODE_VERSION=$(node -v)
     print_info "Node.js already installed: $NODE_VERSION"
 else
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO_CMD -E bash -
+    $SUDO_CMD apt install -y nodejs
     print_status "Node.js installed: $(node -v)"
 fi
 
 # Step 3: Install required packages
 echo ""
 echo -e "${BLUE}━━━ Step 3/12: Installing Dependencies ━━━${NC}"
-sudo apt install -y git build-essential postgresql postgresql-contrib ffmpeg curl
+$SUDO_CMD apt install -y git build-essential postgresql postgresql-contrib ffmpeg curl
 print_status "Dependencies installed"
 
 # Step 4: Configure PostgreSQL
@@ -87,16 +91,16 @@ print_info "PostgreSQL version: $PG_VERSION"
 
 # Backup original pg_hba.conf
 if [ ! -f "${PG_HBA_CONF}.backup" ]; then
-    sudo cp "$PG_HBA_CONF" "${PG_HBA_CONF}.backup"
+    $SUDO_CMD cp "$PG_HBA_CONF" "${PG_HBA_CONF}.backup"
     print_status "PostgreSQL config backed up"
 fi
 
 # Configure authentication to use md5 instead of peer
-sudo sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' "$PG_HBA_CONF"
-sudo sed -i 's/local   all             all                                     scram-sha-256/local   all             all                                     md5/' "$PG_HBA_CONF"
+$SUDO_CMD sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' "$PG_HBA_CONF"
+$SUDO_CMD sed -i 's/local   all             all                                     scram-sha-256/local   all             all                                     md5/' "$PG_HBA_CONF"
 
 # Restart PostgreSQL
-sudo systemctl restart postgresql
+$SUDO_CMD systemctl restart postgresql
 print_status "PostgreSQL configured and restarted"
 
 # Step 5: Create database and user
@@ -104,13 +108,13 @@ echo ""
 echo -e "${BLUE}━━━ Step 5/12: Creating Database ━━━${NC}"
 
 # Drop existing database/user if exists
-sudo -u postgres psql << EOF
+$SUDO_CMD -u postgres psql << EOF
 DROP DATABASE IF EXISTS $DB_NAME;
 DROP USER IF EXISTS $DB_USER;
 EOF
 
 # Create new user and database
-sudo -u postgres psql << EOF
+$SUDO_CMD -u postgres psql << EOF
 CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';
 CREATE DATABASE $DB_NAME OWNER $DB_USER;
 GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
@@ -141,7 +145,7 @@ if [ -d "$INSTALL_DIR" ]; then
     read -p "Remove and reinstall? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        sudo rm -rf "$INSTALL_DIR"
+        $SUDO_CMD rm -rf "$INSTALL_DIR"
         print_status "Old installation removed"
     else
         print_error "Installation cancelled"
@@ -150,8 +154,10 @@ if [ -d "$INSTALL_DIR" ]; then
 fi
 
 # Clone repository
-sudo git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git "$INSTALL_DIR"
-sudo chown -R $USER:$USER "$INSTALL_DIR"
+$SUDO_CMD git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git "$INSTALL_DIR"
+if [[ $EUID -ne 0 ]]; then
+    $SUDO_CMD chown -R $USER:$USER "$INSTALL_DIR"
+fi
 print_status "Repository cloned to $INSTALL_DIR"
 
 # Step 7: Install npm packages
@@ -194,7 +200,7 @@ fi
 # Step 10: Create systemd service
 echo ""
 echo -e "${BLUE}━━━ Step 10/12: Creating Systemd Service ━━━${NC}"
-sudo tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null << EOF
+$SUDO_CMD tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null << EOF
 [Unit]
 Description=PanelX IPTV Management Panel
 After=network.target postgresql.service
@@ -202,7 +208,7 @@ Wants=postgresql.service
 
 [Service]
 Type=simple
-User=$USER
+User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
 EnvironmentFile=$INSTALL_DIR/.env
 ExecStart=/usr/bin/npx tsx server/index.ts
@@ -220,28 +226,28 @@ print_status "Systemd service created"
 # Step 11: Configure firewall
 echo ""
 echo -e "${BLUE}━━━ Step 11/12: Configuring Firewall ━━━${NC}"
-sudo ufw allow $PORT/tcp > /dev/null 2>&1 || true
-sudo ufw allow 22/tcp > /dev/null 2>&1 || true
-sudo ufw --force enable > /dev/null 2>&1 || true
+$SUDO_CMD ufw allow $PORT/tcp > /dev/null 2>&1 || true
+$SUDO_CMD ufw allow 22/tcp > /dev/null 2>&1 || true
+$SUDO_CMD ufw --force enable > /dev/null 2>&1 || true
 print_status "Firewall configured (Port $PORT allowed)"
 
 # Step 12: Start service
 echo ""
 echo -e "${BLUE}━━━ Step 12/12: Starting PanelX Service ━━━${NC}"
-sudo systemctl daemon-reload
-sudo systemctl enable $SERVICE_NAME
-sudo systemctl start $SERVICE_NAME
+$SUDO_CMD systemctl daemon-reload
+$SUDO_CMD systemctl enable $SERVICE_NAME
+$SUDO_CMD systemctl start $SERVICE_NAME
 
 # Wait for service to start
 sleep 5
 
 # Check service status
-if sudo systemctl is-active --quiet $SERVICE_NAME; then
+if $SUDO_CMD systemctl is-active --quiet $SERVICE_NAME; then
     print_status "PanelX service started successfully"
 else
     print_error "PanelX service failed to start"
     echo ""
-    echo -e "${YELLOW}Check logs with: sudo journalctl -u $SERVICE_NAME -n 50${NC}"
+    echo -e "${YELLOW}Check logs with: $SUDO_CMD journalctl -u $SERVICE_NAME -n 50${NC}"
     exit 1
 fi
 
@@ -284,16 +290,16 @@ echo "   • Username: admin"
 echo "   • Password: admin123"
 echo ""
 echo -e "${BLUE}📋 Useful Commands:${NC}"
-echo "   • Check status:  sudo systemctl status $SERVICE_NAME"
-echo "   • View logs:     sudo journalctl -u $SERVICE_NAME -f"
-echo "   • Restart:       sudo systemctl restart $SERVICE_NAME"
-echo "   • Stop:          sudo systemctl stop $SERVICE_NAME"
-echo "   • Start:         sudo systemctl start $SERVICE_NAME"
+echo "   • Check status:  $SUDO_CMD systemctl status $SERVICE_NAME"
+echo "   • View logs:     $SUDO_CMD journalctl -u $SERVICE_NAME -f"
+echo "   • Restart:       $SUDO_CMD systemctl restart $SERVICE_NAME"
+echo "   • Stop:          $SUDO_CMD systemctl stop $SERVICE_NAME"
+echo "   • Start:         $SUDO_CMD systemctl start $SERVICE_NAME"
 echo ""
 echo -e "${YELLOW}⚠️  Important:${NC}"
 echo "   • Change admin password after first login!"
 echo "   • Clear browser cache: Ctrl+Shift+R"
-echo "   • Keep your system updated: sudo apt update && sudo apt upgrade"
+echo "   • Keep your system updated: $SUDO_CMD apt update && $SUDO_CMD apt upgrade"
 echo ""
 echo -e "${GREEN}🎉 Enjoy your PanelX panel!${NC}"
 echo ""
