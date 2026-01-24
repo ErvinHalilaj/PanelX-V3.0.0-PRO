@@ -2945,6 +2945,176 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Webhook Endpoints =====
+
+  app.post("/api/webhooks", requireAuth, async (req, res) => {
+    try {
+      const { webhookService } = await import('./webhookService');
+      const webhook = await webhookService.createWebhook(req.body);
+      res.json(webhook);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create webhook" });
+    }
+  });
+
+  app.get("/api/webhooks", requireAuth, async (req, res) => {
+    try {
+      const { webhookService } = await import('./webhookService');
+      const webhooks = webhookService.listWebhooks();
+      res.json({ webhooks });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/webhooks/:id", requireAuth, async (req, res) => {
+    try {
+      const { webhookService } = await import('./webhookService');
+      const webhook = await webhookService.updateWebhook(req.params.id, req.body);
+      if (!webhook) return res.status(404).json({ message: "Webhook not found" });
+      res.json(webhook);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/webhooks/:id", requireAuth, async (req, res) => {
+    try {
+      const { webhookService } = await import('./webhookService');
+      await webhookService.deleteWebhook(req.params.id);
+      res.json({ message: "Webhook deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/webhooks/:id/deliveries", requireAuth, async (req, res) => {
+    try {
+      const { webhookService } = await import('./webhookService');
+      const deliveries = webhookService.getDeliveries(req.params.id);
+      res.json({ deliveries });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== Cron Job Endpoints =====
+
+  app.post("/api/cron-jobs", requireAuth, async (req, res) => {
+    try {
+      const { cronJobService } = await import('./cronJobService');
+      const job = await cronJobService.createJob(req.body);
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/cron-jobs", requireAuth, async (req, res) => {
+    try {
+      const { cronJobService } = await import('./cronJobService');
+      const jobs = cronJobService.listJobs();
+      res.json({ jobs });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/cron-jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const { cronJobService } = await import('./cronJobService');
+      const job = await cronJobService.updateJob(req.params.id, req.body);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/cron-jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const { cronJobService } = await import('./cronJobService');
+      await cronJobService.deleteJob(req.params.id);
+      res.json({ message: "Job deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/cron-jobs/:id/run", requireAuth, async (req, res) => {
+    try {
+      const { cronJobService } = await import('./cronJobService');
+      await cronJobService.runJobNow(req.params.id);
+      res.json({ message: "Job executed" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== Monitoring Endpoints =====
+
+  app.get("/api/monitoring/metrics", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      const metrics = monitoringService.getLatestMetrics();
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/monitoring/health", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      const health = monitoringService.getHealthChecks();
+      const overall = monitoringService.getOverallHealth();
+      res.json({ health, overall });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/monitoring/alerts", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      const alert = await monitoringService.createAlert(req.body);
+      res.json(alert);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/monitoring/alerts", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      const alerts = monitoringService.listAlerts();
+      res.json({ alerts });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/monitoring/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      const alert = await monitoringService.updateAlert(req.params.id, req.body);
+      if (!alert) return res.status(404).json({ message: "Alert not found" });
+      res.json(alert);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/monitoring/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { monitoringService } = await import('./monitoringService');
+      await monitoringService.deleteAlert(req.params.id);
+      res.json({ message: "Alert deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Stream preview proxy for admin panel - bypasses CORS issues
   app.get("/api/streams/:id/proxy", requireAuth, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
