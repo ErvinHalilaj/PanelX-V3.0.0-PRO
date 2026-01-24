@@ -214,8 +214,20 @@ EOF
 
 print_step "✓ Environment file created"
 
-# Step 10: Initialize database
-print_step "Step 10/12: Initializing database schema..."
+# Step 10: Build frontend
+print_step "Step 10/13: Building frontend (this may take 1-2 minutes)..."
+cd "$INSTALL_DIR"
+npm run build || error_exit "Failed to build frontend"
+
+# Verify build output exists
+if [ ! -d "$INSTALL_DIR/dist/public" ]; then
+    error_exit "Build failed - dist/public directory not created"
+fi
+
+print_step "✓ Frontend built successfully"
+
+# Step 11: Initialize database
+print_step "Step 11/13: Initializing database schema..."
 
 # Push schema using drizzle-kit
 npm run db:push || error_exit "Failed to initialize database schema"
@@ -228,8 +240,8 @@ fi
 
 print_step "✓ Database schema initialized ($TABLES tables created)"
 
-# Step 11: Create systemd service
-print_step "Step 11/12: Creating systemd service..."
+# Step 12: Create systemd service
+print_step "Step 12/13: Creating systemd service..."
 
 cat > /etc/systemd/system/panelx.service << EOF
 [Unit]
@@ -268,8 +280,8 @@ systemctl enable panelx
 
 print_step "✓ Systemd service created"
 
-# Step 12: Configure firewall
-print_step "Step 12/12: Configuring firewall..."
+# Step 13: Configure firewall
+print_step "Step 13/13: Configuring firewall..."
 
 if systemctl is-active --quiet ufw; then
     ufw allow $PORT/tcp
