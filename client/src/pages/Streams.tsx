@@ -448,12 +448,14 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     video.addEventListener("pause", handlePause);
     video.addEventListener("progress", handleProgress);
 
-    // Use the direct source URL for testing (admin preview)
+    // Use proxy URL for better compatibility and CORS bypass
+    // The proxy endpoint handles authentication and forwards the stream
+    const proxyUrl = `/api/streams/${stream.id}/proxy`;
     const sourceUrl = stream.sourceUrl;
     const isHls = sourceUrl.includes(".m3u8") || sourceUrl.includes("m3u8");
     
-    // For direct URL streams, try to play directly first
-    const playUrl = sourceUrl;
+    // Use proxy URL for admin preview (bypasses CORS issues)
+    const playUrl = proxyUrl;
 
     if (isHls && Hls.isSupported()) {
       hls = new Hls({
