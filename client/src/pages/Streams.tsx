@@ -448,57 +448,104 @@ function VideoPlayer({ stream, onClose }: VideoPlayerProps) {
     video.addEventListener("pause", handlePause);
     video.addEventListener("progress", handleProgress);
 
-    // Use IPTV streaming endpoint for admin preview
-    // This uses the working /live/:username/:password/:streamId.:ext endpoint
-    const proxyUrl = `/live/testuser1/test123/${stream.id}.ts`;
+    // Use the direct source URL for testing (admin preview)
     const sourceUrl = stream.sourceUrl;
     const isHls = sourceUrl.includes(".m3u8") || sourceUrl.includes("m3u8");
+    
+    // For direct URL streams, try to play directly first
+    const playUrl = sourceUrl;
 
     if (isHls && Hls.isSupported()) {
       hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        xhrSetup: (xhr: XMLHttpRequest) => {
+          // Allow cross-origin requests for testing
+          xhr.withCredentials = false;
+        },
       });
-      // Use proxy for HLS to handle CORS
-      hls.loadSource(proxyUrl);
+      
+      // Try direct source URL first
+      hls.loadSource(playUrl);
       hls.attachMedia(video);
+      
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
-        video.play().catch(() => {});
+        video.play().catch((err) => {
+          console.error("Autoplay failed:", err);
+          // Autoplay may fail, but show controls for manual play
+        });
       });
+      
       hls.on(Hls.Events.LEVEL_LOADED, (_event, data) => {
         setVideoInfo(prev => ({
           ...prev,
           bitrate: data.details.averagetargetduration ? `${Math.round(data.details.averagetargetduration)}s` : "—",
         }));
       });
+      
       hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("HLS Error:", data);
         if (data.fatal) {
           setIsLoading(false);
-          setError(data.type === Hls.ErrorTypes.NETWORK_ERROR 
-            ? "Stream source unavailable. The external server may be down or blocking connections."
-            : `Playback error: ${data.details}`);
+          switch(data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              setError(`Network error loading stream. 
+              
+              Possible causes:
+              • The stream source is offline or unreachable
+              • CORS policy blocking the request
+              • Invalid or expired stream URL
+              
+              Stream URL: ${playUrl}
+              
+              Try opening this URL in VLC Media Player for testing.`);
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              setError(`Media error: ${data.details}. The stream format may be incompatible.`);
+              break;
+            default:
+              setError(`Playback error: ${data.details}`);
+          }
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari native HLS support - use proxy
-      video.src = proxyUrl;
-      video.addEventListener("canplay", () => setIsLoading(false));
-      video.addEventListener("error", () => setError("Stream unavailable. The source may be down or blocking connections."));
-      video.play().catch(() => {});
+      // Safari native HLS support
+      video.src = playUrl;
+      video.addEventListener("canplay", () => {
+        setIsLoading(false);
+      });
+      video.addEventListener("error", (e) => {
+        setIsLoading(false);
+        setError(`Stream unavailable. Error: ${(e.target as HTMLVideoElement).error?.message || 'Unknown error'}`);
+      });
+      video.play().catch((err) => {
+        console.error("Autoplay failed:", err);
+      });
     } else {
-      // For non-HLS streams (.ts files), browsers can't play them directly
-      // Show error with helpful message and link to open in VLC
-      setIsLoading(false);
-      setError(`This stream format (.ts) cannot be played in browsers. 
+      // For non-HLS streams, try direct playback
+      video.src = playUrl;
+      video.addEventListener("canplay", () => {
+        setIsLoading(false);
+      });
+      video.addEventListener("error", (e) => {
+        setIsLoading(false);
+        const mediaError = (e.target as HTMLVideoElement).error;
+        setError(`Cannot play this stream format in browser.
         
-        ✅ To play this stream:
-        1. Copy this URL: ${proxyUrl}
+        Error: ${mediaError?.message || 'Unknown error'}
+        
+        ✅ To test this stream:
+        1. Copy this URL: ${playUrl}
         2. Open VLC Media Player
         3. Go to Media → Open Network Stream
         4. Paste the URL and click Play
         
         Or use IPTV apps like IPTV Smarters, TiviMate, etc.`);
+      });
+      video.play().catch((err) => {
+        console.error("Autoplay failed:", err);
+      });
     }
 
     return () => {
