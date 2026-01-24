@@ -118,6 +118,7 @@ export function Sidebar() {
     { icon: FileOutput, label: "Output Types", href: "/access-outputs" },
     { icon: Bell, label: "Signals/Triggers", href: "/signals" },
     { icon: Clock, label: "Cron Jobs", href: "/cron-jobs" },
+    { icon: Activity, label: "System Monitoring", href: "/monitoring" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: BarChart3, label: "Stats Snapshots", href: "/stats-snapshots" },
     { icon: Archive, label: "Backups", href: "/backups" },

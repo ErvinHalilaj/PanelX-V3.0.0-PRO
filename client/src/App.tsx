@@ -43,6 +43,7 @@ import Webhooks from "@/pages/Webhooks";
 import ActivityLogs from "@/pages/ActivityLogs";
 import CreditTransactions from "@/pages/CreditTransactions";
 import CronJobs from "@/pages/CronJobs";
+import SystemMonitoring from "@/pages/SystemMonitoring";
 import EpgDataViewer from "@/pages/EpgDataViewer";
 import MagDevices from "@/pages/MagDevices";
 import StreamStatus from "@/pages/StreamStatus";
@@ -101,6 +102,7 @@ function AdminRouter() {
       <Route path="/activity-logs" component={ActivityLogs} />
       <Route path="/credit-transactions" component={CreditTransactions} />
       <Route path="/cron-jobs" component={CronJobs} />
+      <Route path="/monitoring" component={SystemMonitoring} />
       <Route path="/epg-data" component={EpgDataViewer} />
       <Route path="/mag-devices" component={MagDevices} />
       <Route path="/stream-status" component={StreamStatus} />
