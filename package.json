@@ -121,7 +121,7 @@
   },
   "overrides": {
     "drizzle-kit": {
-      "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
+      "@esbuild-kit/esm-loader": "^2.6.5"
     }
   },
   "optionalDependencies": {
