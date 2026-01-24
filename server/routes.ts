@@ -791,6 +791,34 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Bulk edit streams
+  app.post("/api/streams/bulk-edit", requireAdmin, async (req, res) => {
+    try {
+      const { streamIds, updates } = req.body;
+      
+      if (!streamIds || !Array.isArray(streamIds) || streamIds.length === 0) {
+        return res.status(400).json({ message: "streamIds array is required" });
+      }
+      
+      if (!updates || typeof updates !== 'object') {
+        return res.status(400).json({ message: "updates object is required" });
+      }
+      
+      // Update each stream
+      for (const streamId of streamIds) {
+        await storage.updateStream(streamId, updates as any);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Updated ${streamIds.length} streams`,
+        updatedCount: streamIds.length 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to bulk edit streams" });
+    }
+  });
+
   app.post(api.streams.checkStatus.path, async (req, res) => {
     const stream = await storage.getStream(Number(req.params.id));
     if (!stream) return res.status(404).json({ message: "Stream not found" });
@@ -911,6 +939,56 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('[API] Stream status error:', error);
       res.status(500).json({ message: error.message || "Failed to get stream status" });
+    }
+  });
+
+  // M3U Import endpoint
+  app.post("/api/bulk/import/m3u", requireAuth, async (req, res) => {
+    try {
+      const { content, categoryId, streamType = "live" } = req.body;
+      
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ message: "M3U content is required" });
+      }
+      
+      const imported: any[] = [];
+      const lines = content.split('\n');
+      let currentStream: any = null;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Parse EXTINF line
+        if (line.startsWith('#EXTINF:')) {
+          const nameMatch = line.match(/,(.+)$/);
+          const name = nameMatch ? nameMatch[1].trim() : `Stream ${i}`;
+          
+          currentStream = {
+            name,
+            streamType,
+            categoryId: categoryId || null,
+            isMonitored: true,
+            monitorStatus: 'unknown' as const
+          };
+        }
+        // Parse URL line
+        else if (line && !line.startsWith('#') && currentStream) {
+          currentStream.sourceUrl = line;
+          
+          // Create stream
+          const created = await storage.createStream(currentStream);
+          imported.push(created);
+          currentStream = null;
+        }
+      }
+      
+      res.json({ 
+        imported: imported.length, 
+        streams: imported 
+      });
+    } catch (error: any) {
+      console.error('[API] M3U import error:', error);
+      res.status(500).json({ message: error.message || "Failed to import M3U" });
     }
   });
 

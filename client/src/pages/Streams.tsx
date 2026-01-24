@@ -1007,10 +1007,34 @@ export default function Streams() {
     });
   };
 
-  const handleExport = (format: 'csv' | 'excel') => {
-    const url = `/api/streams/export/${format}`;
-    window.open(url, '_blank');
-    toast({ title: "Success", description: `Exporting streams to ${format.toUpperCase()}...` });
+  const handleExport = async (format: 'csv' | 'excel') => {
+    try {
+      const response = await fetch(`/api/streams/export/${format}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `streams_export_${Date.now()}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({ title: "Success", description: `Streams exported to ${format.toUpperCase()}` });
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || `Failed to export streams`,
+        variant: "destructive" 
+      });
+    }
   };
 
   const toggleSelectAll = () => {

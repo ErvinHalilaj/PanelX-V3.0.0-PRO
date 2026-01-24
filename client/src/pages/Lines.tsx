@@ -574,10 +574,44 @@ export default function Lines() {
     }
   };
 
-  const handleExport = (format: 'csv' | 'excel' | 'm3u') => {
-    const url = `/api/lines/export/${format}`;
-    window.open(url, '_blank');
-    toast({ title: "Success", description: `Exporting lines to ${format.toUpperCase()}...` });
+  const handleExport = async (format: 'csv' | 'excel' | 'm3u') => {
+    try {
+      const response = await fetch(`/api/lines/export/${format}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      let filename;
+      if (format === 'excel') {
+        filename = `lines_export_${Date.now()}.xlsx`;
+      } else if (format === 'm3u') {
+        filename = `lines_playlist_${Date.now()}.m3u`;
+      } else {
+        filename = `lines_export_${Date.now()}.csv`;
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({ title: "Success", description: `Lines exported to ${format.toUpperCase()}` });
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || `Failed to export lines`,
+        variant: "destructive" 
+      });
+    }
   };
 
   const toggleSelectAll = () => {

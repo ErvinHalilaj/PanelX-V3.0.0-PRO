@@ -17,7 +17,11 @@ export function useBulkDeleteStreams() {
 export function useBulkUpdateStreams() {
   return useMutation({
     mutationFn: async ({ ids, updates }: { ids: number[]; updates: any }) => {
-      const res = await apiRequest("POST", "/api/streams/bulk-update", { ids, updates });
+      const res = await apiRequest("POST", "/api/streams/bulk-edit", { streamIds: ids, updates });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update streams");
+      }
       return res.json();
     },
     onSuccess: () => {
