@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchTMDB, useMovieDetails, useSeriesDetails } from '@/hooks/use-tmdb';
+import { useSearchMovies, useSearchSeries, useMovieDetails, useSeriesDetails } from '@/hooks/use-tmdb';
 import { 
   useUploadPoster, 
   useUploadBackdrop, 
@@ -43,9 +43,11 @@ export default function MediaManager() {
   const [subtitleLanguage, setSubtitleLanguage] = useState('en');
 
   // TMDB hooks
-  const searchResults = useSearchTMDB(searchQuery, searchType);
-  const movieDetails = useMovieDetails(selectedId || 0, searchType === 'movie');
-  const seriesDetails = useSeriesDetails(selectedId || 0, searchType === 'series');
+  const movieSearch = useSearchMovies(searchQuery, 1, searchType === 'movie' && !!searchQuery);
+  const seriesSearch = useSearchSeries(searchQuery, 1, searchType === 'series' && !!searchQuery);
+  const searchResults = searchType === 'movie' ? movieSearch : seriesSearch;
+  const movieDetails = useMovieDetails(selectedId || 0, searchType === 'movie' && !!selectedId);
+  const seriesDetails = useSeriesDetails(selectedId || 0, searchType === 'series' && !!selectedId);
 
   // Media upload hooks
   const uploadPoster = useUploadPoster();
