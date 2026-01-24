@@ -126,14 +126,14 @@ function StreamForm({ onSubmit, categories, servers, transcodeProfiles, isLoadin
             Server (Optional)
           </Label>
           <Select 
-            value={form.watch("serverId")?.toString() || ""} 
-            onValueChange={(val) => form.setValue("serverId", val ? parseInt(val) : undefined)}
+            value={form.watch("serverId")?.toString() || "auto"} 
+            onValueChange={(val) => form.setValue("serverId", val === "auto" ? undefined : parseInt(val))}
           >
             <SelectTrigger data-testid="select-server">
               <SelectValue placeholder="Auto (Main Server)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Auto (Main Server)</SelectItem>
+              <SelectItem value="auto">Auto (Main Server)</SelectItem>
               {servers.map((server) => (
                 <SelectItem key={server.id} value={server.id.toString()}>
                   {server.serverName}
@@ -149,14 +149,14 @@ function StreamForm({ onSubmit, categories, servers, transcodeProfiles, isLoadin
             Transcode Profile (Optional)
           </Label>
           <Select 
-            value={form.watch("transcodeProfileId")?.toString() || ""} 
-            onValueChange={(val) => form.setValue("transcodeProfileId", val ? parseInt(val) : undefined)}
+            value={form.watch("transcodeProfileId")?.toString() || "none"} 
+            onValueChange={(val) => form.setValue("transcodeProfileId", val === "none" ? undefined : parseInt(val))}
           >
             <SelectTrigger data-testid="select-transcode">
               <SelectValue placeholder="No Transcoding (Copy)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No Transcoding (Copy)</SelectItem>
+              <SelectItem value="none">No Transcoding (Copy)</SelectItem>
               {transcodeProfiles.map((profile) => (
                 <SelectItem key={profile.id} value={profile.id.toString()}>
                   {profile.profileName}
@@ -1239,7 +1239,7 @@ export default function Streams() {
                   <SelectValue placeholder="Keep current categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current categories</SelectItem>
+                  <SelectItem value="keep">Keep current categories</SelectItem>
                   {categories?.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id.toString()}>{cat.categoryName}</SelectItem>
                   ))}
@@ -1257,7 +1257,7 @@ export default function Streams() {
                   <SelectValue placeholder="Keep current types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current types</SelectItem>
+                  <SelectItem value="keep">Keep current types</SelectItem>
                   <SelectItem value="live">Live Stream</SelectItem>
                   <SelectItem value="movie">Movie</SelectItem>
                 </SelectContent>
@@ -1277,7 +1277,7 @@ export default function Streams() {
                   <SelectValue placeholder="Keep current servers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current servers</SelectItem>
+                  <SelectItem value="keep">Keep current servers</SelectItem>
                   {servers?.map((server) => (
                     <SelectItem key={server.id} value={server.id.toString()}>
                       {server.serverName}
@@ -1300,7 +1300,7 @@ export default function Streams() {
                   <SelectValue placeholder="Keep current profiles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current profiles</SelectItem>
+                  <SelectItem value="keep">Keep current profiles</SelectItem>
                   {transcodeProfiles?.map((profile) => (
                     <SelectItem key={profile.id} value={profile.id.toString()}>
                       {profile.profileName}
@@ -1326,7 +1326,7 @@ export default function Streams() {
                   <SelectValue placeholder="Keep current settings" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current settings</SelectItem>
+                  <SelectItem value="keep">Keep current settings</SelectItem>
                   <SelectItem value="true">Enable Archive</SelectItem>
                   <SelectItem value="false">Disable Archive</SelectItem>
                 </SelectContent>
