@@ -31,8 +31,12 @@ echo -e "${BLUE}Step 2: Installing Node.js 20.x...${NC}"
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt install -y nodejs
+    # Reload PATH to make npm available
+    hash -r
+    export PATH="/usr/bin:$PATH"
 fi
 echo -e "${GREEN}✅ Node.js $(node -v) installed${NC}"
+echo -e "${GREEN}✅ npm $(npm -v) installed${NC}"
 echo ""
 
 echo -e "${BLUE}Step 3: Installing dependencies...${NC}"
@@ -78,6 +82,20 @@ echo ""
 
 echo -e "${BLUE}Step 7: Installing npm packages...${NC}"
 cd "$INSTALL_DIR"
+
+# Ensure npm is available
+if ! command -v npm &> /dev/null; then
+    echo "⚠️  npm not found in PATH, refreshing..."
+    export PATH="/usr/bin:/usr/local/bin:$PATH"
+    hash -r
+fi
+
+# Verify npm is now available
+if ! command -v npm &> /dev/null; then
+    echo "❌ npm still not available. Installing nodejs again..."
+    apt install -y nodejs npm
+fi
+
 npm install --silent
 echo -e "${GREEN}✅ NPM packages installed${NC}"
 echo ""
