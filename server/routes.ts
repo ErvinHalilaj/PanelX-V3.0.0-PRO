@@ -5,14 +5,19 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { 
   insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema,
   insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema,
   insertActivationCodeSchema, insertConnectionHistorySchema, insertTwoFactorAuthSchema,
   insertFingerprintSettingsSchema, insertLineFingerprintSchema, insertWatchFolderSchema,
-  insertLoopingChannelSchema, insertAutoblockRuleSchema, insertStatisticsSnapshotSchema, insertImpersonationLogSchema
+  insertLoopingChannelSchema, insertAutoblockRuleSchema, insertStatisticsSnapshotSchema, insertImpersonationLogSchema,
+  twoFactorAuth, twoFactorActivity, ipWhitelist, auditLogs, backups
 } from "@shared/schema";
 import * as OTPAuth from "otpauth";
+import { auditLogMiddleware, logAuditEvent, logAuthFailure } from "./middleware/auditLog";
+import { createBackup, restoreBackup, cleanupOldBackups, listBackups, getBackup, getBackupFile } from "./utils/backup";
 
 // Auth rate limiting cache
 const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
@@ -716,6 +721,354 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Regenerate backup codes error:", err);
       res.status(500).json({ message: "Failed to regenerate backup codes" });
+    }
+  });
+
+  // === IP WHITELISTING ===
+  
+  // Get all IP whitelist rules
+  app.get("/api/ip-whitelist", requireAuth, async (req, res) => {
+    try {
+      const rules = await db.select().from(ipWhitelist);
+      res.json(rules);
+    } catch (err) {
+      console.error("Get IP whitelist error:", err);
+      res.status(500).json({ message: "Failed to get IP whitelist" });
+    }
+  });
+
+  // Add IP whitelist rule
+  app.post("/api/ip-whitelist", requireAdmin, async (req, res) => {
+    try {
+      const { userId, ipAddress, ipRange, description, isGlobal, allowAdmin, allowReseller } = req.body;
+
+      if (!ipAddress && !ipRange) {
+        return res.status(400).json({ message: "IP address or range required" });
+      }
+
+      const [rule] = await db.insert(ipWhitelist).values({
+        userId: userId || null,
+        ipAddress: ipAddress || null,
+        ipRange: ipRange || null,
+        description: description || null,
+        isActive: true,
+        isGlobal: isGlobal || false,
+        allowAdmin: allowAdmin !== false,
+        allowReseller: allowReseller !== false,
+        createdBy: req.session.userId!,
+      }).returning();
+
+      res.json(rule);
+    } catch (err) {
+      console.error("Add IP whitelist error:", err);
+      res.status(500).json({ message: "Failed to add IP whitelist rule" });
+    }
+  });
+
+  // Update IP whitelist rule
+  app.put("/api/ip-whitelist/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { ipAddress, ipRange, description, isActive, isGlobal, allowAdmin, allowReseller } = req.body;
+
+      const [updated] = await db.update(ipWhitelist)
+        .set({
+          ipAddress: ipAddress || null,
+          ipRange: ipRange || null,
+          description: description || null,
+          isActive: isActive !== undefined ? isActive : true,
+          isGlobal: isGlobal !== undefined ? isGlobal : false,
+          allowAdmin: allowAdmin !== undefined ? allowAdmin : true,
+          allowReseller: allowReseller !== undefined ? allowReseller : true,
+        })
+        .where(eq(ipWhitelist.id, id))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "IP whitelist rule not found" });
+      }
+
+      res.json(updated);
+    } catch (err) {
+      console.error("Update IP whitelist error:", err);
+      res.status(500).json({ message: "Failed to update IP whitelist rule" });
+    }
+  });
+
+  // Delete IP whitelist rule
+  app.delete("/api/ip-whitelist/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      await db.delete(ipWhitelist).where(eq(ipWhitelist.id, id));
+      
+      res.json({ message: "IP whitelist rule deleted" });
+    } catch (err) {
+      console.error("Delete IP whitelist error:", err);
+      res.status(500).json({ message: "Failed to delete IP whitelist rule" });
+    }
+  });
+
+  // Get current client IP
+  app.get("/api/ip-whitelist/my-ip", (req, res) => {
+    const clientIP = (req.ip || req.socket.remoteAddress || '').replace('::ffff:', '');
+    res.json({ ip: clientIP });
+  });
+
+  // === AUDIT LOGS ===
+  
+  // Get audit logs with pagination and filters
+  app.get("/api/audit-logs", requireAdmin, async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = (page - 1) * limit;
+
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : null;
+      const action = req.query.action as string;
+      const resource = req.query.resource as string;
+
+      let query = db.select().from(auditLogs);
+
+      if (userId) {
+        query = query.where(eq(auditLogs.userId, userId)) as any;
+      }
+      if (action) {
+        query = query.where(eq(auditLogs.action, action)) as any;
+      }
+      if (resource) {
+        query = query.where(eq(auditLogs.resource, resource)) as any;
+      }
+
+      const logs = await query
+        .orderBy(auditLogs.createdAt)
+        .limit(limit)
+        .offset(offset);
+
+      res.json(logs);
+    } catch (err) {
+      console.error("Get audit logs error:", err);
+      res.status(500).json({ message: "Failed to get audit logs" });
+    }
+  });
+
+  // Get audit log by ID
+  app.get("/api/audit-logs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [log] = await db.select()
+        .from(auditLogs)
+        .where(eq(auditLogs.id, id));
+
+      if (!log) {
+        return res.status(404).json({ message: "Audit log not found" });
+      }
+
+      res.json(log);
+    } catch (err) {
+      console.error("Get audit log error:", err);
+      res.status(500).json({ message: "Failed to get audit log" });
+    }
+  });
+
+  // Export audit logs
+  app.post("/api/audit-logs/export", requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate, format } = req.body;
+
+      let query = db.select().from(auditLogs);
+
+      if (startDate) {
+        query = query.where(eq(auditLogs.createdAt, new Date(startDate))) as any;
+      }
+
+      const logs = await query.orderBy(auditLogs.createdAt);
+
+      if (format === 'csv') {
+        const csv = [
+          ['ID', 'User', 'Action', 'Resource', 'IP Address', 'Timestamp'].join(','),
+          ...logs.map(log => [
+            log.id,
+            log.username || 'N/A',
+            log.action,
+            log.resource,
+            log.ipAddress || 'N/A',
+            log.createdAt?.toISOString() || 'N/A'
+          ].join(','))
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=audit_logs_${Date.now()}.csv`);
+        res.send(csv);
+      } else {
+        res.json(logs);
+      }
+    } catch (err) {
+      console.error("Export audit logs error:", err);
+      res.status(500).json({ message: "Failed to export audit logs" });
+    }
+  });
+
+  // Delete old audit logs (cleanup)
+  app.delete("/api/audit-logs/cleanup", requireAdmin, async (req, res) => {
+    try {
+      const { days } = req.body;
+      const daysToKeep = days || 90;
+      
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+
+      const result = await db.delete(auditLogs)
+        .where(eq(auditLogs.createdAt, cutoffDate));
+
+      res.json({ message: `Deleted audit logs older than ${daysToKeep} days` });
+    } catch (err) {
+      console.error("Cleanup audit logs error:", err);
+      res.status(500).json({ message: "Failed to cleanup audit logs" });
+    }
+  });
+
+  // === BACKUP & RESTORE ===
+  
+  // Get all backups
+  app.get("/api/backups", requireAdmin, async (req, res) => {
+    try {
+      const allBackups = await listBackups();
+      res.json(allBackups);
+    } catch (err) {
+      console.error("Get backups error:", err);
+      res.status(500).json({ message: "Failed to get backups" });
+    }
+  });
+
+  // Create new backup
+  app.post("/api/backups/create", requireAdmin, async (req, res) => {
+    try {
+      const { type, includedTables } = req.body;
+      
+      if (!['full', 'database', 'settings'].includes(type)) {
+        return res.status(400).json({ message: "Invalid backup type" });
+      }
+
+      const result = await createBackup({
+        type,
+        createdBy: req.session.userId!,
+        includedTables: includedTables || [],
+      });
+
+      res.json(result);
+    } catch (err) {
+      console.error("Create backup error:", err);
+      res.status(500).json({ message: `Failed to create backup: ${(err as Error).message}` });
+    }
+  });
+
+  // Get backup by ID
+  app.get("/api/backups/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const backup = await getBackup(id);
+      
+      if (!backup) {
+        return res.status(404).json({ message: "Backup not found" });
+      }
+
+      res.json(backup);
+    } catch (err) {
+      console.error("Get backup error:", err);
+      res.status(500).json({ message: "Failed to get backup" });
+    }
+  });
+
+  // Download backup file
+  app.get("/api/backups/:id/download", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const backup = await getBackup(id);
+      
+      if (!backup) {
+        return res.status(404).json({ message: "Backup not found" });
+      }
+
+      if (!backup.filePath) {
+        return res.status(404).json({ message: "Backup file not found" });
+      }
+
+      const fileBuffer = getBackupFile(backup.filePath);
+      
+      res.setHeader('Content-Type', 'application/sql');
+      res.setHeader('Content-Disposition', `attachment; filename="${backup.backupName}.sql"`);
+      res.send(fileBuffer);
+    } catch (err) {
+      console.error("Download backup error:", err);
+      res.status(500).json({ message: "Failed to download backup" });
+    }
+  });
+
+  // Restore from backup
+  app.post("/api/backups/:id/restore", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Log this critical action
+      await logAuditEvent(
+        req.session.userId!,
+        req.session.username!,
+        'RESTORE_BACKUP',
+        'backup',
+        id,
+        { backupId: id },
+        req,
+        res
+      );
+
+      await restoreBackup(id);
+      
+      res.json({ message: "Backup restored successfully" });
+    } catch (err) {
+      console.error("Restore backup error:", err);
+      res.status(500).json({ message: `Failed to restore backup: ${(err as Error).message}` });
+    }
+  });
+
+  // Delete backup
+  app.delete("/api/backups/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const backup = await getBackup(id);
+      
+      if (!backup) {
+        return res.status(404).json({ message: "Backup not found" });
+      }
+
+      // Delete file if exists
+      if (backup.filePath && require('fs').existsSync(backup.filePath)) {
+        require('fs').unlinkSync(backup.filePath);
+      }
+
+      // Delete record
+      await db.delete(backups).where(eq(backups.id, id));
+      
+      res.json({ message: "Backup deleted successfully" });
+    } catch (err) {
+      console.error("Delete backup error:", err);
+      res.status(500).json({ message: "Failed to delete backup" });
+    }
+  });
+
+  // Cleanup old backups
+  app.post("/api/backups/cleanup", requireAdmin, async (req, res) => {
+    try {
+      const { daysToKeep } = req.body;
+      const days = daysToKeep || 30;
+      
+      const deletedCount = await cleanupOldBackups(days);
+      
+      res.json({ message: `Deleted ${deletedCount} old backups`, deletedCount });
+    } catch (err) {
+      console.error("Cleanup backups error:", err);
+      res.status(500).json({ message: "Failed to cleanup backups" });
     }
   });
 

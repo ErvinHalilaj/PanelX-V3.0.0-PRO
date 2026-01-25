@@ -1082,9 +1082,53 @@ export const twoFactorActivity = pgTable("two_factor_activity", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// IP Whitelisting
+export const ipWhitelist = pgTable("ip_whitelist", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // null = global rule
+  ipAddress: text("ip_address").notNull(),
+  ipRange: text("ip_range"), // CIDR notation (e.g., "192.168.1.0/24")
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  isGlobal: boolean("is_global").default(false), // Global rules apply to all users
+  allowAdmin: boolean("allow_admin").default(true),
+  allowReseller: boolean("allow_reseller").default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  lastUsed: timestamp("last_used"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Comprehensive Audit Logging
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  username: text("username"),
+  action: text("action").notNull(), // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', etc.
+  resource: text("resource").notNull(), // 'stream', 'line', 'user', 'category', etc.
+  resourceId: integer("resource_id"),
+  method: text("method"), // HTTP method
+  path: text("path"), // API path
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  requestBody: jsonb("request_body"),
+  responseStatus: integer("response_status"),
+  errorMessage: text("error_message"),
+  duration: integer("duration"), // milliseconds
+  metadata: jsonb("metadata"), // Additional context
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Stream Schedule types
 export type StreamSchedule = typeof streamSchedules.$inferSelect;
 export type InsertStreamSchedule = typeof streamSchedules.$inferInsert;
 export type TwoFactorActivity = typeof twoFactorActivity.$inferSelect;
 export type InsertTwoFactorActivity = typeof twoFactorActivity.$inferInsert;
+
+// IP Whitelist types
+export type IpWhitelist = typeof ipWhitelist.$inferSelect;
+export type InsertIpWhitelist = typeof ipWhitelist.$inferInsert;
+
+// Audit Log types
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
