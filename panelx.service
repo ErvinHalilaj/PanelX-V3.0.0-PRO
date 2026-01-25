@@ -1,0 +1,35 @@
+[Unit]
+Description=PanelX V3.0.0 PRO - IPTV Management Panel
+Documentation=https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO
+After=network.target postgresql.service
+
+[Service]
+Type=forking
+User=panelx
+WorkingDirectory=/home/panelx/webapp
+Environment=NODE_ENV=production
+Environment=PORT=5000
+EnvironmentFile=/home/panelx/webapp/.env
+
+# PM2 commands
+ExecStart=/usr/bin/pm2 start ecosystem.production.cjs
+ExecReload=/usr/bin/pm2 reload all
+ExecStop=/usr/bin/pm2 stop all
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/panelx/webapp/logs /home/panelx/webapp/recordings /home/panelx/media
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
