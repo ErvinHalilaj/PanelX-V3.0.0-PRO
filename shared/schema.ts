@@ -1919,3 +1919,424 @@ export type InsertCommissionRule = typeof commissionRules.$inferInsert;
 export type CommissionPayment = typeof commissionPayments.$inferSelect;
 export type InsertCommissionPayment = typeof commissionPayments.$inferInsert;
 
+// ===================================
+// PHASE 4: ADVANCED FEATURES
+// ===================================
+
+// ========== RECOMMENDATION ENGINE ==========
+
+// User Watch History
+export const watchHistory = pgTable("watch_history", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  lineId: integer("line_id").references(() => lines.id),
+  
+  // Content
+  contentType: text("content_type").notNull(), // 'stream', 'vod', 'series_episode'
+  contentId: integer("content_id").notNull(),
+  streamId: integer("stream_id").references(() => streams.id),
+  vodId: integer("vod_id").references(() => vodInfo.id),
+  seriesId: integer("series_id").references(() => series.id),
+  episodeId: integer("episode_id").references(() => episodes.id),
+  
+  // Viewing details
+  watchedDuration: integer("watched_duration").default(0), // seconds
+  totalDuration: integer("total_duration").default(0), // seconds
+  watchPercentage: real("watch_percentage").default(0), // 0-100
+  completed: boolean("completed").default(false),
+  
+  // Session
+  sessionId: text("session_id"),
+  deviceInfo: text("device_info"),
+  
+  // Timestamps
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  lastWatchedAt: timestamp("last_watched_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// User Preferences
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  
+  // Content preferences
+  favoriteGenres: jsonb("favorite_genres").$type<string[]>().default([]),
+  favoriteLanguages: jsonb("favorite_languages").$type<string[]>().default([]),
+  blockedGenres: jsonb("blocked_genres").$type<string[]>().default([]),
+  
+  // Viewing preferences
+  preferredQuality: text("preferred_quality").default("auto"), // 'auto', 'hd', 'sd'
+  autoplayNext: boolean("autoplay_next").default(true),
+  skipIntro: boolean("skip_intro").default(false),
+  
+  // Notifications
+  emailNotifications: boolean("email_notifications").default(true),
+  pushNotifications: boolean("push_notifications").default(true),
+  
+  // UI preferences
+  theme: text("theme").default("light"), // 'light', 'dark', 'auto'
+  language: text("language").default("en"),
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Content Ratings
+export const contentRatings = pgTable("content_ratings", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Content
+  contentType: text("content_type").notNull(),
+  contentId: integer("content_id").notNull(),
+  
+  // Rating
+  rating: integer("rating").notNull(), // 1-5 stars
+  review: text("review"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Recommendations
+export const recommendations = pgTable("recommendations", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Content
+  contentType: text("content_type").notNull(),
+  contentId: integer("content_id").notNull(),
+  
+  // Recommendation score
+  score: real("score").notNull(), // 0-100
+  reason: text("reason"), // 'similar_to', 'popular', 'trending', 'for_you'
+  
+  // Metadata
+  basedOn: jsonb("based_on").$type<any>().default({}), // What influenced this recommendation
+  
+  // Status
+  shown: boolean("shown").default(false),
+  clicked: boolean("clicked").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// Content Similarity (pre-computed)
+export const contentSimilarity = pgTable("content_similarity", {
+  id: serial("id").primaryKey(),
+  
+  // Source content
+  contentType: text("content_type").notNull(),
+  contentId: integer("content_id").notNull(),
+  
+  // Similar content
+  similarContentType: text("similar_content_type").notNull(),
+  similarContentId: integer("similar_content_id").notNull(),
+  
+  // Similarity score
+  similarityScore: real("similarity_score").notNull(), // 0-100
+  
+  // Factors
+  genreMatch: real("genre_match").default(0),
+  castMatch: real("cast_match").default(0),
+  userBehaviorMatch: real("user_behavior_match").default(0),
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ========== ANALYTICS & ML ==========
+
+// User Segments (ML clustering)
+export const userSegments = pgTable("user_segments", {
+  id: serial("id").primaryKey(),
+  
+  segmentName: text("segment_name").notNull(),
+  description: text("description"),
+  
+  // Segment criteria
+  criteria: jsonb("criteria").$type<any>().default({}),
+  
+  // Statistics
+  userCount: integer("user_count").default(0),
+  
+  // ML model info
+  modelVersion: text("model_version"),
+  confidence: real("confidence").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Segment Membership
+export const userSegmentMembership = pgTable("user_segment_membership", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  segmentId: integer("segment_id").references(() => userSegments.id).notNull(),
+  
+  confidence: real("confidence").default(0), // 0-100
+  
+  assignedAt: timestamp("assigned_at").defaultNow(),
+});
+
+// Churn Predictions
+export const churnPredictions = pgTable("churn_predictions", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Prediction
+  churnProbability: real("churn_probability").notNull(), // 0-100
+  riskLevel: text("risk_level").default("low"), // 'low', 'medium', 'high'
+  
+  // Factors
+  factors: jsonb("factors").$type<any[]>().default([]),
+  
+  // Actions taken
+  interventionSent: boolean("intervention_sent").default(false),
+  interventionType: text("intervention_type"),
+  
+  // Model info
+  modelVersion: text("model_version"),
+  
+  predictedAt: timestamp("predicted_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// Analytics Events
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  
+  // Event details
+  eventType: text("event_type").notNull(), // 'page_view', 'click', 'play', 'pause', etc.
+  eventCategory: text("event_category"), // 'engagement', 'conversion', 'error'
+  
+  // User
+  userId: integer("user_id").references(() => users.id),
+  sessionId: text("session_id"),
+  
+  // Context
+  page: text("page"),
+  referrer: text("referrer"),
+  
+  // Data
+  properties: jsonb("properties").$type<any>().default({}),
+  
+  // Technical
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  deviceType: text("device_type"), // 'mobile', 'tablet', 'desktop', 'tv'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ========== CDN INTEGRATION ==========
+
+// CDN Providers
+export const cdnProviders = pgTable("cdn_providers", {
+  id: serial("id").primaryKey(),
+  
+  // Provider details
+  name: text("name").notNull().unique(), // 'cloudflare', 'aws_cloudfront', 'bunnycdn'
+  displayName: text("display_name").notNull(),
+  
+  // Configuration
+  apiKey: text("api_key"),
+  apiSecret: text("api_secret"),
+  apiEndpoint: text("api_endpoint"),
+  
+  // Settings
+  enabled: boolean("enabled").default(false),
+  priority: integer("priority").default(0), // Higher = preferred
+  
+  // Geographic regions
+  regions: jsonb("regions").$type<string[]>().default([]), // ['us', 'eu', 'asia']
+  
+  // Pricing (cents per GB)
+  pricePerGb: integer("price_per_gb").default(0),
+  
+  // Limits
+  bandwidthLimit: integer("bandwidth_limit").default(0), // GB per month
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// CDN Content Mapping
+export const cdnContent = pgTable("cdn_content", {
+  id: serial("id").primaryKey(),
+  
+  // Content
+  contentType: text("content_type").notNull(),
+  contentId: integer("content_id").notNull(),
+  
+  // CDN details
+  cdnProviderId: integer("cdn_provider_id").references(() => cdnProviders.id).notNull(),
+  cdnUrl: text("cdn_url").notNull(),
+  cdnKey: text("cdn_key"), // Unique key/path on CDN
+  
+  // Cache settings
+  cacheStatus: text("cache_status").default("pending"), // 'pending', 'cached', 'purged', 'failed'
+  lastPurged: timestamp("last_purged"),
+  
+  // Statistics
+  hitCount: integer("hit_count").default(0),
+  bandwidth: integer("bandwidth").default(0), // bytes
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// CDN Analytics
+export const cdnAnalytics = pgTable("cdn_analytics", {
+  id: serial("id").primaryKey(),
+  
+  cdnProviderId: integer("cdn_provider_id").references(() => cdnProviders.id).notNull(),
+  
+  // Metrics
+  requests: integer("requests").default(0),
+  bandwidth: integer("bandwidth").default(0), // bytes
+  cacheHitRatio: real("cache_hit_ratio").default(0), // 0-100
+  
+  // Performance
+  avgResponseTime: integer("avg_response_time").default(0), // milliseconds
+  errorRate: real("error_rate").default(0), // 0-100
+  
+  // Costs
+  estimatedCost: integer("estimated_cost").default(0), // cents
+  
+  // Period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ========== ADVANCED EPG ==========
+
+// EPG Program Reminders
+export const programReminders = pgTable("program_reminders", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  epgDataId: integer("epg_data_id").references(() => epgData.id).notNull(),
+  
+  // Reminder settings
+  reminderType: text("reminder_type").default("notification"), // 'notification', 'email', 'sms'
+  minutesBefore: integer("minutes_before").default(15), // Notify X minutes before
+  
+  // Status
+  sent: boolean("sent").default(false),
+  sentAt: timestamp("sent_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Recording Schedule (Cloud DVR)
+export const recordingSchedule = pgTable("recording_schedule", {
+  id: serial("id").primaryKey(),
+  
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Program to record
+  epgDataId: integer("epg_data_id").references(() => epgData.id),
+  channelId: text("channel_id").notNull(),
+  
+  // Schedule type
+  scheduleType: text("schedule_type").default("once"), // 'once', 'series', 'daily', 'weekly'
+  
+  // Recording settings
+  quality: text("quality").default("hd"), // 'sd', 'hd', 'auto'
+  startPadding: integer("start_padding").default(60), // seconds before
+  endPadding: integer("end_padding").default(300), // seconds after
+  
+  // Status
+  status: text("status").default("scheduled"), // 'scheduled', 'recording', 'completed', 'failed', 'cancelled'
+  
+  // Recording details
+  recordingPath: text("recording_path"),
+  fileSize: integer("file_size").default(0), // bytes
+  duration: integer("duration").default(0), // seconds
+  
+  // Timestamps
+  scheduledStart: timestamp("scheduled_start").notNull(),
+  scheduledEnd: timestamp("scheduled_end").notNull(),
+  actualStart: timestamp("actual_start"),
+  actualEnd: timestamp("actual_end"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Catch-up TV
+export const catchupContent = pgTable("catchup_content", {
+  id: serial("id").primaryKey(),
+  
+  // Program details
+  epgDataId: integer("epg_data_id").references(() => epgData.id).notNull(),
+  channelId: text("channel_id").notNull(),
+  
+  // Content
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // File details
+  filePath: text("file_path").notNull(),
+  fileUrl: text("file_url"),
+  fileSize: integer("file_size").default(0), // bytes
+  duration: integer("duration").default(0), // seconds
+  
+  // Availability
+  availableFrom: timestamp("available_from").notNull(),
+  availableUntil: timestamp("available_until").notNull(),
+  
+  // Statistics
+  viewCount: integer("view_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Phase 4 types
+export type WatchHistory = typeof watchHistory.$inferSelect;
+export type InsertWatchHistory = typeof watchHistory.$inferInsert;
+
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = typeof userPreferences.$inferInsert;
+
+export type ContentRating = typeof contentRatings.$inferSelect;
+export type InsertContentRating = typeof contentRatings.$inferInsert;
+
+export type Recommendation = typeof recommendations.$inferSelect;
+export type InsertRecommendation = typeof recommendations.$inferInsert;
+
+export type ContentSimilarity = typeof contentSimilarity.$inferSelect;
+export type InsertContentSimilarity = typeof contentSimilarity.$inferInsert;
+
+export type UserSegment = typeof userSegments.$inferSelect;
+export type InsertUserSegment = typeof userSegments.$inferInsert;
+
+export type ChurnPrediction = typeof churnPredictions.$inferSelect;
+export type InsertChurnPrediction = typeof churnPredictions.$inferInsert;
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+export type CdnProvider = typeof cdnProviders.$inferSelect;
+export type InsertCdnProvider = typeof cdnProviders.$inferInsert;
+
+export type CdnContent = typeof cdnContent.$inferSelect;
+export type InsertCdnContent = typeof cdnContent.$inferInsert;
+
+export type CdnAnalytics = typeof cdnAnalytics.$inferSelect;
+export type InsertCdnAnalytics = typeof cdnAnalytics.$inferInsert;
+
+export type ProgramReminder = typeof programReminders.$inferSelect;
+export type InsertProgramReminder = typeof programReminders.$inferInsert;
+
+export type RecordingSchedule = typeof recordingSchedule.$inferSelect;
+export type InsertRecordingSchedule = typeof recordingSchedule.$inferInsert;
+
+export type CatchupContent = typeof catchupContent.$inferSelect;
+export type InsertCatchupContent = typeof catchupContent.$inferInsert;
+
