@@ -1659,3 +1659,263 @@ export type InsertSubtitleUploadQueue = typeof subtitleUploadQueue.$inferInsert;
 export type SubtitleDownloadLog = typeof subtitleDownloadLogs.$inferSelect;
 export type InsertSubtitleDownloadLog = typeof subtitleDownloadLogs.$inferInsert;
 
+// ===================================
+// PHASE 3: BUSINESS FEATURES
+// ===================================
+
+// Invoices
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  
+  // Invoice details
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Amounts
+  subtotal: integer("subtotal").notNull(), // cents
+  tax: integer("tax").default(0), // cents
+  discount: integer("discount").default(0), // cents
+  total: integer("total").notNull(), // cents
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'paid', 'cancelled', 'refunded'
+  
+  // Payment details
+  paymentMethod: text("payment_method"), // 'credit_card', 'paypal', 'stripe', 'crypto', 'manual'
+  paymentReference: text("payment_reference"), // Transaction ID from payment gateway
+  paidAt: timestamp("paid_at"),
+  
+  // Dates
+  dueDate: timestamp("due_date"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<any>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Invoice Items
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  
+  // Item details
+  description: text("description").notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  unitPrice: integer("unit_price").notNull(), // cents
+  total: integer("total").notNull(), // cents
+  
+  // Reference (what this item is for)
+  referenceType: text("reference_type"), // 'package', 'credit', 'line', 'custom'
+  referenceId: integer("reference_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payment Gateways Configuration
+export const paymentGateways = pgTable("payment_gateways", {
+  id: serial("id").primaryKey(),
+  
+  // Gateway details
+  name: text("name").notNull(), // 'stripe', 'paypal', 'coinbase', etc.
+  displayName: text("display_name").notNull(),
+  
+  // Configuration
+  apiKey: text("api_key"),
+  apiSecret: text("api_secret"),
+  webhookSecret: text("webhook_secret"),
+  
+  // Settings
+  mode: text("mode").default("test"), // 'test', 'live'
+  enabled: boolean("enabled").default(false),
+  
+  // Supported currencies
+  currencies: jsonb("currencies").$type<string[]>().default(["USD"]),
+  
+  // Fees
+  feePercentage: real("fee_percentage").default(0),
+  feeFixed: integer("fee_fixed").default(0), // cents
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payment Transactions
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: serial("id").primaryKey(),
+  
+  // Transaction details
+  transactionId: text("transaction_id").notNull().unique(),
+  invoiceId: integer("invoice_id").references(() => invoices.id),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Payment details
+  gateway: text("gateway").notNull(), // 'stripe', 'paypal', etc.
+  paymentMethod: text("payment_method"), // 'card', 'bank', 'crypto'
+  
+  // Amounts
+  amount: integer("amount").notNull(), // cents
+  fee: integer("fee").default(0), // cents
+  net: integer("net").notNull(), // cents (amount - fee)
+  currency: text("currency").default("USD"),
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'completed', 'failed', 'refunded'
+  
+  // External references
+  externalId: text("external_id"), // Payment gateway transaction ID
+  externalStatus: text("external_status"),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  errorCode: text("error_code"),
+  
+  // Metadata from payment gateway
+  metadata: jsonb("metadata").$type<any>().default({}),
+  
+  // Timestamps
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// API Keys
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  
+  // Key details
+  keyName: text("key_name").notNull(),
+  apiKey: text("api_key").notNull().unique(),
+  keySecret: text("key_secret").notNull(),
+  
+  // Owner
+  userId: integer("user_id").references(() => users.id).notNull(),
+  
+  // Permissions
+  permissions: jsonb("permissions").$type<string[]>().default([]), // ['read:streams', 'write:lines', etc.]
+  ipWhitelist: jsonb("ip_whitelist").$type<string[]>().default([]),
+  
+  // Rate limiting
+  rateLimit: integer("rate_limit").default(1000), // requests per hour
+  rateLimitWindow: integer("rate_limit_window").default(3600), // seconds
+  
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  requestCount: integer("request_count").default(0),
+  
+  // Status
+  enabled: boolean("enabled").default(true),
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// API Key Usage Logs
+export const apiKeyUsageLogs = pgTable("api_key_usage_logs", {
+  id: serial("id").primaryKey(),
+  
+  apiKeyId: integer("api_key_id").references(() => apiKeys.id).notNull(),
+  
+  // Request details
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Response
+  statusCode: integer("status_code"),
+  responseTime: integer("response_time"), // milliseconds
+  
+  // Error
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reseller Commission Rules
+export const commissionRules = pgTable("commission_rules", {
+  id: serial("id").primaryKey(),
+  
+  // Rule details
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Applies to
+  resellerId: integer("reseller_id").references(() => users.id),
+  packageId: integer("package_id").references(() => packages.id),
+  
+  // Commission type
+  type: text("type").default("percentage"), // 'percentage', 'fixed', 'tiered'
+  value: real("value").notNull(), // percentage (e.g., 20.5) or fixed amount
+  
+  // Tiered commission
+  tiers: jsonb("tiers").$type<Array<{min: number; max: number; value: number}>>().default([]),
+  
+  // Status
+  enabled: boolean("enabled").default(true),
+  
+  // Validity period
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Commission Payments
+export const commissionPayments = pgTable("commission_payments", {
+  id: serial("id").primaryKey(),
+  
+  // Payment details
+  resellerId: integer("reseller_id").references(() => users.id).notNull(),
+  
+  // Period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Amounts
+  totalSales: integer("total_sales").default(0), // cents
+  commissionAmount: integer("commission_amount").notNull(), // cents
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'paid', 'cancelled'
+  
+  // Payment details
+  paymentMethod: text("payment_method"),
+  paymentReference: text("payment_reference"),
+  paidAt: timestamp("paid_at"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Invoice types
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertInvoiceItem = typeof invoiceItems.$inferInsert;
+
+// Payment types
+export type PaymentGateway = typeof paymentGateways.$inferSelect;
+export type InsertPaymentGateway = typeof paymentGateways.$inferInsert;
+
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;
+
+// API Key types
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof apiKeys.$inferInsert;
+
+export type ApiKeyUsageLog = typeof apiKeyUsageLogs.$inferSelect;
+export type InsertApiKeyUsageLog = typeof apiKeyUsageLogs.$inferInsert;
+
+// Commission types
+export type CommissionRule = typeof commissionRules.$inferSelect;
+export type InsertCommissionRule = typeof commissionRules.$inferInsert;
+
+export type CommissionPayment = typeof commissionPayments.$inferSelect;
+export type InsertCommissionPayment = typeof commissionPayments.$inferInsert;
+

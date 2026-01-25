@@ -1736,6 +1736,319 @@ export async function registerRoutes(
     }
   });
 
+  // ===================================
+  // PHASE 3: BUSINESS FEATURES
+  // ===================================
+  
+  // ========== INVOICES ==========
+  
+  // Create invoice
+  app.post("/api/invoices", requireAuth, async (req, res) => {
+    try {
+      const invoice = await import("./services/invoice");
+      const userId = (req.user as any)?.id;
+      
+      const invoiceId = await invoice.createInvoice({
+        userId,
+        ...req.body,
+      });
+      
+      res.json({ invoiceId, message: "Invoice created successfully" });
+    } catch (error: any) {
+      console.error("Failed to create invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice", error: error.message });
+    }
+  });
+
+  // Get invoice by ID
+  app.get("/api/invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      
+      const invoice = await import("./services/invoice");
+      const result = await invoice.getInvoice(invoiceId);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to get invoice:", error);
+      res.status(500).json({ message: "Failed to get invoice", error: error.message });
+    }
+  });
+
+  // Get user invoices
+  app.get("/api/invoices", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { status } = req.query;
+      
+      const invoice = await import("./services/invoice");
+      const invoices = await invoice.getUserInvoices(userId, status as string);
+      
+      res.json(invoices);
+    } catch (error: any) {
+      console.error("Failed to get invoices:", error);
+      res.status(500).json({ message: "Failed to get invoices", error: error.message });
+    }
+  });
+
+  // Mark invoice as paid
+  app.post("/api/invoices/:id/pay", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      
+      const invoice = await import("./services/invoice");
+      await invoice.markInvoicePaid(invoiceId, req.body);
+      
+      res.json({ message: "Invoice marked as paid" });
+    } catch (error: any) {
+      console.error("Failed to mark invoice as paid:", error);
+      res.status(500).json({ message: "Failed to mark invoice as paid", error: error.message });
+    }
+  });
+
+  // Cancel invoice
+  app.post("/api/invoices/:id/cancel", requireAuth, async (req, res) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      
+      const invoice = await import("./services/invoice");
+      await invoice.cancelInvoice(invoiceId);
+      
+      res.json({ message: "Invoice cancelled" });
+    } catch (error: any) {
+      console.error("Failed to cancel invoice:", error);
+      res.status(500).json({ message: "Failed to cancel invoice", error: error.message });
+    }
+  });
+
+  // Get invoice statistics
+  app.get("/api/invoices/stats", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const invoice = await import("./services/invoice");
+      const stats = await invoice.getInvoiceStatistics(
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get invoice statistics:", error);
+      res.status(500).json({ message: "Failed to get invoice statistics", error: error.message });
+    }
+  });
+
+  // ========== API KEYS ==========
+  
+  // Create API key
+  app.post("/api/api-keys", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { keyName, permissions, ipWhitelist, rateLimit, expiresAt } = req.body;
+      
+      const apiKey = await import("./services/apiKey");
+      const result = await apiKey.createApiKey(userId, keyName, {
+        permissions,
+        ipWhitelist,
+        rateLimit,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to create API key:", error);
+      res.status(500).json({ message: "Failed to create API key", error: error.message });
+    }
+  });
+
+  // Get user API keys
+  app.get("/api/api-keys", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      
+      const apiKey = await import("./services/apiKey");
+      const keys = await apiKey.getUserApiKeys(userId);
+      
+      // Don't expose keySecret in list
+      const sanitized = keys.map(k => ({
+        ...k,
+        keySecret: '***hidden***',
+      }));
+      
+      res.json(sanitized);
+    } catch (error: any) {
+      console.error("Failed to get API keys:", error);
+      res.status(500).json({ message: "Failed to get API keys", error: error.message });
+    }
+  });
+
+  // Revoke API key
+  app.post("/api/api-keys/:id/revoke", requireAuth, async (req, res) => {
+    try {
+      const keyId = parseInt(req.params.id);
+      
+      const apiKey = await import("./services/apiKey");
+      await apiKey.revokeApiKey(keyId);
+      
+      res.json({ message: "API key revoked" });
+    } catch (error: any) {
+      console.error("Failed to revoke API key:", error);
+      res.status(500).json({ message: "Failed to revoke API key", error: error.message });
+    }
+  });
+
+  // Delete API key
+  app.delete("/api/api-keys/:id", requireAuth, async (req, res) => {
+    try {
+      const keyId = parseInt(req.params.id);
+      
+      const apiKey = await import("./services/apiKey");
+      await apiKey.deleteApiKey(keyId);
+      
+      res.json({ message: "API key deleted" });
+    } catch (error: any) {
+      console.error("Failed to delete API key:", error);
+      res.status(500).json({ message: "Failed to delete API key", error: error.message });
+    }
+  });
+
+  // Get API key usage statistics
+  app.get("/api/api-keys/:id/stats", requireAuth, async (req, res) => {
+    try {
+      const keyId = parseInt(req.params.id);
+      const { startDate, endDate } = req.query;
+      
+      const apiKey = await import("./services/apiKey");
+      const stats = await apiKey.getApiKeyUsageStats(
+        keyId,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get API key stats:", error);
+      res.status(500).json({ message: "Failed to get API key stats", error: error.message });
+    }
+  });
+
+  // ========== COMMISSIONS ==========
+  
+  // Create commission rule
+  app.post("/api/commissions/rules", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const commission = await import("./services/commission");
+      const ruleId = await commission.createCommissionRule(req.body);
+      
+      res.json({ ruleId, message: "Commission rule created" });
+    } catch (error: any) {
+      console.error("Failed to create commission rule:", error);
+      res.status(500).json({ message: "Failed to create commission rule", error: error.message });
+    }
+  });
+
+  // Calculate reseller commissions
+  app.get("/api/commissions/calculate/:resellerId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const resellerId = parseInt(req.params.resellerId);
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      
+      const commission = await import("./services/commission");
+      const result = await commission.calculateResellerCommissions(
+        resellerId,
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to calculate commissions:", error);
+      res.status(500).json({ message: "Failed to calculate commissions", error: error.message });
+    }
+  });
+
+  // Create commission payment
+  app.post("/api/commissions/payments", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { resellerId, startDate, endDate } = req.body;
+      
+      if (!resellerId || !startDate || !endDate) {
+        return res.status(400).json({ message: "resellerId, startDate, and endDate are required" });
+      }
+      
+      const commission = await import("./services/commission");
+      const paymentId = await commission.createCommissionPayment(
+        resellerId,
+        new Date(startDate),
+        new Date(endDate)
+      );
+      
+      res.json({ paymentId, message: "Commission payment created" });
+    } catch (error: any) {
+      console.error("Failed to create commission payment:", error);
+      res.status(500).json({ message: "Failed to create commission payment", error: error.message });
+    }
+  });
+
+  // Mark commission as paid
+  app.post("/api/commissions/payments/:id/pay", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const paymentId = parseInt(req.params.id);
+      
+      const commission = await import("./services/commission");
+      await commission.markCommissionPaid(paymentId, req.body);
+      
+      res.json({ message: "Commission marked as paid" });
+    } catch (error: any) {
+      console.error("Failed to mark commission as paid:", error);
+      res.status(500).json({ message: "Failed to mark commission as paid", error: error.message });
+    }
+  });
+
+  // Get reseller commission payments
+  app.get("/api/commissions/payments", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { status } = req.query;
+      
+      const commission = await import("./services/commission");
+      const payments = await commission.getResellerCommissionPayments(userId, status as string);
+      
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Failed to get commission payments:", error);
+      res.status(500).json({ message: "Failed to get commission payments", error: error.message });
+    }
+  });
+
+  // Get commission statistics
+  app.get("/api/commissions/stats", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { resellerId, startDate, endDate } = req.query;
+      
+      const commission = await import("./services/commission");
+      const stats = await commission.getCommissionStatistics(
+        resellerId ? parseInt(resellerId as string) : undefined,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get commission statistics:", error);
+      res.status(500).json({ message: "Failed to get commission statistics", error: error.message });
+    }
+  });
+
   // === BACKUP & RESTORE ===
   
   // Get all backups
