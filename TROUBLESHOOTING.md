@@ -1,496 +1,359 @@
-# PanelX Troubleshooting Guide
+# 🔧 Troubleshooting Guide - 500 Internal Server Error
 
-## Quick Start Diagnostic
+## Problem
+You're seeing "500 Internal Server Error" from nginx after installation completed.
 
-If your PanelX installation is not working properly, follow these steps:
+## Root Cause
+The error indicates that nginx is running but cannot proxy requests to the Express.js backend because:
+1. The Node.js application isn't running
+2. Database connection failed
+3. Missing environment configuration
 
-### 1. Run the Diagnostic Script
+## ✅ Step-by-Step Fix
+
+### Step 1: Check if Node.js Application is Running
 
 ```bash
-cd /opt/panelx
-sudo bash diagnose.sh
+# Check PM2 processes
+pm2 list
+
+# Expected output should show 'panelx' with status 'online'
+# If it shows 'stopped' or 'errored', continue to next steps
 ```
 
-This will check:
-- ✅ Installation directory
-- ✅ Node.js and npm versions
-- ✅ PostgreSQL installation and service status
-- ✅ Database connection
-- ✅ PanelX service status
-- ✅ Port availability
-- ✅ Firewall configuration
-- ✅ API endpoints
-- ✅ Application files
-
-### 2. Run the API Test Script
+### Step 2: Check Application Logs
 
 ```bash
-cd /opt/panelx
-bash test-api.sh
+# View PM2 logs to see what went wrong
+pm2 logs panelx --lines 50
+
+# Common errors you might see:
+# - Database connection error
+# - Missing dependencies
+# - Port already in use
 ```
 
-Or test with custom credentials:
+### Step 3: Check Environment Configuration
 
 ```bash
-bash test-api.sh --server 192.168.1.100 --port 5000 --username myuser --password mypass
-```
+# Navigate to project directory
+cd /home/panelx/webapp
 
-This will test all Player API endpoints and generate a success report.
-
-## Common Problems and Solutions
-
-### Problem 1: Service Won't Start
-
-**Symptoms:**
-- `systemctl status panelx` shows "inactive" or "failed"
-- Cannot access web interface
-- Port 5000 not listening
-
-**Solution:**
-
-```bash
-# Check the error logs
-sudo journalctl -u panelx -n 100 --no-pager
-
-# Common fixes:
-cd /opt/panelx
-
-# 1. Rebuild the application
-npm run build
-
-# 2. Ensure database is set up
-npm run db:push
-
-# 3. Check .env file exists and is valid
+# Check if .env file exists and has correct values
 cat .env
 
-# 4. Restart service
-sudo systemctl restart panelx
-
-# 5. If still failing, run manually to see errors
-npm start
+# Should contain:
+# DATABASE_URL=postgresql://panelx:password@localhost:5432/panelx
+# SESSION_SECRET=your-secret-key
+# PORT=5000
 ```
 
-### Problem 2: Authentication Fails (auth: 0)
-
-**Symptoms:**
-- Player API returns `"auth": 0`
-- IPTV apps can't connect
-- M3U playlist shows 401 Unauthorized
-
-**Solution:**
+### Step 4: Fix Database Connection
 
 ```bash
-# Check if test user exists
-cd /opt/panelx
-sudo bash manage-admin.sh
-# Select option 1 to list users
-
-# If no users exist, the database wasn't seeded properly
-npm run db:push
-
-# Then restart the service to trigger seeding
-sudo systemctl restart panelx
-
-# Verify users were created
-sudo -u postgres psql -d panelx -c "SELECT id, username, enabled FROM lines;"
-
-# Create a new line manually if needed
-sudo bash manage-admin.sh
-# Select option 2 to add a line
-```
-
-### Problem 3: Database Connection Error
-
-**Symptoms:**
-- Logs show "connect ECONNREFUSED" or "password authentication failed"
-- Service crashes immediately
-- Cannot query database
-
-**Solution:**
-
-```bash
-# 1. Check PostgreSQL is running
+# Check if PostgreSQL is running
 sudo systemctl status postgresql
+
+# If not running, start it:
 sudo systemctl start postgresql
 
-# 2. Verify database exists
-sudo -u postgres psql -l | grep panelx
+# Test database connection
+psql -U panelx -d panelx -c "SELECT 1;"
 
-# 3. Test connection with credentials from .env
-DATABASE_URL=$(grep DATABASE_URL /opt/panelx/.env | cut -d'=' -f2)
-echo $DATABASE_URL
-
-# 4. If database doesn't exist, reinstall
-cd /opt/panelx
-sudo bash uninstall.sh
-sudo bash install.sh
+# If connection fails, check password in .env matches database password
 ```
 
-### Problem 4: No Streams or Categories
-
-**Symptoms:**
-- Player API returns empty arrays
-- IPTV apps show "No channels"
-- M3U playlist is empty
-
-**Solution:**
+### Step 5: Create .env File (if missing)
 
 ```bash
-# Check if tables have data
-sudo -u postgres psql -d panelx -c "SELECT COUNT(*) FROM streams;"
-sudo -u postgres psql -d panelx -c "SELECT COUNT(*) FROM categories;"
+cd /home/panelx/webapp
 
-# If 0 results, database wasn't seeded
-cd /opt/panelx
+# Create .env file with correct configuration
+cat > .env << 'EOF'
+# Database Configuration
+DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx
 
-# Run database push
-npm run db:push
+# Server Configuration
+PORT=5000
+NODE_ENV=production
 
-# Restart to trigger seeding
-sudo systemctl restart panelx
+# Security
+SESSION_SECRET=$(openssl rand -base64 32)
+COOKIE_SECURE=false
 
-# Check logs to confirm seeding
-sudo journalctl -u panelx -n 50 --no-pager | grep "seed"
-
-# Manually seed if needed (when service is stopped)
-sudo systemctl stop panelx
-node -e "require('./dist/index.cjs')"
-# Wait for it to start, then Ctrl+C after seeing "Server listening"
-sudo systemctl start panelx
-```
-
-### Problem 5: Streams Won't Play
-
-**Symptoms:**
-- Authentication works
-- Channels appear in player
-- Playback fails with "Stream unavailable"
-
-**Possible Causes:**
-
-1. **Invalid Source URLs** - The sample streams use placeholder URLs
-   ```bash
-   # Check actual stream URLs
-   sudo -u postgres psql -d panelx -c "SELECT id, name, source_url FROM streams LIMIT 5;"
-   
-   # These must be real, accessible m3u8/ts URLs
-   # Update with real URLs via admin panel
-   ```
-
-2. **Firewall/Network Issues**
-   ```bash
-   # Test if server can reach stream sources
-   curl -I "http://example.com/stream.m3u8"
-   
-   # Allow outbound connections
-   sudo ufw allow out 80/tcp
-   sudo ufw allow out 443/tcp
-   ```
-
-3. **Stream Server Down**
-   - Check if upstream source is working
-   - Use direct URL in VLC to test
-
-### Problem 6: Cannot Access from Other Devices
-
-**Symptoms:**
-- Works on localhost
-- External devices can't connect
-- Mobile apps show connection error
-
-**Solution:**
-
-```bash
-# 1. Check service is listening on all interfaces
-netstat -tuln | grep :5000
-# Should show 0.0.0.0:5000, NOT 127.0.0.1:5000
-
-# 2. If showing 127.0.0.1, update index.ts
-# Change: app.listen(PORT, '127.0.0.1')
-# To:     app.listen(PORT, '0.0.0.0')
-
-# 3. Allow firewall
-sudo ufw allow 5000/tcp
-sudo ufw reload
-
-# 4. Test from another device
-curl http://YOUR_SERVER_IP:5000/
-```
-
-### Problem 7: High Memory Usage / Crashes
-
-**Symptoms:**
-- Service crashes after running for a while
-- System becomes slow
-- OOM (Out of Memory) errors in logs
-
-**Solution:**
-
-```bash
-# 1. Check memory usage
-free -h
-ps aux | grep node
-
-# 2. Limit Node.js memory
-sudo systemctl edit panelx
-# Add:
-# [Service]
-# Environment="NODE_OPTIONS=--max-old-space-size=512"
-
-# 3. Restart
-sudo systemctl daemon-reload
-sudo systemctl restart panelx
-
-# 4. Clean up stale connections (run via cron)
-sudo -u postgres psql -d panelx -c "DELETE FROM active_connections WHERE last_ping < NOW() - INTERVAL '5 minutes';"
-```
-
-### Problem 8: EPG Not Working
-
-**Symptoms:**
-- XMLTV is empty or has no programs
-- Players don't show guide data
-- Program info missing
-
-**Solution:**
-
-```bash
-# Check if EPG data exists
-sudo -u postgres psql -d panelx -c "SELECT COUNT(*) FROM epg_data;"
-
-# Check if streams have EPG channel IDs
-sudo -u postgres psql -d panelx -c "SELECT id, name, epg_channel_id FROM streams WHERE epg_channel_id IS NOT NULL;"
-
-# EPG needs to be imported via admin panel
-# Go to: Admin Panel > EPG Sources
-# Add EPG source URL (XMLTV format)
-# Run import
-
-# Or manually insert test EPG data
-sudo -u postgres psql -d panelx <<EOF
-INSERT INTO epg_data (channel_id, title, start_time, end_time)
-VALUES ('channel1', 'Test Program', NOW(), NOW() + INTERVAL '1 hour');
+# Optional
+LOG_LEVEL=info
 EOF
+
+# Make sure file has correct permissions
+chmod 600 .env
+chown panelx:panelx .env
 ```
 
-## Manual Service Management
+### Step 6: Install Missing Dependencies
 
 ```bash
-# Start service
-sudo systemctl start panelx
+cd /home/panelx/webapp
 
-# Stop service
-sudo systemctl stop panelx
+# Install all dependencies
+npm install
 
-# Restart service
-sudo systemctl restart panelx
-
-# Check status
-sudo systemctl status panelx
-
-# Enable auto-start on boot
-sudo systemctl enable panelx
-
-# Disable auto-start
-sudo systemctl disable panelx
-
-# View real-time logs
-sudo journalctl -u panelx -f
-
-# View last 100 lines
-sudo journalctl -u panelx -n 100 --no-pager
+# Install specific missing packages if needed
+npm install bcryptjs cors express-session pg drizzle-orm
 ```
 
-## Database Management
+### Step 7: Restart the Application
 
 ```bash
-# Access database
-sudo -u postgres psql -d panelx
+# As panelx user
+sudo -u panelx pm2 restart all
 
-# List all tables
-\dt
+# Wait 5 seconds
+sleep 5
 
-# Check user counts
-SELECT role, COUNT(*) FROM users GROUP BY role;
-
-# Check line counts
-SELECT enabled, COUNT(*) FROM lines GROUP BY enabled;
-
-# Check stream counts
-SELECT stream_type, COUNT(*) FROM streams GROUP BY stream_type;
-
-# Check active connections
-SELECT COUNT(*) FROM active_connections;
-
-# Exit
-\q
-
-# Backup database
-sudo -u postgres pg_dump panelx > /tmp/panelx_backup.sql
-
-# Restore database
-sudo -u postgres psql -d panelx < /tmp/panelx_backup.sql
+# Check status again
+sudo -u panelx pm2 list
+sudo -u panelx pm2 logs panelx --lines 20
 ```
 
-## Performance Optimization
-
-### 1. Database Indexing
-
-Already included in schema, but verify:
-
-```sql
--- Check indexes
-SELECT tablename, indexname FROM pg_indexes WHERE schemaname = 'public';
-```
-
-### 2. Connection Cleanup Cron
-
-Add to crontab:
+### Step 8: Test Backend Directly
 
 ```bash
-sudo crontab -e
+# Test if backend is responding on port 5000
+curl http://localhost:5000/api/stats
 
-# Add this line to clean up stale connections every 5 minutes
-*/5 * * * * sudo -u postgres psql -d panelx -c "DELETE FROM active_connections WHERE last_ping < NOW() - INTERVAL '5 minutes';" > /dev/null 2>&1
+# Expected: JSON response with stats
+# If you get "Connection refused", backend isn't running
+# If you get JSON, backend is working but nginx config might be wrong
 ```
 
-### 3. Log Rotation
+### Step 9: Check Nginx Configuration
 
 ```bash
-# Create logrotate config
-sudo tee /etc/logrotate.d/panelx <<EOF
-/var/log/panelx/*.log {
-    daily
-    missingok
-    rotate 7
-    compress
-    delaycompress
-    notifempty
-    create 0640 panelx panelx
+# Test nginx configuration
+sudo nginx -t
+
+# View nginx error log
+sudo tail -50 /var/log/nginx/error.log
+
+# Restart nginx
+sudo systemctl restart nginx
+```
+
+### Step 10: Fix Nginx Proxy Configuration
+
+If backend is running but nginx still shows 500 error:
+
+```bash
+# Edit nginx config
+sudo nano /etc/nginx/sites-available/panelx
+
+# Make sure proxy_pass points to correct port:
+location /api {
+    proxy_pass http://localhost:5000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
 }
+
+# Save and test
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+```
+
+## 🚀 Quick Fix Script
+
+Run this all-in-one fix script:
+
+```bash
+#!/bin/bash
+
+echo "=== PanelX Troubleshooting Script ==="
+echo ""
+
+# 1. Check PostgreSQL
+echo "1. Checking PostgreSQL..."
+sudo systemctl start postgresql
+sleep 2
+
+# 2. Create .env if missing
+echo "2. Creating .env file..."
+cd /home/panelx/webapp
+if [ ! -f .env ]; then
+    cat > .env << 'EOF'
+DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx
+PORT=5000
+NODE_ENV=production
+SESSION_SECRET=$(openssl rand -base64 32)
+COOKIE_SECURE=false
 EOF
+    chmod 600 .env
+    chown panelx:panelx .env
+    echo "✅ .env created"
+else
+    echo "✅ .env exists"
+fi
+
+# 3. Install dependencies
+echo "3. Installing missing dependencies..."
+npm install bcryptjs cors @types/bcryptjs @types/cors 2>&1 | tail -5
+
+# 4. Restart application
+echo "4. Restarting application..."
+sudo -u panelx pm2 delete all 2>/dev/null || true
+sudo -u panelx pm2 start ecosystem.config.cjs
+sleep 5
+
+# 5. Check status
+echo "5. Checking status..."
+sudo -u panelx pm2 list
+
+# 6. Test backend
+echo "6. Testing backend..."
+curl -s http://localhost:5000/api/stats | head -10
+
+# 7. Restart nginx
+echo "7. Restarting nginx..."
+sudo systemctl restart nginx
+
+echo ""
+echo "=== Troubleshooting Complete ==="
+echo "Now try accessing: http://your-server-ip"
 ```
 
-## Getting Help
-
-1. **Run diagnostics first**: `sudo bash /opt/panelx/diagnose.sh`
-2. **Test API**: `bash /opt/panelx/test-api.sh`
-3. **Check logs**: `sudo journalctl -u panelx -n 100 --no-pager`
-4. **Collect info**:
-   - Ubuntu version: `lsb_release -a`
-   - Node version: `node -v`
-   - PostgreSQL version: `psql --version`
-   - Error messages from logs
-
-## Complete Reinstallation
-
-If nothing works:
+Save as `fix-panelx.sh`, make executable and run:
 
 ```bash
-# 1. Backup data (if any important)
-sudo -u postgres pg_dump panelx > ~/panelx_backup.sql
-
-# 2. Uninstall
-cd /opt/panelx
-sudo bash uninstall.sh
-
-# 3. Clean up completely
-sudo rm -rf /opt/panelx
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS panelx;"
-sudo -u postgres psql -c "DROP USER IF EXISTS panelx;"
-
-# 4. Reinstall
-git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git
-cd PanelX-V3.0.0-PRO
-sudo bash install.sh
-
-# 5. Follow the installation wizard
+chmod +x fix-panelx.sh
+sudo ./fix-panelx.sh
 ```
 
-## Testing with IPTV Players
+## 🎯 Most Common Issues & Solutions
 
-### TiviMate
+### Issue 1: Database Connection Failed
+**Error:** `Error: connect ECONNREFUSED 127.0.0.1:5432`
 
-```
-Add Playlist > Xtream Codes API
-Name: My PanelX
-Server URL: http://YOUR_IP:5000
-Username: testuser1
-Password: test123
-```
-
-### IPTV Smarters Pro
-
-```
-Add User > Xtream Codes Login
-Name: PanelX
-Server URL: http://YOUR_IP:5000 (without /player_api.php)
-Username: testuser1
-Password: test123
+**Solution:**
+```bash
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
 ```
 
-### VLC
+### Issue 2: Missing bcryptjs Module
+**Error:** `Cannot find package 'bcryptjs'`
 
+**Solution:**
+```bash
+cd /home/panelx/webapp
+npm install bcryptjs cors @types/bcryptjs @types/cors
+pm2 restart all
 ```
-Media > Open Network Stream
-URL: http://YOUR_IP:5000/get.php?username=testuser1&password=test123&type=m3u_plus&output=ts
+
+### Issue 3: Port 5000 Already in Use
+**Error:** `EADDRINUSE: address already in use :::5000`
+
+**Solution:**
+```bash
+# Kill process on port 5000
+sudo fuser -k 5000/tcp
+
+# Or change port in .env
+echo "PORT=8000" >> .env
+pm2 restart all
 ```
 
-## Advanced Debugging
+### Issue 4: Permission Denied
+**Error:** `EACCES: permission denied`
 
-### Enable Debug Mode
+**Solution:**
+```bash
+# Fix ownership
+sudo chown -R panelx:panelx /home/panelx/webapp
+sudo -u panelx pm2 restart all
+```
+
+### Issue 5: SESSION_SECRET Not Set
+**Error:** `WARNING: SESSION_SECRET not set`
+
+**Solution:**
+```bash
+echo "SESSION_SECRET=$(openssl rand -base64 32)" >> /home/panelx/webapp/.env
+pm2 restart all
+```
+
+## 📊 Verification Checklist
+
+After running fixes, verify each component:
 
 ```bash
-# Edit .env
-sudo nano /opt/panelx/.env
+# ✅ PostgreSQL running
+sudo systemctl status postgresql | grep "active (running)"
 
-# Add or change:
-NODE_ENV=development
-LOG_LEVEL=debug
+# ✅ Node.js app running
+sudo -u panelx pm2 list | grep "online"
 
-# Restart
-sudo systemctl restart panelx
+# ✅ Backend responding
+curl http://localhost:5000/api/stats
 
-# Watch debug logs
-sudo journalctl -u panelx -f
+# ✅ Nginx running
+sudo systemctl status nginx | grep "active (running)"
+
+# ✅ Nginx can reach backend
+curl -I http://localhost/api/stats
+
+# ✅ All working
+curl http://your-server-ip
 ```
 
-### Test Individual Endpoints
+## 🆘 Still Not Working?
 
+If you're still seeing errors after all these steps:
+
+1. **Share the logs:**
 ```bash
-# Test authentication
-curl -v "http://localhost:5000/player_api.php?username=testuser1&password=test123"
+# Get all relevant logs
+echo "=== PM2 Logs ===" > debug.log
+pm2 logs panelx --nostream --lines 100 >> debug.log
+echo "" >> debug.log
+echo "=== Nginx Error Log ===" >> debug.log
+sudo tail -100 /var/log/nginx/error.log >> debug.log
+echo "" >> debug.log
+echo "=== PM2 Status ===" >> debug.log
+pm2 list >> debug.log
 
-# Test live streams list
-curl "http://localhost:5000/player_api.php?username=testuser1&password=test123&action=get_live_streams" | jq .
-
-# Test VOD categories
-curl "http://localhost:5000/player_api.php?username=testuser1&password=test123&action=get_vod_categories" | jq .
-
-# Test M3U generation
-curl "http://localhost:5000/get.php?username=testuser1&password=test123&type=m3u_plus&output=ts"
-
-# Test XMLTV
-curl "http://localhost:5000/xmltv.php?username=testuser1&password=test123"
-
-# Test stream playback (should redirect or proxy)
-curl -I "http://localhost:5000/live/testuser1/test123/1.ts"
+cat debug.log
 ```
 
-## Security Checklist
+2. **Check if you have enough RAM:**
+```bash
+free -h
+# Should have at least 2GB free for the application
+```
 
-- [ ] Changed default admin password
-- [ ] Firewall configured (ufw allow 5000/tcp)
-- [ ] Database password is strong (auto-generated)
-- [ ] Service running as non-root user
-- [ ] SSL/HTTPS configured (via reverse proxy like nginx)
-- [ ] Regular backups configured
-- [ ] Connection limits properly set
-- [ ] IP blocking enabled for failed attempts
+3. **Try running in development mode:**
+```bash
+cd /home/panelx/webapp
+npx tsx server/index.ts
+# This will show errors directly in terminal
+```
 
-## Support
+## 💡 Quick Access After Fix
 
-For issues specific to PanelX:
-- GitHub Issues: https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO/issues
-- Include output from `diagnose.sh` and `test-api.sh`
+Once everything is running:
+
+- **Admin Panel:** http://your-server-ip
+- **API:** http://your-server-ip/api/stats
+- **Health Check:** http://your-server-ip/api/health
+
+---
+
+**Need More Help?**
+Share the output from:
+```bash
+pm2 logs panelx --lines 50
+sudo tail -50 /var/log/nginx/error.log
+```
