@@ -7,6 +7,7 @@ import {
   createdChannels, enigma2Devices, enigma2Actions, signals,
   activationCodes, connectionHistory, mostWatched, twoFactorAuth, fingerprintSettings, lineFingerprints,
   watchFolders, watchFolderLogs, loopingChannels, autoblockRules, statisticsSnapshots, impersonationLogs,
+  bandwidthStats, bandwidthAlerts,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
@@ -1601,6 +1602,46 @@ export class DatabaseStorage implements IStorage {
       .where(eq(impersonationLogs.id, id))
       .returning();
     return updated;
+  }
+
+  // ===================================
+  // PHASE 2: BANDWIDTH MONITORING
+  // ===================================
+
+  async getBandwidthAlerts() {
+    return await this.db.select().from(bandwidthAlerts);
+  }
+
+  async getBandwidthAlertById(id: number) {
+    const alert = await this.db
+      .select()
+      .from(bandwidthAlerts)
+      .where(eq(bandwidthAlerts.id, id))
+      .limit(1);
+    return alert[0];
+  }
+
+  async createBandwidthAlert(alert: any) {
+    const inserted = await this.db
+      .insert(bandwidthAlerts)
+      .values(alert)
+      .returning();
+    return inserted[0];
+  }
+
+  async updateBandwidthAlert(id: number, updates: any) {
+    const updated = await this.db
+      .update(bandwidthAlerts)
+      .set(updates)
+      .where(eq(bandwidthAlerts.id, id))
+      .returning();
+    return updated[0];
+  }
+
+  async deleteBandwidthAlert(id: number) {
+    await this.db
+      .delete(bandwidthAlerts)
+      .where(eq(bandwidthAlerts.id, id));
   }
 }
 

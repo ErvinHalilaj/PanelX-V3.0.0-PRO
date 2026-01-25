@@ -929,6 +929,156 @@ export async function registerRoutes(
     }
   });
 
+  // ===================================
+  // PHASE 2: REAL-TIME BANDWIDTH MONITORING
+  // ===================================
+  
+  // Get real-time bandwidth overview
+  app.get("/api/bandwidth/overview", requireAuth, async (req, res) => {
+    try {
+      const bandwidthMonitor = await import("./services/bandwidthMonitor");
+      const overview = await bandwidthMonitor.getRealTimeBandwidthOverview();
+      
+      res.json(overview);
+    } catch (error: any) {
+      console.error("Failed to get bandwidth overview:", error);
+      res.status(500).json({ 
+        message: "Failed to get bandwidth overview",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get bandwidth statistics for a time range
+  app.get("/api/bandwidth/stats", requireAuth, async (req, res) => {
+    try {
+      const { startTime, endTime, serverId, lineId, streamId, granularity } = req.query;
+      
+      if (!startTime || !endTime) {
+        return res.status(400).json({ message: "startTime and endTime are required" });
+      }
+
+      const bandwidthMonitor = await import("./services/bandwidthMonitor");
+      const stats = await bandwidthMonitor.getBandwidthStats(
+        new Date(startTime as string),
+        new Date(endTime as string),
+        {
+          serverId: serverId ? parseInt(serverId as string) : undefined,
+          lineId: lineId ? parseInt(lineId as string) : undefined,
+          streamId: streamId ? parseInt(streamId as string) : undefined,
+          granularity: granularity as string,
+        }
+      );
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get bandwidth stats:", error);
+      res.status(500).json({ 
+        message: "Failed to get bandwidth stats",
+        error: error.message 
+      });
+    }
+  });
+
+  // Record bandwidth snapshot (for external monitoring agents)
+  app.post("/api/bandwidth/snapshot", requireAuth, async (req, res) => {
+    try {
+      const bandwidthMonitor = await import("./services/bandwidthMonitor");
+      await bandwidthMonitor.recordBandwidthSnapshot({
+        ...req.body,
+        timestamp: new Date(),
+      });
+      
+      res.json({ message: "Bandwidth snapshot recorded successfully" });
+    } catch (error: any) {
+      console.error("Failed to record bandwidth snapshot:", error);
+      res.status(500).json({ 
+        message: "Failed to record bandwidth snapshot",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get bandwidth alerts
+  app.get("/api/bandwidth/alerts", requireAuth, async (req, res) => {
+    try {
+      const alerts = await storage.getBandwidthAlerts();
+      res.json(alerts);
+    } catch (error: any) {
+      console.error("Failed to get bandwidth alerts:", error);
+      res.status(500).json({ 
+        message: "Failed to get bandwidth alerts",
+        error: error.message 
+      });
+    }
+  });
+
+  // Create bandwidth alert
+  app.post("/api/bandwidth/alerts", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const alert = await storage.createBandwidthAlert(req.body);
+      res.json(alert);
+    } catch (error: any) {
+      console.error("Failed to create bandwidth alert:", error);
+      res.status(500).json({ 
+        message: "Failed to create bandwidth alert",
+        error: error.message 
+      });
+    }
+  });
+
+  // Update bandwidth alert
+  app.patch("/api/bandwidth/alerts/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const alert = await storage.updateBandwidthAlert(
+        parseInt(req.params.id),
+        req.body
+      );
+      res.json(alert);
+    } catch (error: any) {
+      console.error("Failed to update bandwidth alert:", error);
+      res.status(500).json({ 
+        message: "Failed to update bandwidth alert",
+        error: error.message 
+      });
+    }
+  });
+
+  // Delete bandwidth alert
+  app.delete("/api/bandwidth/alerts/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteBandwidthAlert(parseInt(req.params.id));
+      res.json({ message: "Bandwidth alert deleted successfully" });
+    } catch (error: any) {
+      console.error("Failed to delete bandwidth alert:", error);
+      res.status(500).json({ 
+        message: "Failed to delete bandwidth alert",
+        error: error.message 
+      });
+    }
+  });
+
+  // Cleanup old bandwidth stats
+  app.post("/api/bandwidth/cleanup", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { daysToKeep = 30 } = req.body;
+      
+      const bandwidthMonitor = await import("./services/bandwidthMonitor");
+      const deletedCount = await bandwidthMonitor.cleanupOldStats(daysToKeep);
+      
+      res.json({ 
+        message: `Deleted ${deletedCount} old bandwidth statistics`,
+        deletedCount 
+      });
+    } catch (error: any) {
+      console.error("Failed to cleanup bandwidth stats:", error);
+      res.status(500).json({ 
+        message: "Failed to cleanup bandwidth stats",
+        error: error.message 
+      });
+    }
+  });
+
   // === BACKUP & RESTORE ===
   
   // Get all backups

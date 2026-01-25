@@ -1132,3 +1132,73 @@ export type InsertIpWhitelist = typeof ipWhitelist.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
+// ===================================
+// PHASE 2: REAL-TIME BANDWIDTH MONITORING
+// ===================================
+
+// Bandwidth Statistics (aggregated by time period)
+export const bandwidthStats = pgTable("bandwidth_stats", {
+  id: serial("id").primaryKey(),
+  serverId: integer("server_id").references(() => servers.id),
+  lineId: integer("line_id").references(() => lines.id),
+  streamId: integer("stream_id").references(() => streams.id),
+  
+  // Bandwidth metrics (in bytes)
+  bytesIn: integer("bytes_in").default(0).notNull(),
+  bytesOut: integer("bytes_out").default(0).notNull(),
+  bytesTotal: integer("bytes_total").default(0).notNull(),
+  
+  // Rate metrics (bytes per second)
+  rateIn: real("rate_in").default(0), // Current download rate
+  rateOut: real("rate_out").default(0), // Current upload rate
+  
+  // Connection metrics
+  activeConnections: integer("active_connections").default(0),
+  peakConnections: integer("peak_connections").default(0),
+  
+  // Time window
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  granularity: text("granularity").default("5min"), // '1min', '5min', '1hour', '1day'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Bandwidth Alerts/Thresholds
+export const bandwidthAlerts = pgTable("bandwidth_alerts", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  
+  // Alert scope
+  scope: text("scope").notNull(), // 'global', 'server', 'line', 'stream'
+  serverId: integer("server_id").references(() => servers.id),
+  lineId: integer("line_id").references(() => lines.id),
+  streamId: integer("stream_id").references(() => streams.id),
+  
+  // Threshold configuration
+  metric: text("metric").notNull(), // 'bandwidth', 'connections', 'bitrate'
+  operator: text("operator").notNull(), // 'greater_than', 'less_than', 'equal_to'
+  threshold: real("threshold").notNull(),
+  duration: integer("duration").default(300), // seconds to sustain before triggering
+  
+  // Actions
+  actions: jsonb("actions").$type<string[]>().default([]), // ['email', 'webhook', 'sms']
+  webhookUrl: text("webhook_url"),
+  emailRecipients: jsonb("email_recipients").$type<string[]>().default([]),
+  
+  // Status
+  enabled: boolean("enabled").default(true),
+  lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Bandwidth Stats types
+export type BandwidthStat = typeof bandwidthStats.$inferSelect;
+export type InsertBandwidthStat = typeof bandwidthStats.$inferInsert;
+
+// Bandwidth Alert types
+export type BandwidthAlert = typeof bandwidthAlerts.$inferSelect;
+export type InsertBandwidthAlert = typeof bandwidthAlerts.$inferInsert;
+
