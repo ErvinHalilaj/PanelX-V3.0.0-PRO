@@ -1079,6 +1079,663 @@ export async function registerRoutes(
     }
   });
 
+  // ===================================
+  // PHASE 2: GEOGRAPHIC CONNECTION MAP
+  // ===================================
+  
+  // Get active connections with geographic data (map view)
+  app.get("/api/geo/connections/map", requireAuth, async (req, res) => {
+    try {
+      const geoip = await import("./services/geoip");
+      const connections = await geoip.getActiveConnectionsMap();
+      
+      res.json(connections);
+    } catch (error: any) {
+      console.error("Failed to get connections map:", error);
+      res.status(500).json({ 
+        message: "Failed to get connections map",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get connection statistics by country
+  app.get("/api/geo/stats/countries", requireAuth, async (req, res) => {
+    try {
+      const { startTime, endTime } = req.query;
+      
+      const start = startTime ? new Date(startTime as string) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const end = endTime ? new Date(endTime as string) : new Date();
+
+      const geoip = await import("./services/geoip");
+      const stats = await geoip.getConnectionStatsByCountry(start, end);
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get country stats:", error);
+      res.status(500).json({ 
+        message: "Failed to get country stats",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get top countries by connection count
+  app.get("/api/geo/top-countries", requireAuth, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const geoip = await import("./services/geoip");
+      const topCountries = await geoip.getTopCountries(limit);
+      
+      res.json(topCountries);
+    } catch (error: any) {
+      console.error("Failed to get top countries:", error);
+      res.status(500).json({ 
+        message: "Failed to get top countries",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get connection heatmap data
+  app.get("/api/geo/heatmap", requireAuth, async (req, res) => {
+    try {
+      const geoip = await import("./services/geoip");
+      const heatmap = await geoip.getConnectionHeatmap();
+      
+      res.json(heatmap);
+    } catch (error: any) {
+      console.error("Failed to get connection heatmap:", error);
+      res.status(500).json({ 
+        message: "Failed to get connection heatmap",
+        error: error.message 
+      });
+    }
+  });
+
+  // Lookup IP address
+  app.get("/api/geo/lookup/:ip", requireAuth, async (req, res) => {
+    try {
+      const geoip = await import("./services/geoip");
+      const geoData = await geoip.lookupIP(req.params.ip);
+      
+      if (!geoData) {
+        return res.status(404).json({ message: "IP address not found or invalid" });
+      }
+      
+      res.json(geoData);
+    } catch (error: any) {
+      console.error("Failed to lookup IP:", error);
+      res.status(500).json({ 
+        message: "Failed to lookup IP",
+        error: error.message 
+      });
+    }
+  });
+
+  // Clean up old geo cache
+  app.post("/api/geo/cleanup", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { daysToKeep = 90 } = req.body;
+      
+      const geoip = await import("./services/geoip");
+      const deletedCount = await geoip.cleanupGeoCache(daysToKeep);
+      
+      res.json({ 
+        message: `Deleted ${deletedCount} old geo cache entries`,
+        deletedCount 
+      });
+    } catch (error: any) {
+      console.error("Failed to cleanup geo cache:", error);
+      res.status(500).json({ 
+        message: "Failed to cleanup geo cache",
+        error: error.message 
+      });
+    }
+  });
+
+  // ===================================
+  // PHASE 2: MULTI-SERVER MANAGEMENT
+  // ===================================
+  
+  // Get server health overview
+  app.get("/api/servers/health", requireAuth, async (req, res) => {
+    try {
+      const multiServer = await import("./services/multiServer");
+      const health = await multiServer.getServerHealthOverview();
+      
+      res.json(health);
+    } catch (error: any) {
+      console.error("Failed to get server health:", error);
+      res.status(500).json({ 
+        message: "Failed to get server health",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get server health history
+  app.get("/api/servers/:id/health/history", requireAuth, async (req, res) => {
+    try {
+      const serverId = parseInt(req.params.id);
+      const hours = req.query.hours ? parseInt(req.query.hours as string) : 24;
+      
+      const multiServer = await import("./services/multiServer");
+      const history = await multiServer.getServerHealthHistory(serverId, hours);
+      
+      res.json(history);
+    } catch (error: any) {
+      console.error("Failed to get server health history:", error);
+      res.status(500).json({ 
+        message: "Failed to get server health history",
+        error: error.message 
+      });
+    }
+  });
+
+  // Record server health metrics
+  app.post("/api/servers/:id/health", requireAuth, async (req, res) => {
+    try {
+      const serverId = parseInt(req.params.id);
+      
+      const multiServer = await import("./services/multiServer");
+      await multiServer.recordServerHealth(serverId, req.body);
+      
+      res.json({ message: "Server health recorded successfully" });
+    } catch (error: any) {
+      console.error("Failed to record server health:", error);
+      res.status(500).json({ 
+        message: "Failed to record server health",
+        error: error.message 
+      });
+    }
+  });
+
+  // Select best server (load balancing)
+  app.get("/api/servers/select", requireAuth, async (req, res) => {
+    try {
+      const { strategy, country, latitude, longitude, streamId } = req.query;
+      
+      const multiServer = await import("./services/multiServer");
+      const serverId = await multiServer.selectServer(
+        (strategy as any) || 'least_connections',
+        {
+          geoLocation: country || latitude || longitude ? {
+            country: country as string,
+            latitude: latitude ? parseFloat(latitude as string) : undefined,
+            longitude: longitude ? parseFloat(longitude as string) : undefined,
+          } : undefined,
+          streamId: streamId ? parseInt(streamId as string) : undefined,
+        }
+      );
+      
+      if (!serverId) {
+        return res.status(503).json({ message: "No healthy servers available" });
+      }
+      
+      res.json({ serverId });
+    } catch (error: any) {
+      console.error("Failed to select server:", error);
+      res.status(500).json({ 
+        message: "Failed to select server",
+        error: error.message 
+      });
+    }
+  });
+
+  // Trigger manual failover
+  app.post("/api/servers/failover", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { fromServerId, toServerId, reason } = req.body;
+      const userId = (req.user as any)?.id;
+      
+      if (!fromServerId || !toServerId) {
+        return res.status(400).json({ message: "fromServerId and toServerId are required" });
+      }
+      
+      const multiServer = await import("./services/multiServer");
+      await multiServer.triggerFailover(fromServerId, toServerId, reason || "Manual failover", userId);
+      
+      res.json({ message: "Failover triggered successfully" });
+    } catch (error: any) {
+      console.error("Failed to trigger failover:", error);
+      res.status(500).json({ 
+        message: "Failed to trigger failover",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get server statistics
+  app.get("/api/servers/statistics", requireAuth, async (req, res) => {
+    try {
+      const multiServer = await import("./services/multiServer");
+      const stats = await multiServer.getServerStatistics();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get server statistics:", error);
+      res.status(500).json({ 
+        message: "Failed to get server statistics",
+        error: error.message 
+      });
+    }
+  });
+
+  // Create server sync job
+  app.post("/api/servers/sync", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { jobType, sourceServerId, targetServerId } = req.body;
+      
+      if (!jobType || !targetServerId) {
+        return res.status(400).json({ message: "jobType and targetServerId are required" });
+      }
+      
+      const multiServer = await import("./services/multiServer");
+      const jobId = await multiServer.createSyncJob(jobType, sourceServerId, targetServerId);
+      
+      res.json({ jobId, message: "Sync job created successfully" });
+    } catch (error: any) {
+      console.error("Failed to create sync job:", error);
+      res.status(500).json({ 
+        message: "Failed to create sync job",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get load balancing rules
+  app.get("/api/servers/load-balancing/rules", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const multiServer = await import("./services/multiServer");
+      const rules = await multiServer.getLoadBalancingRules();
+      
+      res.json(rules);
+    } catch (error: any) {
+      console.error("Failed to get load balancing rules:", error);
+      res.status(500).json({ 
+        message: "Failed to get load balancing rules",
+        error: error.message 
+      });
+    }
+  });
+
+  // ===================================
+  // PHASE 2: TMDB INTEGRATION
+  // ===================================
+  
+  // Search TMDB
+  app.get("/api/tmdb/search", requireAuth, async (req, res) => {
+    try {
+      const { query, mediaType, year } = req.query;
+      
+      if (!query || !mediaType) {
+        return res.status(400).json({ message: "query and mediaType are required" });
+      }
+      
+      const tmdb = await import("./services/tmdb");
+      const results = await tmdb.searchTMDB(
+        query as string,
+        mediaType as 'movie' | 'tv',
+        year as string | undefined
+      );
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error("TMDB search failed:", error);
+      res.status(500).json({ 
+        message: "TMDB search failed",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get TMDB details
+  app.get("/api/tmdb/:tmdbId", requireAuth, async (req, res) => {
+    try {
+      const tmdbId = parseInt(req.params.tmdbId);
+      const { mediaType } = req.query;
+      
+      if (!mediaType) {
+        return res.status(400).json({ message: "mediaType is required" });
+      }
+      
+      const tmdb = await import("./services/tmdb");
+      
+      // Check cache first
+      let metadata = await tmdb.getCachedMetadata(tmdbId);
+      
+      if (!metadata) {
+        // Fetch from TMDB API
+        const details = await tmdb.getTMDBDetails(tmdbId, mediaType as 'movie' | 'tv');
+        if (details) {
+          await tmdb.cacheTMDBMetadata(tmdbId, mediaType as 'movie' | 'tv', details);
+          metadata = await tmdb.getCachedMetadata(tmdbId);
+        }
+      }
+      
+      if (!metadata) {
+        return res.status(404).json({ message: "TMDB metadata not found" });
+      }
+      
+      res.json(metadata);
+    } catch (error: any) {
+      console.error("Failed to get TMDB details:", error);
+      res.status(500).json({ 
+        message: "Failed to get TMDB details",
+        error: error.message 
+      });
+    }
+  });
+
+  // Add to sync queue
+  app.post("/api/tmdb/sync/queue", requireAuth, async (req, res) => {
+    try {
+      const { mediaType, referenceId, referenceType, searchTitle, searchYear, priority } = req.body;
+      
+      if (!mediaType || !referenceId || !referenceType || !searchTitle) {
+        return res.status(400).json({ 
+          message: "mediaType, referenceId, referenceType, and searchTitle are required" 
+        });
+      }
+      
+      const tmdb = await import("./services/tmdb");
+      const queueId = await tmdb.addToSyncQueue(
+        mediaType,
+        referenceId,
+        referenceType,
+        searchTitle,
+        searchYear,
+        priority
+      );
+      
+      res.json({ queueId, message: "Added to sync queue" });
+    } catch (error: any) {
+      console.error("Failed to add to sync queue:", error);
+      res.status(500).json({ 
+        message: "Failed to add to sync queue",
+        error: error.message 
+      });
+    }
+  });
+
+  // Process sync queue
+  app.post("/api/tmdb/sync/process", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { batchSize = 10 } = req.body;
+      
+      const tmdb = await import("./services/tmdb");
+      const result = await tmdb.processSyncQueue(batchSize);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to process sync queue:", error);
+      res.status(500).json({ 
+        message: "Failed to process sync queue",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get sync queue stats
+  app.get("/api/tmdb/sync/stats", requireAuth, async (req, res) => {
+    try {
+      const tmdb = await import("./services/tmdb");
+      const stats = await tmdb.getSyncQueueStats();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get sync queue stats:", error);
+      res.status(500).json({ 
+        message: "Failed to get sync queue stats",
+        error: error.message 
+      });
+    }
+  });
+
+  // Batch sync series
+  app.post("/api/tmdb/sync/series/batch", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const tmdb = await import("./services/tmdb");
+      const storage = await import("./storage");
+      
+      // Get all series without TMDB ID
+      const allSeries = await storage.storage.getAllSeries();
+      const missingTMDB = allSeries.filter(s => !s.tmdbId);
+      
+      // Add to queue
+      let added = 0;
+      for (const s of missingTMDB) {
+        try {
+          await tmdb.addToSyncQueue(
+            'tv',
+            s.id,
+            'series',
+            s.name,
+            s.releaseDate?.split('-')[0],
+            0
+          );
+          added++;
+        } catch (error) {
+          console.error(`Failed to queue series ${s.id}:`, error);
+        }
+      }
+      
+      res.json({ 
+        message: `Added ${added} series to sync queue`,
+        total: missingTMDB.length,
+        added 
+      });
+    } catch (error: any) {
+      console.error("Failed to batch sync series:", error);
+      res.status(500).json({ 
+        message: "Failed to batch sync series",
+        error: error.message 
+      });
+    }
+  });
+
+  // ===================================
+  // PHASE 2: SUBTITLE SYSTEM
+  // ===================================
+  
+  // Get subtitles for content
+  app.get("/api/subtitles", requireAuth, async (req, res) => {
+    try {
+      const { referenceType, referenceId, language } = req.query;
+      
+      if (!referenceType || !referenceId) {
+        return res.status(400).json({ message: "referenceType and referenceId are required" });
+      }
+      
+      const subtitle = await import("./services/subtitle");
+      const subtitles = await subtitle.getSubtitles(
+        referenceType as string,
+        parseInt(referenceId as string),
+        language as string | undefined
+      );
+      
+      res.json(subtitles);
+    } catch (error: any) {
+      console.error("Failed to get subtitles:", error);
+      res.status(500).json({ 
+        message: "Failed to get subtitles",
+        error: error.message 
+      });
+    }
+  });
+
+  // Upload subtitle
+  app.post("/api/subtitles", requireAuth, async (req, res) => {
+    try {
+      const subtitle = await import("./services/subtitle");
+      const userId = (req.user as any)?.id;
+      
+      const subtitleId = await subtitle.uploadSubtitle({
+        ...req.body,
+        userId,
+      });
+      
+      res.json({ subtitleId, message: "Subtitle uploaded successfully" });
+    } catch (error: any) {
+      console.error("Failed to upload subtitle:", error);
+      res.status(500).json({ 
+        message: "Failed to upload subtitle",
+        error: error.message 
+      });
+    }
+  });
+
+  // Download subtitle
+  app.get("/api/subtitles/:id/download", requireAuth, async (req, res) => {
+    try {
+      const subtitleId = parseInt(req.params.id);
+      const userId = (req.user as any)?.id;
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+      
+      const subtitle = await import("./services/subtitle");
+      const result = await subtitle.downloadSubtitle(subtitleId, userId, ipAddress, userAgent);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Subtitle not found" });
+      }
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', `text/${result.format}`);
+      res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+      res.send(result.content);
+    } catch (error: any) {
+      console.error("Failed to download subtitle:", error);
+      res.status(500).json({ 
+        message: "Failed to download subtitle",
+        error: error.message 
+      });
+    }
+  });
+
+  // Update subtitle
+  app.patch("/api/subtitles/:id", requireAuth, async (req, res) => {
+    try {
+      const subtitleId = parseInt(req.params.id);
+      
+      const subtitle = await import("./services/subtitle");
+      await subtitle.updateSubtitle(subtitleId, req.body);
+      
+      res.json({ message: "Subtitle updated successfully" });
+    } catch (error: any) {
+      console.error("Failed to update subtitle:", error);
+      res.status(500).json({ 
+        message: "Failed to update subtitle",
+        error: error.message 
+      });
+    }
+  });
+
+  // Delete subtitle
+  app.delete("/api/subtitles/:id", requireAuth, async (req, res) => {
+    try {
+      const subtitleId = parseInt(req.params.id);
+      
+      const subtitle = await import("./services/subtitle");
+      await subtitle.deleteSubtitle(subtitleId);
+      
+      res.json({ message: "Subtitle deleted successfully" });
+    } catch (error: any) {
+      console.error("Failed to delete subtitle:", error);
+      res.status(500).json({ 
+        message: "Failed to delete subtitle",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get subtitle statistics
+  app.get("/api/subtitles/stats", requireAuth, async (req, res) => {
+    try {
+      const subtitle = await import("./services/subtitle");
+      const stats = await subtitle.getSubtitleStats();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get subtitle stats:", error);
+      res.status(500).json({ 
+        message: "Failed to get subtitle stats",
+        error: error.message 
+      });
+    }
+  });
+
+  // Get popular languages
+  app.get("/api/subtitles/languages/popular", requireAuth, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const subtitle = await import("./services/subtitle");
+      const languages = await subtitle.getPopularLanguages(limit);
+      
+      res.json(languages);
+    } catch (error: any) {
+      console.error("Failed to get popular languages:", error);
+      res.status(500).json({ 
+        message: "Failed to get popular languages",
+        error: error.message 
+      });
+    }
+  });
+
+  // Search subtitles
+  app.get("/api/subtitles/search", requireAuth, async (req, res) => {
+    try {
+      const subtitle = await import("./services/subtitle");
+      const results = await subtitle.searchSubtitles({
+        language: req.query.language as string | undefined,
+        referenceType: req.query.referenceType as string | undefined,
+        verified: req.query.verified === 'true',
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+      });
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error("Failed to search subtitles:", error);
+      res.status(500).json({ 
+        message: "Failed to search subtitles",
+        error: error.message 
+      });
+    }
+  });
+
+  // Batch import subtitles
+  app.post("/api/subtitles/batch-import", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { directoryPath, referenceType, referenceId } = req.body;
+      const userId = (req.user as any)?.id;
+      
+      if (!directoryPath || !referenceType || !referenceId) {
+        return res.status(400).json({ 
+          message: "directoryPath, referenceType, and referenceId are required" 
+        });
+      }
+      
+      const subtitle = await import("./services/subtitle");
+      const result = await subtitle.batchImportSubtitles(
+        directoryPath,
+        referenceType,
+        referenceId,
+        userId
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to batch import subtitles:", error);
+      res.status(500).json({ 
+        message: "Failed to batch import subtitles",
+        error: error.message 
+      });
+    }
+  });
+
   // === BACKUP & RESTORE ===
   
   // Get all backups

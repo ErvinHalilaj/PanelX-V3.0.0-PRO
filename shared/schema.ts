@@ -1202,3 +1202,460 @@ export type InsertBandwidthStat = typeof bandwidthStats.$inferInsert;
 export type BandwidthAlert = typeof bandwidthAlerts.$inferSelect;
 export type InsertBandwidthAlert = typeof bandwidthAlerts.$inferInsert;
 
+// ===================================
+// PHASE 2: GEOGRAPHIC CONNECTION MAP
+// ===================================
+
+// Geographic Locations Cache
+export const geoLocations = pgTable("geo_locations", {
+  id: serial("id").primaryKey(),
+  ipAddress: text("ip_address").notNull().unique(),
+  
+  // Geographic data
+  country: text("country"),
+  countryCode: text("country_code"),
+  region: text("region"),
+  regionCode: text("region_code"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  timezone: text("timezone"),
+  
+  // ISP data
+  isp: text("isp"),
+  organization: text("organization"),
+  asn: text("asn"),
+  
+  // Metadata
+  lookupProvider: text("lookup_provider").default("geoip-lite"), // 'geoip-lite', 'maxmind', 'ip2location'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Connection Geographic Statistics
+export const connectionGeoStats = pgTable("connection_geo_stats", {
+  id: serial("id").primaryKey(),
+  
+  // Geographic grouping
+  country: text("country").notNull(),
+  countryCode: text("country_code"),
+  city: text("city"),
+  
+  // Metrics
+  totalConnections: integer("total_connections").default(0),
+  activeConnections: integer("active_connections").default(0),
+  totalBandwidth: integer("total_bandwidth").default(0), // bytes
+  averageDuration: integer("average_duration").default(0), // seconds
+  
+  // Time period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// GeoLocation types
+export type GeoLocation = typeof geoLocations.$inferSelect;
+export type InsertGeoLocation = typeof geoLocations.$inferInsert;
+
+// ConnectionGeoStat types
+export type ConnectionGeoStat = typeof connectionGeoStats.$inferSelect;
+export type InsertConnectionGeoStat = typeof connectionGeoStats.$inferInsert;
+
+// ===================================
+// PHASE 2: MULTI-SERVER MANAGEMENT
+// ===================================
+
+// Server Health Monitoring
+export const serverHealthLogs = pgTable("server_health_logs", {
+  id: serial("id").primaryKey(),
+  serverId: integer("server_id").references(() => servers.id).notNull(),
+  
+  // System metrics
+  cpuUsage: real("cpu_usage").default(0), // Percentage
+  memoryUsage: real("memory_usage").default(0), // Percentage
+  memoryTotal: integer("memory_total").default(0), // MB
+  memoryUsed: integer("memory_used").default(0), // MB
+  diskUsage: real("disk_usage").default(0), // Percentage
+  diskTotal: integer("disk_total").default(0), // GB
+  diskUsed: integer("disk_used").default(0), // GB
+  
+  // Network metrics
+  networkIn: integer("network_in").default(0), // bytes/sec
+  networkOut: integer("network_out").default(0), // bytes/sec
+  bandwidth: real("bandwidth").default(0), // Mbps
+  
+  // Service status
+  nginxStatus: text("nginx_status").default("unknown"), // 'running', 'stopped', 'error', 'unknown'
+  ffmpegProcesses: integer("ffmpeg_processes").default(0),
+  activeStreams: integer("active_streams").default(0),
+  activeConnections: integer("active_connections").default(0),
+  
+  // Health status
+  status: text("status").default("healthy"), // 'healthy', 'warning', 'critical', 'offline'
+  responseTime: integer("response_time").default(0), // milliseconds
+  lastError: text("last_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Load Balancing Rules
+export const loadBalancingRules = pgTable("load_balancing_rules", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  
+  // Rule configuration
+  strategy: text("strategy").default("round_robin"), // 'round_robin', 'least_connections', 'weighted', 'geographic'
+  priority: integer("priority").default(0),
+  
+  // Server selection
+  serverIds: jsonb("server_ids").$type<number[]>().default([]),
+  serverWeights: jsonb("server_weights").$type<Record<number, number>>().default({}),
+  
+  // Conditions
+  conditions: jsonb("conditions").$type<any[]>().default([]), // Array of condition objects
+  
+  // Failover settings
+  enableFailover: boolean("enable_failover").default(true),
+  failoverServerId: integer("failover_server_id").references(() => servers.id),
+  healthCheckInterval: integer("health_check_interval").default(30), // seconds
+  maxFailures: integer("max_failures").default(3),
+  
+  // Status
+  enabled: boolean("enabled").default(true),
+  lastApplied: timestamp("last_applied"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Server Sync Jobs
+export const serverSyncJobs = pgTable("server_sync_jobs", {
+  id: serial("id").primaryKey(),
+  
+  // Job details
+  jobType: text("job_type").notNull(), // 'streams', 'lines', 'settings', 'full'
+  sourceServerId: integer("source_server_id").references(() => servers.id),
+  targetServerId: integer("target_server_id").references(() => servers.id).notNull(),
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'running', 'completed', 'failed'
+  progress: integer("progress").default(0), // Percentage
+  itemsTotal: integer("items_total").default(0),
+  itemsSynced: integer("items_synced").default(0),
+  itemsFailed: integer("items_failed").default(0),
+  
+  // Results
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  syncLog: jsonb("sync_log").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Server Failover History
+export const serverFailoverHistory = pgTable("server_failover_history", {
+  id: serial("id").primaryKey(),
+  
+  // Failover details
+  fromServerId: integer("from_server_id").references(() => servers.id).notNull(),
+  toServerId: integer("to_server_id").references(() => servers.id).notNull(),
+  
+  // Reason
+  reason: text("reason").notNull(), // 'health_check_failed', 'manual', 'overload', 'maintenance'
+  triggeredBy: text("triggered_by"), // 'system', 'admin', 'scheduler'
+  userId: integer("user_id").references(() => users.id),
+  
+  // Impact
+  affectedConnections: integer("affected_connections").default(0),
+  affectedStreams: integer("affected_streams").default(0),
+  downtime: integer("downtime").default(0), // seconds
+  
+  // Status
+  status: text("status").default("completed"), // 'completed', 'partial', 'failed'
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Server Health types
+export type ServerHealthLog = typeof serverHealthLogs.$inferSelect;
+export type InsertServerHealthLog = typeof serverHealthLogs.$inferInsert;
+
+// Load Balancing types
+export type LoadBalancingRule = typeof loadBalancingRules.$inferSelect;
+export type InsertLoadBalancingRule = typeof loadBalancingRules.$inferInsert;
+
+// Server Sync types
+export type ServerSyncJob = typeof serverSyncJobs.$inferSelect;
+export type InsertServerSyncJob = typeof serverSyncJobs.$inferInsert;
+
+// Server Failover types
+export type ServerFailoverHistory = typeof serverFailoverHistory.$inferSelect;
+export type InsertServerFailoverHistory = typeof serverFailoverHistory.$inferInsert;
+
+// ===================================
+// PHASE 2: TMDB INTEGRATION
+// ===================================
+
+// TMDB Metadata Cache
+export const tmdbMetadata = pgTable("tmdb_metadata", {
+  id: serial("id").primaryKey(),
+  
+  // TMDB identifiers
+  tmdbId: integer("tmdb_id").notNull().unique(),
+  imdbId: text("imdb_id"),
+  
+  // Content type
+  mediaType: text("media_type").notNull(), // 'movie', 'tv'
+  
+  // Basic info
+  title: text("title").notNull(),
+  originalTitle: text("original_title"),
+  overview: text("overview"),
+  tagline: text("tagline"),
+  
+  // Media
+  posterPath: text("poster_path"),
+  backdropPath: text("backdrop_path"),
+  posterUrl: text("poster_url"), // Full CDN URL
+  backdropUrl: text("backdrop_url"), // Full CDN URL
+  
+  // Dates
+  releaseDate: text("release_date"),
+  firstAirDate: text("first_air_date"),
+  lastAirDate: text("last_air_date"),
+  
+  // Ratings
+  voteAverage: real("vote_average").default(0),
+  voteCount: integer("vote_count").default(0),
+  popularity: real("popularity").default(0),
+  
+  // Classification
+  adult: boolean("adult").default(false),
+  genres: jsonb("genres").$type<string[]>().default([]),
+  productionCountries: jsonb("production_countries").$type<string[]>().default([]),
+  spokenLanguages: jsonb("spoken_languages").$type<string[]>().default([]),
+  
+  // TV specific
+  numberOfSeasons: integer("number_of_seasons"),
+  numberOfEpisodes: integer("number_of_episodes"),
+  episodeRunTime: jsonb("episode_run_time").$type<number[]>().default([]),
+  status: text("status"), // 'Returning Series', 'Ended', etc.
+  
+  // Movie specific
+  runtime: integer("runtime"), // minutes
+  budget: integer("budget"),
+  revenue: integer("revenue"),
+  
+  // Additional metadata
+  homepage: text("homepage"),
+  originalLanguage: text("original_language"),
+  
+  // Cache metadata
+  lastSynced: timestamp("last_synced").defaultNow(),
+  syncSource: text("sync_source").default("tmdb"), // 'tmdb', 'imdb', 'manual'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TMDB Sync Queue
+export const tmdbSyncQueue = pgTable("tmdb_sync_queue", {
+  id: serial("id").primaryKey(),
+  
+  // Reference
+  mediaType: text("media_type").notNull(), // 'movie', 'tv'
+  referenceId: integer("reference_id").notNull(), // series.id or vodInfo.id
+  referenceType: text("reference_type").notNull(), // 'series', 'vod'
+  
+  // Search criteria
+  searchTitle: text("search_title").notNull(),
+  searchYear: text("search_year"),
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  priority: integer("priority").default(0),
+  
+  // Results
+  tmdbId: integer("tmdb_id"),
+  matchScore: real("match_score"), // 0-100
+  errorMessage: text("error_message"),
+  
+  // Processing
+  attempts: integer("attempts").default(0),
+  lastAttempt: timestamp("last_attempt"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TMDB Sync Logs
+export const tmdbSyncLogs = pgTable("tmdb_sync_logs", {
+  id: serial("id").primaryKey(),
+  
+  // Batch info
+  batchId: text("batch_id"),
+  
+  // Item info
+  mediaType: text("media_type").notNull(),
+  referenceId: integer("reference_id").notNull(),
+  searchTitle: text("search_title"),
+  
+  // Result
+  status: text("status").notNull(), // 'success', 'failed', 'skipped'
+  tmdbId: integer("tmdb_id"),
+  matchScore: real("match_score"),
+  action: text("action"), // 'created', 'updated', 'skipped'
+  
+  // Details
+  message: text("message"),
+  errorDetails: text("error_details"),
+  processingTime: integer("processing_time"), // milliseconds
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TMDB types
+export type TmdbMetadata = typeof tmdbMetadata.$inferSelect;
+export type InsertTmdbMetadata = typeof tmdbMetadata.$inferInsert;
+
+export type TmdbSyncQueue = typeof tmdbSyncQueue.$inferSelect;
+export type InsertTmdbSyncQueue = typeof tmdbSyncQueue.$inferInsert;
+
+export type TmdbSyncLog = typeof tmdbSyncLogs.$inferSelect;
+export type InsertTmdbSyncLog = typeof tmdbSyncLogs.$inferInsert;
+
+// ===================================
+// PHASE 2: SUBTITLE SYSTEM
+// ===================================
+
+// Subtitles
+export const subtitles = pgTable("subtitles", {
+  id: serial("id").primaryKey(),
+  
+  // Reference (what content this subtitle is for)
+  referenceType: text("reference_type").notNull(), // 'stream', 'vod', 'series_episode'
+  referenceId: integer("reference_id").notNull(),
+  
+  // For series episodes
+  seriesId: integer("series_id").references(() => series.id),
+  seasonNumber: integer("season_number"),
+  episodeNumber: integer("episode_number"),
+  
+  // Subtitle details
+  language: text("language").notNull(), // ISO 639-1 code: 'en', 'es', 'fr', etc.
+  languageName: text("language_name").notNull(), // 'English', 'Spanish', 'French'
+  
+  // File information
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path").notNull(), // Path to subtitle file
+  fileUrl: text("file_url"), // Public URL if stored remotely
+  fileSize: integer("file_size").default(0), // bytes
+  
+  // Subtitle format
+  format: text("format").default("srt"), // 'srt', 'vtt', 'ass', 'ssa'
+  encoding: text("encoding").default("utf-8"),
+  
+  // Metadata
+  title: text("title"), // Optional title
+  author: text("author"), // Who created/uploaded
+  hearingImpaired: boolean("hearing_impaired").default(false), // SDH/CC subtitles
+  forced: boolean("forced").default(false), // Forced subtitles (for foreign parts)
+  
+  // Quality/Source
+  source: text("source"), // 'manual', 'opensubtitles', 'subscene', 'tmdb'
+  downloads: integer("downloads").default(0),
+  rating: real("rating").default(0),
+  
+  // Status
+  enabled: boolean("enabled").default(true),
+  verified: boolean("verified").default(false),
+  
+  // Uploader
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Subtitle Search Cache (for external subtitle APIs)
+export const subtitleSearchCache = pgTable("subtitle_search_cache", {
+  id: serial("id").primaryKey(),
+  
+  // Search parameters
+  searchQuery: text("search_query").notNull(),
+  language: text("language").notNull(),
+  
+  // IMDB/TMDB identifiers
+  imdbId: text("imdb_id"),
+  tmdbId: integer("tmdb_id"),
+  
+  // Results (cached from external API)
+  results: jsonb("results").$type<any[]>().default([]),
+  
+  // Cache metadata
+  provider: text("provider").default("opensubtitles"), // 'opensubtitles', 'subscene'
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Subtitle Upload Queue (for async processing)
+export const subtitleUploadQueue = pgTable("subtitle_upload_queue", {
+  id: serial("id").primaryKey(),
+  
+  // Reference
+  referenceType: text("reference_type").notNull(),
+  referenceId: integer("reference_id").notNull(),
+  
+  // File information
+  originalFileName: text("original_file_name").notNull(),
+  tempFilePath: text("temp_file_path").notNull(),
+  language: text("language").notNull(),
+  
+  // Processing status
+  status: text("status").default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  progress: integer("progress").default(0),
+  
+  // Conversion settings
+  targetFormat: text("target_format").default("vtt"), // Convert to WebVTT for web playback
+  
+  // Results
+  subtitleId: integer("subtitle_id").references(() => subtitles.id),
+  errorMessage: text("error_message"),
+  
+  // Uploader
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+});
+
+// Subtitle Download Logs (analytics)
+export const subtitleDownloadLogs = pgTable("subtitle_download_logs", {
+  id: serial("id").primaryKey(),
+  
+  subtitleId: integer("subtitle_id").references(() => subtitles.id).notNull(),
+  
+  // User info
+  userId: integer("user_id").references(() => users.id),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Download info
+  downloadedAt: timestamp("downloaded_at").defaultNow(),
+});
+
+// Subtitle types
+export type Subtitle = typeof subtitles.$inferSelect;
+export type InsertSubtitle = typeof subtitles.$inferInsert;
+
+export type SubtitleSearchCache = typeof subtitleSearchCache.$inferSelect;
+export type InsertSubtitleSearchCache = typeof subtitleSearchCache.$inferInsert;
+
+export type SubtitleUploadQueue = typeof subtitleUploadQueue.$inferSelect;
+export type InsertSubtitleUploadQueue = typeof subtitleUploadQueue.$inferInsert;
+
+export type SubtitleDownloadLog = typeof subtitleDownloadLogs.$inferSelect;
+export type InsertSubtitleDownloadLog = typeof subtitleDownloadLogs.$inferInsert;
+
