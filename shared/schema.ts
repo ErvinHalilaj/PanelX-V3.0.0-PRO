@@ -14,6 +14,11 @@ export const users = pgTable("users", {
   credits: integer("credits").default(0),
   notes: text("notes"),
   enabled: boolean("enabled").default(true),
+  // Two-Factor Authentication
+  twoFactorSecret: text("two_factor_secret"),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  twoFactorBackupCodes: jsonb("two_factor_backup_codes"), // Array of hashed backup codes
+  lastTwoFactorCheck: timestamp("last_two_factor_check"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1067,7 +1072,19 @@ export interface XtreamChannel {
   tv_archive_duration: number;
 }
 
+// Two-Factor Authentication Activity Log
+export const twoFactorActivity = pgTable("two_factor_activity", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // 'setup', 'enable', 'disable', 'verify_success', 'verify_failed'
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Stream Schedule types
 export type StreamSchedule = typeof streamSchedules.$inferSelect;
 export type InsertStreamSchedule = typeof streamSchedules.$inferInsert;
+export type TwoFactorActivity = typeof twoFactorActivity.$inferSelect;
+export type InsertTwoFactorActivity = typeof twoFactorActivity.$inferInsert;
 

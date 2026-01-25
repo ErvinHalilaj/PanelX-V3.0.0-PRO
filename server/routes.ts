@@ -537,6 +537,188 @@ export async function registerRoutes(
     });
   });
 
+  // === TWO-FACTOR AUTHENTICATION ===
+  
+  // Get 2FA status for current user
+  app.get("/api/2fa", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const twoFactor = await storage.getTwoFactorAuth(userId);
+      res.json(twoFactor || null);
+    } catch (err) {
+      console.error("Get 2FA error:", err);
+      res.status(500).json({ message: "Failed to get 2FA status" });
+    }
+  });
+
+  // Setup 2FA - Generate secret and QR code
+  app.post("/api/2fa/setup", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Generate new secret and backup codes
+      const secret = new OTPAuth.Secret();
+      const totp = new OTPAuth.TOTP({
+        issuer: "PanelX",
+        label: user.username,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret,
+      });
+
+      // Generate backup codes (10 codes, 8 characters each)
+      const backupCodes = Array.from({ length: 10 }, () => 
+        Math.random().toString(36).substring(2, 10).toUpperCase()
+      );
+
+      // Create or update 2FA record (not enabled yet)
+      const existing = await storage.getTwoFactorAuth(userId);
+      if (existing) {
+        await storage.updateTwoFactorAuth(userId, {
+          secret: secret.base32,
+          backupCodes,
+          enabled: false,
+        });
+      } else {
+        await storage.db.insert(twoFactorAuth).values({
+          userId,
+          secret: secret.base32,
+          backupCodes,
+          enabled: false,
+        });
+      }
+
+      // Return QR code URI and backup codes
+      res.json({
+        qrCodeUri: totp.toString(),
+        secret: secret.base32,
+        backupCodes,
+      });
+    } catch (err) {
+      console.error("Setup 2FA error:", err);
+      res.status(500).json({ message: "Failed to setup 2FA" });
+    }
+  });
+
+  // Verify and enable 2FA
+  app.post("/api/2fa/verify", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ message: "Verification code required" });
+      }
+
+      const twoFactor = await storage.getTwoFactorAuth(userId);
+      if (!twoFactor) {
+        return res.status(400).json({ message: "2FA not set up" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify the TOTP code
+      const totp = new OTPAuth.TOTP({
+        issuer: "PanelX",
+        label: user.username,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(twoFactor.secret),
+      });
+
+      const delta = totp.validate({ token: code, window: 1 });
+      
+      if (delta === null) {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+
+      // Enable 2FA
+      await storage.updateTwoFactorAuth(userId, {
+        enabled: true,
+        verifiedAt: new Date(),
+      });
+
+      // Log activity
+      await storage.db.insert(twoFactorActivity).values({
+        userId,
+        action: 'enable',
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.get('user-agent'),
+      });
+
+      res.json({ message: "2FA enabled successfully" });
+    } catch (err) {
+      console.error("Verify 2FA error:", err);
+      res.status(500).json({ message: "Failed to verify 2FA" });
+    }
+  });
+
+  // Disable 2FA
+  app.post("/api/2fa/disable", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      
+      const twoFactor = await storage.getTwoFactorAuth(userId);
+      if (!twoFactor) {
+        return res.status(400).json({ message: "2FA not enabled" });
+      }
+
+      // Disable 2FA
+      await storage.updateTwoFactorAuth(userId, {
+        enabled: false,
+      });
+
+      // Log activity
+      await storage.db.insert(twoFactorActivity).values({
+        userId,
+        action: 'disable',
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.get('user-agent'),
+      });
+
+      res.json({ message: "2FA disabled successfully" });
+    } catch (err) {
+      console.error("Disable 2FA error:", err);
+      res.status(500).json({ message: "Failed to disable 2FA" });
+    }
+  });
+
+  // Regenerate backup codes
+  app.post("/api/2fa/regenerate-codes", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      
+      const twoFactor = await storage.getTwoFactorAuth(userId);
+      if (!twoFactor || !twoFactor.enabled) {
+        return res.status(400).json({ message: "2FA not enabled" });
+      }
+
+      // Generate new backup codes
+      const backupCodes = Array.from({ length: 10 }, () => 
+        Math.random().toString(36).substring(2, 10).toUpperCase()
+      );
+
+      await storage.updateTwoFactorAuth(userId, {
+        backupCodes,
+      });
+
+      res.json({ backupCodes });
+    } catch (err) {
+      console.error("Regenerate backup codes error:", err);
+      res.status(500).json({ message: "Failed to regenerate backup codes" });
+    }
+  });
+
   // === RESELLER-SCOPED ENDPOINTS ===
   // These endpoints filter data by the authenticated reseller's ID
   
