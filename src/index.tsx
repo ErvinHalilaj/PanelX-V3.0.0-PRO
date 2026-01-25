@@ -6,7 +6,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { serveStatic } from 'hono/cloudflare-pages';
 
 // Create main Hono app
 const app = new Hono();
@@ -15,25 +14,22 @@ const app = new Hono();
 app.use('*', logger());
 app.use('/api/*', cors());
 
-// Serve static files from dist/public for the React dashboard
-app.use('/dashboard/*', serveStatic({ root: './public' }));
-app.use('/assets/*', serveStatic({ root: './public' }));
-
 // Dashboard route - serve React app
 app.get('/dashboard', (c) => {
   return c.html(`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PanelX V3.0.0 PRO - Dashboard</title>
-  <link rel="icon" type="image/png" href="/favicon.png">
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" crossorigin src="/assets/main-BCLsBgAU.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/main-BatmQaFI.css">
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PanelX - IPTV Management Panel" />
+    <title>PanelX - Dashboard</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <script type="module" crossorigin src="/assets/main-BCLsBgAU.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/main-BatmQaFI.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>`);
 });
 
