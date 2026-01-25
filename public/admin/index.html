@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanelX V3.0.0 PRO - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f9fafb;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: 250px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+        .sidebar.closed { transform: translateX(-250px); }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: white;
+            text-decoration: none;
+        }
+        .menu-item:hover, .menu-item.active {
+            background: rgba(255,255,255,0.1);
+        }
+        .menu-item i {
+            width: 20px;
+            margin-right: 12px;
+        }
+        .main-content {
+            margin-left: 250px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        .main-content.expanded { margin-left: 0; }
+        .topbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .chart-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-top: 24px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge.success { background: #d1fae5; color: #065f46; }
+        .badge.warning { background: #fef3c7; color: #92400e; }
+        .badge.danger { background: #fee2e2; color: #991b1b; }
+        .toggle-sidebar {
+            display: none;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-250px); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .toggle-sidebar { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1 class="text-xl font-bold">PanelX V3.0.0 PRO</h1>
+            <p class="text-sm opacity-75 mt-1">Admin Dashboard</p>
+        </div>
+        <div class="sidebar-menu">
+            <a href="#" class="menu-item active" data-page="dashboard">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a href="#" class="menu-item" data-page="users">
+                <i class="fas fa-users"></i> Users
+            </a>
+            <a href="#" class="menu-item" data-page="bandwidth">
+                <i class="fas fa-chart-line"></i> Bandwidth
+            </a>
+            <a href="#" class="menu-item" data-page="servers">
+                <i class="fas fa-server"></i> Servers
+            </a>
+            <a href="#" class="menu-item" data-page="content">
+                <i class="fas fa-film"></i> Content
+            </a>
+            <a href="#" class="menu-item" data-page="analytics">
+                <i class="fas fa-chart-bar"></i> Analytics
+            </a>
+            <a href="#" class="menu-item" data-page="cdn">
+                <i class="fas fa-cloud"></i> CDN
+            </a>
+            <a href="#" class="menu-item" data-page="invoices">
+                <i class="fas fa-file-invoice"></i> Invoices
+            </a>
+            <a href="#" class="menu-item" data-page="api-keys">
+                <i class="fas fa-key"></i> API Keys
+            </a>
+            <a href="#" class="menu-item" data-page="settings">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="flex items-center gap-4">
+                <button class="toggle-sidebar" id="toggleSidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="text-xl font-bold text-gray-800" id="pageTitle">Dashboard</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="badge success">
+                    <i class="fas fa-circle text-xs"></i> Online
+                </span>
+                <div class="flex items-center gap-2">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" 
+                         class="w-8 h-8 rounded-full" alt="Admin">
+                    <span class="text-sm font-medium">Admin</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="p-6" id="contentArea">
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm mb-1">Total Users</p>
+                            <h3 class="text-2xl font-bold text-gray-800" id="totalUsers">0</h3>
+                            <p class="text-sm mt-2">
+                                <span class="text-green-600">↑ 12%</span> from last month
+                            </p>
+                        </div>
+                        <div class="stat-icon" style="background: #dbeafe; color: #1e40af;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm mb-1">Active Streams</p>
+                            <h3 class="text-2xl font-bold text-gray-800" id="activeStreams">0</h3>
+                            <p class="text-sm mt-2">
+                                <span class="text-green-600">↑ 8%</span> from last hour
+                            </p>
+                        </div>
+                        <div class="stat-icon" style="background: #d1fae5; color: #065f46;">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm mb-1">Total Bandwidth</p>
+                            <h3 class="text-2xl font-bold text-gray-800" id="totalBandwidth">0 GB</h3>
+                            <p class="text-sm mt-2">
+                                <span class="text-orange-600">↓ 3%</span> from yesterday
+                            </p>
+                        </div>
+                        <div class="stat-icon" style="background: #fef3c7; color: #92400e;">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm mb-1">Server Health</p>
+                            <h3 class="text-2xl font-bold text-gray-800" id="serverHealth">100%</h3>
+                            <p class="text-sm mt-2">
+                                <span class="text-green-600">✓</span> All systems operational
+                            </p>
+                        </div>
+                        <div class="stat-icon" style="background: #dcfce7; color: #166534;">
+                            <i class="fas fa-server"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="chart-card">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Bandwidth Usage (24h)</h3>
+                    <canvas id="bandwidthChart" height="200"></canvas>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">User Distribution</h3>
+                    <canvas id="userChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="chart-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Recent Activity</h3>
+                    <button class="text-sm text-blue-600 hover:text-blue-800">View All</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">User</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Action</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityTable">
+                            <tr class="border-t">
+                                <td class="px-4 py-3 text-sm">Loading...</td>
+                                <td class="px-4 py-3 text-sm">-</td>
+                                <td class="px-4 py-3 text-sm">-</td>
+                                <td class="px-4 py-3 text-sm">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle Sidebar
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const toggleBtn = document.getElementById('toggleSidebar');
+
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            sidebar.classList.toggle('closed');
+            mainContent.classList.toggle('expanded');
+        });
+
+        // Menu Navigation
+        const menuItems = document.querySelectorAll('.menu-item');
+        const pageTitle = document.getElementById('pageTitle');
+
+        menuItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                menuItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                const page = item.dataset.page;
+                pageTitle.textContent = item.textContent.trim();
+                
+                // Close sidebar on mobile
+                if (window.innerWidth < 768) {
+                    sidebar.classList.remove('open');
+                    sidebar.classList.add('closed');
+                }
+            });
+        });
+
+        // Fetch Dashboard Data
+        async function fetchDashboardData() {
+            try {
+                // Fetch stats
+                const statsRes = await axios.get('/api/analytics/dashboard');
+                const stats = statsRes.data;
+
+                document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
+                document.getElementById('activeStreams').textContent = stats.activeStreams || 0;
+                document.getElementById('totalBandwidth').textContent = 
+                    ((stats.totalBandwidth || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                document.getElementById('serverHealth').textContent = 
+                    (stats.serverHealth || 100) + '%';
+
+                // Fetch bandwidth data
+                const bandwidthRes = await axios.get('/api/bandwidth/stats?granularity=1hour&limit=24');
+                const bandwidthData = bandwidthRes.data.stats || [];
+
+                // Update charts
+                updateBandwidthChart(bandwidthData);
+                updateUserChart();
+
+                // Fetch recent activity
+                fetchRecentActivity();
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            }
+        }
+
+        // Bandwidth Chart
+        let bandwidthChart;
+        function updateBandwidthChart(data) {
+            const ctx = document.getElementById('bandwidthChart').getContext('2d');
+            
+            if (bandwidthChart) {
+                bandwidthChart.destroy();
+            }
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            }));
+            const values = data.map(d => (d.totalBytes / 1024 / 1024 / 1024).toFixed(2));
+
+            bandwidthChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Bandwidth (GB)',
+                        data: values,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // User Chart
+        function updateUserChart() {
+            const ctx = document.getElementById('userChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active', 'Inactive', 'New'],
+                    datasets: [{
+                        data: [45, 30, 25],
+                        backgroundColor: [
+                            '#10b981',
+                            '#f59e0b',
+                            '#667eea'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Recent Activity
+        async function fetchRecentActivity() {
+            try {
+                const res = await axios.get('/api/audit-logs?limit=5');
+                const logs = res.data.logs || [];
+
+                const tbody = document.getElementById('activityTable');
+                tbody.innerHTML = logs.length ? logs.map(log => `
+                    <tr class="border-t hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">${log.username || 'Unknown'}</td>
+                        <td class="px-4 py-3 text-sm">${log.action}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="badge ${log.success ? 'success' : 'danger'}">
+                                ${log.success ? 'Success' : 'Failed'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            ${new Date(log.timestamp).toLocaleString()}
+                        </td>
+                    </tr>
+                `).join('') : '<tr><td colspan="4" class="px-4 py-3 text-sm text-center text-gray-500">No recent activity</td></tr>';
+            } catch (error) {
+                console.error('Error fetching activity:', error);
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchDashboardData, 30000);
+
+        // Initial load
+        fetchDashboardData();
+    </script>
+</body>
+</html>
