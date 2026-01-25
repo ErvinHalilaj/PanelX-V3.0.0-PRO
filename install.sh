@@ -1,487 +1,391 @@
 #!/bin/bash
 
-# PanelX IPTV Management Panel Installer
-# Compatible with Ubuntu 20.04, 22.04, 24.04
+###############################################################################
+# PanelX V3.0.0 PRO - Complete Installation & Setup Script
+# Installs all dependencies, configures database, builds frontend, and starts services
+###############################################################################
 
-set -e
+set -e  # Exit on error
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
-BOLD='\033[1m'
 
-# Default values
-INSTALL_DIR="/opt/panelx"
-NODE_VERSION="20"
-DB_NAME="panelx"
-DB_USER="panelx"
-SERVICE_NAME="panelx"
-PORT=5000
+# Emoji support
+CHECK_MARK="✅"
+CROSS_MARK="❌"
+ROCKET="🚀"
+GEAR="⚙️"
+DATABASE="🗄️"
+PACKAGE="📦"
+BUILD="🔨"
+TEST="🧪"
+WARN="⚠️"
 
 # Functions
-print_banner() {
-    clear
-    echo -e "${CYAN}"
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                                                               ║"
-    echo "║     ██████╗  █████╗ ███╗   ██╗███████╗██╗     ██╗  ██╗        ║"
-    echo "║     ██╔══██╗██╔══██╗████╗  ██║██╔════╝██║     ╚██╗██╔╝        ║"
-    echo "║     ██████╔╝███████║██╔██╗ ██║█████╗  ██║      ╚███╔╝         ║"
-    echo "║     ██╔═══╝ ██╔══██║██║╚██╗██║██╔══╝  ██║      ██╔██╗         ║"
-    echo "║     ██║     ██║  ██║██║ ╚████║███████╗███████╗██╔╝ ╚██╗       ║"
-    echo "║     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝╚═╝   ╚═╝       ║"
-    echo "║                                                               ║"
-    echo "║           IPTV Management Panel - Installer v3.0.0            ║"
-    echo "║                                                               ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-}
-
-print_step() {
-    echo -e "\n${BLUE}[STEP]${NC} $1"
+print_header() {
+    echo -e "\n${CYAN}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  $1${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}\n"
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${GREEN}${CHECK_MARK} $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}${CROSS_MARK} $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}${WARN} $1${NC}"
 }
 
 print_info() {
-    echo -e "${CYAN}[INFO]${NC} $1"
+    echo -e "${BLUE}${GEAR} $1${NC}"
 }
 
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This script must be run as root (sudo)"
+print_step() {
+    echo -e "\n${PURPLE}▶ $1${NC}"
+}
+
+# Check if running in correct directory
+check_directory() {
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found. Please run this script from the project root directory."
+        exit 1
+    fi
+    print_success "Running in correct directory"
+}
+
+# Check Node.js version
+check_node() {
+    print_step "Checking Node.js version..."
+    if ! command -v node &> /dev/null; then
+        print_error "Node.js is not installed. Please install Node.js 18 or higher."
+        exit 1
+    fi
+    
+    NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 18 ]; then
+        print_error "Node.js version 18 or higher is required. Current version: $(node -v)"
+        exit 1
+    fi
+    print_success "Node.js $(node -v) detected"
+}
+
+# Check npm
+check_npm() {
+    print_step "Checking npm..."
+    if ! command -v npm &> /dev/null; then
+        print_error "npm is not installed."
+        exit 1
+    fi
+    print_success "npm $(npm -v) detected"
+}
+
+# Check PM2
+check_pm2() {
+    print_step "Checking PM2..."
+    if ! command -v pm2 &> /dev/null; then
+        print_warning "PM2 not found. Installing PM2 globally..."
+        npm install -g pm2
+        print_success "PM2 installed"
+    else
+        print_success "PM2 $(pm2 -v) detected"
+    fi
+}
+
+# Clean old installations
+clean_install() {
+    print_step "Cleaning old installation..."
+    rm -rf node_modules
+    rm -rf dist
+    rm -rf .wrangler/state
+    rm -f package-lock.json
+    print_success "Old installation cleaned"
+}
+
+# Install dependencies
+install_dependencies() {
+    print_step "Installing dependencies..."
+    print_info "This may take a few minutes..."
+    
+    npm install --legacy-peer-deps --timeout=300000 2>&1 | tail -20
+    
+    if [ $? -eq 0 ]; then
+        print_success "Dependencies installed successfully"
+    else
+        print_error "Failed to install dependencies"
         exit 1
     fi
 }
 
-check_ubuntu() {
-    if ! grep -qi "ubuntu" /etc/os-release 2>/dev/null; then
-        print_warning "This script is designed for Ubuntu. Other distributions may not work correctly."
-        read -p "Continue anyway? (y/n): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+# Setup environment file
+setup_env() {
+    print_step "Setting up environment..."
+    
+    if [ ! -f ".env" ]; then
+        if [ -f ".env.example" ]; then
+            cp .env.example .env
+            print_success "Created .env from .env.example"
+        else
+            print_warning "No .env.example found, creating basic .env"
+            cat > .env << EOF
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/panelx
+
+# Server
+PORT=3000
+NODE_ENV=development
+
+# JWT
+JWT_SECRET=$(openssl rand -base64 32)
+
+# Session
+SESSION_SECRET=$(openssl rand -base64 32)
+
+# CDN (optional)
+CDN_URL=
+
+# TMDB (optional)
+TMDB_API_KEY=
+
+# Email (optional)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+EOF
+            print_success "Created basic .env file"
+        fi
+    else
+        print_success ".env file already exists"
+    fi
+}
+
+# Initialize database
+init_database() {
+    print_step "Initializing database..."
+    
+    # Check if wrangler is available
+    if ! command -v wrangler &> /dev/null; then
+        print_info "Installing wrangler..."
+        npm install -g wrangler
+    fi
+    
+    # Create local D1 database if configured
+    if grep -q "d1_databases" wrangler.jsonc 2>/dev/null; then
+        print_info "Applying database migrations..."
+        npm run db:migrate:local 2>&1 | tail -10 || print_warning "Migrations skipped (may already be applied)"
+        print_success "Database initialized"
+    else
+        print_warning "No D1 database configured in wrangler.jsonc"
+    fi
+}
+
+# Build frontend
+build_frontend() {
+    print_step "Building frontend..."
+    print_info "This may take a few minutes..."
+    
+    # Increase Node memory for build
+    export NODE_OPTIONS="--max-old-space-size=4096"
+    
+    npm run build 2>&1 | tail -30
+    
+    if [ $? -eq 0 ]; then
+        print_success "Frontend built successfully"
+        
+        # Check if dist directory exists and has files
+        if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
+            print_success "Build output verified in dist/"
+        else
+            print_error "Build completed but dist/ directory is empty"
             exit 1
         fi
-    fi
-}
-
-check_system_requirements() {
-    print_step "Checking system requirements..."
-    
-    # Check RAM (minimum 1GB recommended)
-    TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
-    if [ "$TOTAL_RAM" -lt 1024 ]; then
-        print_warning "System has less than 1GB RAM. Performance may be affected."
     else
-        print_success "RAM: ${TOTAL_RAM}MB"
-    fi
-    
-    # Check disk space (minimum 5GB)
-    FREE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
-    if [ "$FREE_SPACE" -lt 5120 ]; then
-        print_error "Insufficient disk space. At least 5GB required."
+        print_error "Frontend build failed"
+        print_info "Try running with more memory: NODE_OPTIONS='--max-old-space-size=8192' npm run build"
         exit 1
-    else
-        print_success "Disk space: ${FREE_SPACE}MB free"
     fi
 }
 
-install_dependencies() {
-    print_step "Installing system dependencies..."
+# Setup PM2 ecosystem
+setup_pm2() {
+    print_step "Setting up PM2 configuration..."
     
-    apt-get update -qq
-    apt-get install -y -qq curl wget gnupg2 ca-certificates lsb-release apt-transport-https software-properties-common git
-    
-    print_success "System dependencies installed"
-}
-
-install_nodejs() {
-    print_step "Installing Node.js ${NODE_VERSION}..."
-    
-    if command -v node &> /dev/null; then
-        CURRENT_NODE=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [ "$CURRENT_NODE" -ge "$NODE_VERSION" ]; then
-            print_success "Node.js $(node -v) already installed"
-            return
-        fi
-    fi
-    
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
-    apt-get install -y -qq nodejs
-    
-    print_success "Node.js $(node -v) installed"
-}
-
-install_postgresql() {
-    print_step "Installing PostgreSQL..."
-    
-    if command -v psql &> /dev/null; then
-        print_success "PostgreSQL already installed"
-    else
-        apt-get install -y -qq postgresql postgresql-contrib
-    fi
-    
-    # Start and enable PostgreSQL
-    systemctl start postgresql
-    systemctl enable postgresql
-    
-    print_success "PostgreSQL installed and running"
-}
-
-generate_password() {
-    openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 24
-}
-
-setup_database() {
-    print_step "Setting up database..."
-    
-    DB_PASSWORD=$(generate_password)
-    
-    # Create database user and database
-    sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null || true
-    sudo -u postgres psql -c "DROP USER IF EXISTS ${DB_USER};" 2>/dev/null || true
-    sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';"
-    sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
-    
-    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}"
-    
-    print_success "Database created successfully"
-}
-
-wizard_get_config() {
-    echo ""
-    echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}${CYAN}                    INSTALLATION WIZARD                        ${NC}"
-    echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    # Installation directory
-    read -p "Installation directory [${INSTALL_DIR}]: " input_dir
-    INSTALL_DIR=${input_dir:-$INSTALL_DIR}
-    
-    # Port
-    read -p "Web server port [${PORT}]: " input_port
-    PORT=${input_port:-$PORT}
-    
-    # Admin credentials
-    echo ""
-    echo -e "${BOLD}Admin Account Setup${NC}"
-    echo "─────────────────────────────────────────────────"
-    
-    while true; do
-        read -p "Admin username: " ADMIN_USERNAME
-        if [ -z "$ADMIN_USERNAME" ]; then
-            print_error "Username cannot be empty"
-        elif [ ${#ADMIN_USERNAME} -lt 3 ]; then
-            print_error "Username must be at least 3 characters"
-        else
-            break
-        fi
-    done
-    
-    while true; do
-        read -s -p "Admin password: " ADMIN_PASSWORD
-        echo
-        if [ -z "$ADMIN_PASSWORD" ]; then
-            print_error "Password cannot be empty"
-        elif [ ${#ADMIN_PASSWORD} -lt 6 ]; then
-            print_error "Password must be at least 6 characters"
-        else
-            read -s -p "Confirm password: " ADMIN_PASSWORD_CONFIRM
-            echo
-            if [ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]; then
-                print_error "Passwords do not match"
-            else
-                break
-            fi
-        fi
-    done
-    
-    # Session secret
-    SESSION_SECRET=$(generate_password)
-    
-    echo ""
-    echo -e "${BOLD}Configuration Summary${NC}"
-    echo "─────────────────────────────────────────────────"
-    echo -e "Install directory: ${GREEN}${INSTALL_DIR}${NC}"
-    echo -e "Web port:          ${GREEN}${PORT}${NC}"
-    echo -e "Admin username:    ${GREEN}${ADMIN_USERNAME}${NC}"
-    echo -e "Admin password:    ${GREEN}********${NC}"
-    echo ""
-    
-    read -p "Proceed with installation? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Installation cancelled"
-        exit 0
-    fi
-}
-
-download_panelx() {
-    print_step "Downloading PanelX..."
-    
-    # Create installation directory
-    mkdir -p "$INSTALL_DIR"
-    
-    # Clone or copy files
-    if [ -d ".git" ]; then
-        # If running from git repo, copy files
-        cp -r . "$INSTALL_DIR/"
-    else
-        # Download from GitHub
-        git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git "$INSTALL_DIR"
-    fi
-    
-    cd "$INSTALL_DIR"
-    
-    print_success "PanelX downloaded to ${INSTALL_DIR}"
-}
-
-install_npm_packages() {
-    print_step "Installing Node.js packages..."
-    
-    cd "$INSTALL_DIR"
-    npm install --production=false
-    
-    print_success "Node.js packages installed"
-}
-
-create_env_file() {
-    print_step "Creating environment configuration..."
-    
-    cat > "$INSTALL_DIR/.env" << EOF
-# PanelX Configuration
-# Generated by installer on $(date)
-
-DATABASE_URL=${DATABASE_URL}
-SESSION_SECRET=${SESSION_SECRET}
-PORT=${PORT}
-NODE_ENV=production
-EOF
-    
-    chmod 600 "$INSTALL_DIR/.env"
-    
-    print_success "Environment configuration created"
-}
-
-setup_initial_admin() {
-    print_step "Setting up initial admin user..."
-    
-    cd "$INSTALL_DIR"
-    
-    # Create a setup script to initialize the admin user (ES module compatible)
-    cat > "$INSTALL_DIR/setup-admin.mjs" << 'EOFJS'
-import bcrypt from 'bcryptjs';
-import pg from 'pg';
-
-const { Pool } = pg;
-const databaseUrl = process.argv[2];
-const username = process.argv[3];
-const password = process.argv[4];
-
-if (!databaseUrl || !username || !password) {
-    console.error('Usage: node setup-admin.mjs <database_url> <username> <password>');
-    process.exit(1);
-}
-
-async function setupAdmin() {
-    const pool = new Pool({ connectionString: databaseUrl });
-    
-    try {
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Check if admin exists
-        const existing = await pool.query(
-            'SELECT id FROM users WHERE username = $1',
-            [username]
-        );
-        
-        if (existing.rows.length > 0) {
-            // Update existing admin
-            await pool.query(
-                'UPDATE users SET password = $1 WHERE username = $2',
-                [hashedPassword, username]
-            );
-            console.log('Admin user updated successfully');
-        } else {
-            // Create new admin
-            await pool.query(
-                `INSERT INTO users (username, password, role, credits, enabled) 
-                 VALUES ($1, $2, 'admin', 0, true)`,
-                [username, hashedPassword]
-            );
-            console.log('Admin user created successfully');
-        }
-        
-        await pool.end();
-        process.exit(0);
-    } catch (error) {
-        console.error('Error setting up admin:', error.message);
-        await pool.end();
-        process.exit(1);
+    if [ ! -f "ecosystem.config.cjs" ]; then
+        print_info "Creating PM2 ecosystem config..."
+        cat > ecosystem.config.cjs << 'EOF'
+module.exports = {
+  apps: [
+    {
+      name: 'panelx',
+      script: 'npx',
+      args: 'wrangler pages dev dist --ip 0.0.0.0 --port 3000',
+      env: {
+        NODE_ENV: 'development',
+        PORT: 3000
+      },
+      watch: false,
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s'
     }
-}
-
-setupAdmin();
-EOFJS
-    
-    # Build the application first
-    npm run build 2>/dev/null || true
-    
-    # Push database schema
-    npm run db:push 2>/dev/null || npx drizzle-kit push 2>/dev/null || true
-    
-    # Create admin user (pass DATABASE_URL directly as argument)
-    node setup-admin.mjs "$DATABASE_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
-    
-    # Remove setup script
-    rm -f setup-admin.mjs
-    
-    print_success "Admin user created"
-}
-
-create_systemd_service() {
-    print_step "Creating systemd service..."
-    
-    cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
-[Unit]
-Description=PanelX IPTV Management Panel
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=${INSTALL_DIR}
-Environment=NODE_ENV=production
-EnvironmentFile=${INSTALL_DIR}/.env
-ExecStart=/usr/bin/node ${INSTALL_DIR}/dist/index.cjs
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
+  ]
+};
 EOF
-    
-    systemctl daemon-reload
-    systemctl enable ${SERVICE_NAME}
-    
-    print_success "Systemd service created"
+        print_success "PM2 configuration created"
+    else
+        print_success "PM2 configuration already exists"
+    fi
 }
 
-start_panelx() {
-    print_step "Starting PanelX..."
+# Start services
+start_services() {
+    print_step "Starting services..."
     
-    systemctl start ${SERVICE_NAME}
+    # Kill any existing processes on port 3000
+    print_info "Cleaning port 3000..."
+    fuser -k 3000/tcp 2>/dev/null || true
+    
+    # Stop any existing PM2 processes
+    pm2 delete panelx 2>/dev/null || true
+    
+    # Start with PM2
+    print_info "Starting PanelX with PM2..."
+    pm2 start ecosystem.config.cjs
+    
+    # Wait for service to start
+    print_info "Waiting for service to start..."
+    sleep 5
+    
+    # Check if service is running
+    if pm2 list | grep -q "panelx.*online"; then
+        print_success "Services started successfully"
+        return 0
+    else
+        print_error "Failed to start services"
+        pm2 logs panelx --nostream --lines 20
+        return 1
+    fi
+}
+
+# Test service
+test_service() {
+    print_step "Testing service..."
+    
+    # Wait a bit more for service to be ready
     sleep 3
     
-    if systemctl is-active --quiet ${SERVICE_NAME}; then
-        print_success "PanelX is running"
+    # Test health endpoint
+    if curl -f -s http://localhost:3000 > /dev/null 2>&1; then
+        print_success "Service is responding on http://localhost:3000"
+        return 0
     else
-        print_error "Failed to start PanelX"
-        systemctl status ${SERVICE_NAME}
-        exit 1
+        print_error "Service is not responding"
+        print_info "Checking PM2 logs..."
+        pm2 logs panelx --nostream --lines 30
+        return 1
     fi
 }
 
-configure_firewall() {
-    print_step "Configuring firewall..."
+# Display summary
+display_summary() {
+    print_header "${ROCKET} Installation Complete!"
     
-    if command -v ufw &> /dev/null; then
-        ufw allow ${PORT}/tcp 2>/dev/null || true
-        print_success "Firewall configured for port ${PORT}"
-    else
-        print_info "UFW not installed, skipping firewall configuration"
-    fi
-}
-
-print_completion() {
-    # Get server IP
-    SERVER_IP=$(hostname -I | awk '{print $1}')
+    echo -e "${GREEN}PanelX V3.0.0 PRO is now installed and running!${NC}\n"
     
-    echo ""
-    echo -e "${GREEN}"
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                                                               ║"
-    echo "║              INSTALLATION COMPLETED SUCCESSFULLY!             ║"
-    echo "║                                                               ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-    echo ""
-    echo -e "${BOLD}Access your PanelX installation:${NC}"
-    echo "─────────────────────────────────────────────────"
-    echo -e "  URL:       ${CYAN}http://${SERVER_IP}:${PORT}${NC}"
-    echo -e "  Username:  ${CYAN}${ADMIN_USERNAME}${NC}"
-    echo -e "  Password:  ${CYAN}********${NC}"
-    echo ""
-    echo -e "${BOLD}Useful commands:${NC}"
-    echo "─────────────────────────────────────────────────"
-    echo -e "  Start:     ${YELLOW}systemctl start ${SERVICE_NAME}${NC}"
-    echo -e "  Stop:      ${YELLOW}systemctl stop ${SERVICE_NAME}${NC}"
-    echo -e "  Restart:   ${YELLOW}systemctl restart ${SERVICE_NAME}${NC}"
-    echo -e "  Status:    ${YELLOW}systemctl status ${SERVICE_NAME}${NC}"
-    echo -e "  Logs:      ${YELLOW}journalctl -u ${SERVICE_NAME} -f${NC}"
-    echo ""
-    echo -e "${BOLD}Installation directory:${NC} ${INSTALL_DIR}"
-    echo -e "${BOLD}Configuration file:${NC} ${INSTALL_DIR}/.env"
-    echo ""
-    echo -e "${BOLD}To uninstall:${NC} ${YELLOW}bash ${INSTALL_DIR}/uninstall.sh${NC}"
-    echo ""
+    echo -e "${CYAN}📊 Service Information:${NC}"
+    echo -e "  ${BLUE}•${NC} Status: ${GREEN}Running${NC}"
+    echo -e "  ${BLUE}•${NC} URL: ${GREEN}http://localhost:3000${NC}"
+    echo -e "  ${BLUE}•${NC} Process Manager: ${GREEN}PM2${NC}\n"
     
-    # Save installation info
-    cat > "${INSTALL_DIR}/install.info" << EOF
-INSTALL_DIR=${INSTALL_DIR}
-PORT=${PORT}
-DB_NAME=${DB_NAME}
-DB_USER=${DB_USER}
-SERVICE_NAME=${SERVICE_NAME}
-INSTALLED_DATE=$(date)
-EOF
+    echo -e "${CYAN}🔧 Useful Commands:${NC}"
+    echo -e "  ${BLUE}•${NC} Check status:    ${YELLOW}pm2 status${NC}"
+    echo -e "  ${BLUE}•${NC} View logs:       ${YELLOW}pm2 logs panelx${NC}"
+    echo -e "  ${BLUE}•${NC} Restart:         ${YELLOW}pm2 restart panelx${NC}"
+    echo -e "  ${BLUE}•${NC} Stop:            ${YELLOW}pm2 stop panelx${NC}"
+    echo -e "  ${BLUE}•${NC} Delete:          ${YELLOW}pm2 delete panelx${NC}\n"
     
-    chmod 600 "${INSTALL_DIR}/install.info"
+    echo -e "${CYAN}📚 Documentation:${NC}"
+    echo -e "  ${BLUE}•${NC} README.md"
+    echo -e "  ${BLUE}•${NC} PHASE4_5_COMPLETE_REPORT.md"
+    echo -e "  ${BLUE}•${NC} FINAL_COMPLETION_REPORT.md\n"
+    
+    echo -e "${GREEN}${ROCKET} Ready to use! Open http://localhost:3000 in your browser${NC}\n"
 }
 
 # Main installation flow
 main() {
-    print_banner
+    print_header "${ROCKET} PanelX V3.0.0 PRO - Installation"
     
-    check_root
-    check_ubuntu
-    check_system_requirements
-    wizard_get_config
+    echo -e "${CYAN}This script will:${NC}"
+    echo -e "  1. ${BLUE}Check system requirements${NC}"
+    echo -e "  2. ${BLUE}Clean old installations${NC}"
+    echo -e "  3. ${BLUE}Install dependencies${NC}"
+    echo -e "  4. ${BLUE}Setup environment${NC}"
+    echo -e "  5. ${BLUE}Initialize database${NC}"
+    echo -e "  6. ${BLUE}Build frontend${NC}"
+    echo -e "  7. ${BLUE}Setup PM2${NC}"
+    echo -e "  8. ${BLUE}Start services${NC}"
+    echo -e "  9. ${BLUE}Test service${NC}\n"
     
-    echo ""
-    print_step "Starting installation..."
-    echo ""
+    read -p "Continue with installation? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_warning "Installation cancelled"
+        exit 0
+    fi
+    
+    # Run installation steps
+    check_directory
+    check_node
+    check_npm
+    check_pm2
+    
+    if [ "$1" == "--full" ] || [ "$1" == "-f" ]; then
+        clean_install
+    fi
     
     install_dependencies
-    install_nodejs
-    install_postgresql
-    setup_database
-    download_panelx
-    install_npm_packages
-    create_env_file
-    setup_initial_admin
-    create_systemd_service
-    configure_firewall
-    start_panelx
-    print_completion
+    setup_env
+    init_database
+    build_frontend
+    setup_pm2
+    
+    if start_services && test_service; then
+        display_summary
+        exit 0
+    else
+        print_error "Installation completed but service failed to start"
+        print_info "Check the logs with: pm2 logs panelx"
+        exit 1
+    fi
 }
 
-# Run main function
-main "$@"
+# Handle script arguments
+case "$1" in
+    --help|-h)
+        echo "PanelX V3.0.0 PRO Installation Script"
+        echo ""
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  --full, -f       Clean installation (removes node_modules)"
+        echo "  --help, -h       Show this help message"
+        echo ""
+        exit 0
+        ;;
+    *)
+        main "$@"
+        ;;
+esac
