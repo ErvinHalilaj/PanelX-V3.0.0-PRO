@@ -5,7 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "dev:client": "vite --config vite.config.client.ts",
+    "build": "npm run build:api && npm run build:client",
+    "build:api": "vite build",
+    "build:client": "vite build --config vite.config.client.ts",
     "preview": "wrangler pages dev dist",
     "start": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
     "check": "tsc",
