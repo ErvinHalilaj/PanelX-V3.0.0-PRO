@@ -3,7 +3,7 @@
  * EPG search, reminders, recording scheduler, catch-up TV support
  */
 
-import { db } from '@db';
+import { db } from '../db';
 import { 
   epgData,
   epgReminders,

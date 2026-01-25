@@ -2049,315 +2049,315 @@ export async function registerRoutes(
     }
   });
 
-  // === PHASE 4: ADVANCED FEATURES ===
-
-  // ===== RECOMMENDATION ENGINE =====
-  
-  // Get personalized recommendations for user
-  app.get('/api/recommendations/:userId', async (c) => {
-    const userId = parseInt(c.req.param('userId'));
-    const type = c.req.query('type') || 'all'; // 'all', 'movies', 'series', 'live'
-    const limit = parseInt(c.req.query('limit') || '20');
-
-    // Import recommendation service dynamically
-    const { getPersonalizedRecommendations } = await import('./services/recommendation');
-    
-    const recommendations = await getPersonalizedRecommendations(userId, {
-      type: type as any,
-      limit
-    });
-
-    return c.json({ recommendations });
-  });
-
-  // Get similar content
-  app.get('/api/recommendations/similar/:contentId', async (c) => {
-    const contentId = parseInt(c.req.param('contentId'));
-    const contentType = c.req.query('type') || 'vod'; // 'vod', 'series', 'episode'
-    const limit = parseInt(c.req.query('limit') || '10');
-
-    const { getSimilarContent } = await import('./services/recommendation');
-    
-    const similar = await getSimilarContent(contentId, contentType as any, limit);
-
-    return c.json({ similar });
-  });
-
-  // Get trending content
-  app.get('/api/recommendations/trending', async (c) => {
-    const period = c.req.query('period') || '7d'; // '24h', '7d', '30d'
-    const type = c.req.query('type') || 'all';
-    const limit = parseInt(c.req.query('limit') || '20');
-
-    const { getTrendingContent } = await import('./services/recommendation');
-    
-    const trending = await getTrendingContent({ period: period as any, type: type as any, limit });
-
-    return c.json({ trending });
-  });
-
-  // Update user preferences
-  app.post('/api/recommendations/preferences/:userId', async (c) => {
-    const userId = parseInt(c.req.param('userId'));
-    const { categories, languages, preferredQuality } = await c.req.json();
-
-    const { updateUserPreferences } = await import('./services/recommendation');
-    
-    await updateUserPreferences(userId, { categories, languages, preferredQuality });
-
-    return c.json({ success: true });
-  });
-
-  // ===== ML ANALYTICS =====
-
-  // Get user analytics dashboard
-  app.get('/api/analytics/dashboard', async (c) => {
-    const period = c.req.query('period') || '30d';
-
-    const { getAnalyticsDashboard } = await import('./services/analytics');
-    
-    const dashboard = await getAnalyticsDashboard(period);
-
-    return c.json(dashboard);
-  });
-
-  // Predict user churn
-  app.get('/api/analytics/churn/:userId', async (c) => {
-    const userId = parseInt(c.req.param('userId'));
-
-    const { predictChurn } = await import('./services/analytics');
-    
-    const prediction = await predictChurn(userId);
-
-    return c.json(prediction);
-  });
-
-  // Get content performance analytics
-  app.get('/api/analytics/content/:contentId', async (c) => {
-    const contentId = parseInt(c.req.param('contentId'));
-    const contentType = c.req.query('type') || 'vod';
-
-    const { getContentPerformance } = await import('./services/analytics');
-    
-    const performance = await getContentPerformance(contentId, contentType as any);
-
-    return c.json(performance);
-  });
-
-  // Get user segmentation
-  app.get('/api/analytics/segments', async (c) => {
-    const { getUserSegments } = await import('./services/analytics');
-    
-    const segments = await getUserSegments();
-
-    return c.json({ segments });
-  });
-
-  // ===== CDN INTEGRATION =====
-
-  // List CDN providers
-  app.get('/api/cdn/providers', async (c) => {
-    const { listCdnProviders } = await import('./services/cdn');
-    
-    const providers = await listCdnProviders();
-
-    return c.json({ providers });
-  });
-
-  // Create CDN provider
-  app.post('/api/cdn/providers', async (c) => {
-    const data = await c.req.json();
-
-    const { createCdnProvider } = await import('./services/cdn');
-    
-    const provider = await createCdnProvider(data);
-
-    return c.json(provider);
-  });
-
-  // Update CDN provider
-  app.patch('/api/cdn/providers/:id', async (c) => {
-    const id = parseInt(c.req.param('id'));
-    const data = await c.req.json();
-
-    const { updateCdnProvider } = await import('./services/cdn');
-    
-    const provider = await updateCdnProvider(id, data);
-
-    return c.json(provider);
-  });
-
-  // Delete CDN provider
-  app.delete('/api/cdn/providers/:id', async (c) => {
-    const id = parseInt(c.req.param('id'));
-
-    const { deleteCdnProvider } = await import('./services/cdn');
-    
-    await deleteCdnProvider(id);
-
-    return c.json({ success: true });
-  });
-
-  // Get CDN analytics
-  app.get('/api/cdn/analytics', async (c) => {
-    const startDate = new Date(c.req.query('startDate') || Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const endDate = new Date(c.req.query('endDate') || Date.now());
-
-    const { getCdnAnalytics } = await import('./services/cdn');
-    
-    const analytics = await getCdnAnalytics(startDate, endDate);
-
-    return c.json({ analytics });
-  });
-
-  // Get cost optimization report
-  app.get('/api/cdn/cost-optimization', async (c) => {
-    const period = c.req.query('period') || new Date().toISOString().substring(0, 7);
-
-    const { getCostOptimizationReport } = await import('./services/cdn');
-    
-    const report = await getCostOptimizationReport(period);
-
-    return c.json(report);
-  });
-
-  // Track CDN usage
-  app.post('/api/cdn/track', async (c) => {
-    const data = await c.req.json();
-
-    const { trackCdnUsage } = await import('./services/cdn');
-    
-    await trackCdnUsage(data);
-
-    return c.json({ success: true });
-  });
-
-  // Purge CDN cache
-  app.post('/api/cdn/purge/:providerId', async (c) => {
-    const providerId = parseInt(c.req.param('providerId'));
-    const { paths } = await c.req.json();
-
-    const { purgeCdnCache } = await import('./services/cdn');
-    
-    const success = await purgeCdnCache(providerId, paths);
-
-    return c.json({ success });
-  });
-
-  // ===== ADVANCED EPG =====
-
-  // Search EPG programs
-  app.get('/api/epg/search', async (c) => {
-    const query = c.req.query('q');
-    const channelId = c.req.query('channelId');
-    const category = c.req.query('category');
-    const limit = parseInt(c.req.query('limit') || '50');
-    const offset = parseInt(c.req.query('offset') || '0');
-
-    const { searchEpgPrograms } = await import('./services/epg');
-    
-    const programs = await searchEpgPrograms({
-      query,
-      channelId: channelId ? parseInt(channelId) : undefined,
-      category
-    }, limit, offset);
-
-    return c.json({ programs, count: programs.length });
-  });
-
-  // Get channel schedule
-  app.get('/api/epg/channel/:channelId', async (c) => {
-    const channelId = parseInt(c.req.param('channelId'));
-    const hours = parseInt(c.req.query('hours') || '24');
-
-    const { getChannelSchedule } = await import('./services/epg');
-    
-    const schedule = await getChannelSchedule(channelId, hours);
-
-    return c.json({ schedule });
-  });
-
-  // Create program reminder
-  app.post('/api/epg/reminders', async (c) => {
-    const data = await c.req.json();
-
-    const { createReminder } = await import('./services/epg');
-    
-    const reminder = await createReminder(data);
-
-    return c.json(reminder);
-  });
-
-  // Get user reminders
-  app.get('/api/epg/reminders/:userId', async (c) => {
-    const userId = parseInt(c.req.param('userId'));
-    const includeExpired = c.req.query('includeExpired') === 'true';
-
-    const { getUserReminders } = await import('./services/epg');
-    
-    const reminders = await getUserReminders(userId, includeExpired);
-
-    return c.json({ reminders });
-  });
-
-  // Schedule recording
-  app.post('/api/epg/recordings', async (c) => {
-    const data = await c.req.json();
-
-    const { scheduleRecording } = await import('./services/epg');
-    
-    const recording = await scheduleRecording(data);
-
-    return c.json(recording);
-  });
-
-  // Get user recordings
-  app.get('/api/epg/recordings/:userId', async (c) => {
-    const userId = parseInt(c.req.param('userId'));
-    const status = c.req.query('status');
-
-    const { getUserRecordings } = await import('./services/epg');
-    
-    const recordings = await getUserRecordings(userId, status);
-
-    return c.json({ recordings });
-  });
-
-  // Update recording status
-  app.patch('/api/epg/recordings/:id', async (c) => {
-    const id = parseInt(c.req.param('id'));
-    const { status, fileUrl } = await c.req.json();
-
-    const { updateRecordingStatus } = await import('./services/epg');
-    
-    const recording = await updateRecordingStatus(id, status, fileUrl);
-
-    return c.json(recording);
-  });
-
-  // Get catch-up content
-  app.get('/api/epg/catchup/:channelId', async (c) => {
-    const channelId = parseInt(c.req.param('channelId'));
-    const days = parseInt(c.req.query('days') || '7');
-
-    const { getChannelCatchup } = await import('./services/epg');
-    
-    const catchup = await getChannelCatchup(channelId, days);
-
-    return c.json({ catchup });
-  });
-
-  // Track catch-up view
-  app.post('/api/epg/catchup/:id/view', async (c) => {
-    const id = parseInt(c.req.param('id'));
-
-    const { trackCatchupView } = await import('./services/epg');
-    
-    await trackCatchupView(id);
-
-    return c.json({ success: true });
-  });
-
+  //   // === PHASE 4: ADVANCED FEATURES ===
+  // 
+  //   // ===== RECOMMENDATION ENGINE =====
+  //   
+  //   // Get personalized recommendations for user
+  //   app.get('/api/recommendations/:userId', async (c) => {
+  //     const userId = parseInt(c.req.param('userId'));
+  //     const type = c.req.query('type') || 'all'; // 'all', 'movies', 'series', 'live'
+  //     const limit = parseInt(c.req.query('limit') || '20');
+  // 
+  //     // Import recommendation service dynamically
+  //     const { getPersonalizedRecommendations } = await import('./services/recommendation');
+  //     
+  //     const recommendations = await getPersonalizedRecommendations(userId, {
+  //       type: type as any,
+  //       limit
+  //     });
+  // 
+  //     return c.json({ recommendations });
+  //   });
+  // 
+  //   // Get similar content
+  //   app.get('/api/recommendations/similar/:contentId', async (c) => {
+  //     const contentId = parseInt(c.req.param('contentId'));
+  //     const contentType = c.req.query('type') || 'vod'; // 'vod', 'series', 'episode'
+  //     const limit = parseInt(c.req.query('limit') || '10');
+  // 
+  //     const { getSimilarContent } = await import('./services/recommendation');
+  //     
+  //     const similar = await getSimilarContent(contentId, contentType as any, limit);
+  // 
+  //     return c.json({ similar });
+  //   });
+  // 
+  //   // Get trending content
+  //   app.get('/api/recommendations/trending', async (c) => {
+  //     const period = c.req.query('period') || '7d'; // '24h', '7d', '30d'
+  //     const type = c.req.query('type') || 'all';
+  //     const limit = parseInt(c.req.query('limit') || '20');
+  // 
+  //     const { getTrendingContent } = await import('./services/recommendation');
+  //     
+  //     const trending = await getTrendingContent({ period: period as any, type: type as any, limit });
+  // 
+  //     return c.json({ trending });
+  //   });
+  // 
+  //   // Update user preferences
+  //   app.post('/api/recommendations/preferences/:userId', async (c) => {
+  //     const userId = parseInt(c.req.param('userId'));
+  //     const { categories, languages, preferredQuality } = await c.req.json();
+  // 
+  //     const { updateUserPreferences } = await import('./services/recommendation');
+  //     
+  //     await updateUserPreferences(userId, { categories, languages, preferredQuality });
+  // 
+  //     return c.json({ success: true });
+  //   });
+  // 
+  //   // ===== ML ANALYTICS =====
+  // 
+  //   // Get user analytics dashboard
+  //   app.get('/api/analytics/dashboard', async (c) => {
+  //     const period = c.req.query('period') || '30d';
+  // 
+  //     const { getAnalyticsDashboard } = await import('./services/analytics');
+  //     
+  //     const dashboard = await getAnalyticsDashboard(period);
+  // 
+  //     return c.json(dashboard);
+  //   });
+  // 
+  //   // Predict user churn
+  //   app.get('/api/analytics/churn/:userId', async (c) => {
+  //     const userId = parseInt(c.req.param('userId'));
+  // 
+  //     const { predictChurn } = await import('./services/analytics');
+  //     
+  //     const prediction = await predictChurn(userId);
+  // 
+  //     return c.json(prediction);
+  //   });
+  // 
+  //   // Get content performance analytics
+  //   app.get('/api/analytics/content/:contentId', async (c) => {
+  //     const contentId = parseInt(c.req.param('contentId'));
+  //     const contentType = c.req.query('type') || 'vod';
+  // 
+  //     const { getContentPerformance } = await import('./services/analytics');
+  //     
+  //     const performance = await getContentPerformance(contentId, contentType as any);
+  // 
+  //     return c.json(performance);
+  //   });
+  // 
+  //   // Get user segmentation
+  //   app.get('/api/analytics/segments', async (c) => {
+  //     const { getUserSegments } = await import('./services/analytics');
+  //     
+  //     const segments = await getUserSegments();
+  // 
+  //     return c.json({ segments });
+  //   });
+  // 
+  //   // ===== CDN INTEGRATION =====
+  // 
+  //   // List CDN providers
+  //   app.get('/api/cdn/providers', async (c) => {
+  //     const { listCdnProviders } = await import('./services/cdn');
+  //     
+  //     const providers = await listCdnProviders();
+  // 
+  //     return c.json({ providers });
+  //   });
+  // 
+  //   // Create CDN provider
+  //   app.post('/api/cdn/providers', async (c) => {
+  //     const data = await c.req.json();
+  // 
+  //     const { createCdnProvider } = await import('./services/cdn');
+  //     
+  //     const provider = await createCdnProvider(data);
+  // 
+  //     return c.json(provider);
+  //   });
+  // 
+  //   // Update CDN provider
+  //   app.patch('/api/cdn/providers/:id', async (c) => {
+  //     const id = parseInt(c.req.param('id'));
+  //     const data = await c.req.json();
+  // 
+  //     const { updateCdnProvider } = await import('./services/cdn');
+  //     
+  //     const provider = await updateCdnProvider(id, data);
+  // 
+  //     return c.json(provider);
+  //   });
+  // 
+  //   // Delete CDN provider
+  //   app.delete('/api/cdn/providers/:id', async (c) => {
+  //     const id = parseInt(c.req.param('id'));
+  // 
+  //     const { deleteCdnProvider } = await import('./services/cdn');
+  //     
+  //     await deleteCdnProvider(id);
+  // 
+  //     return c.json({ success: true });
+  //   });
+  // 
+  //   // Get CDN analytics
+  //   app.get('/api/cdn/analytics', async (c) => {
+  //     const startDate = new Date(c.req.query('startDate') || Date.now() - 30 * 24 * 60 * 60 * 1000);
+  //     const endDate = new Date(c.req.query('endDate') || Date.now());
+  // 
+  //     const { getCdnAnalytics } = await import('./services/cdn');
+  //     
+  //     const analytics = await getCdnAnalytics(startDate, endDate);
+  // 
+  //     return c.json({ analytics });
+  //   });
+  // 
+  //   // Get cost optimization report
+  //   app.get('/api/cdn/cost-optimization', async (c) => {
+  //     const period = c.req.query('period') || new Date().toISOString().substring(0, 7);
+  // 
+  //     const { getCostOptimizationReport } = await import('./services/cdn');
+  //     
+  //     const report = await getCostOptimizationReport(period);
+  // 
+  //     return c.json(report);
+  //   });
+  // 
+  //   // Track CDN usage
+  //   app.post('/api/cdn/track', async (c) => {
+  //     const data = await c.req.json();
+  // 
+  //     const { trackCdnUsage } = await import('./services/cdn');
+  //     
+  //     await trackCdnUsage(data);
+  // 
+  //     return c.json({ success: true });
+  //   });
+  // 
+  //   // Purge CDN cache
+  //   app.post('/api/cdn/purge/:providerId', async (c) => {
+  //     const providerId = parseInt(c.req.param('providerId'));
+  //     const { paths } = await c.req.json();
+  // 
+  //     const { purgeCdnCache } = await import('./services/cdn');
+  //     
+  //     const success = await purgeCdnCache(providerId, paths);
+  // 
+  //     return c.json({ success });
+  //   });
+  // 
+  //   // ===== ADVANCED EPG =====
+  // 
+  //   // Search EPG programs
+  //   app.get('/api/epg/search', async (c) => {
+  //     const query = c.req.query('q');
+  //     const channelId = c.req.query('channelId');
+  //     const category = c.req.query('category');
+  //     const limit = parseInt(c.req.query('limit') || '50');
+  //     const offset = parseInt(c.req.query('offset') || '0');
+  // 
+  //     const { searchEpgPrograms } = await import('./services/epg');
+  //     
+  //     const programs = await searchEpgPrograms({
+  //       query,
+  //       channelId: channelId ? parseInt(channelId) : undefined,
+  //       category
+  //     }, limit, offset);
+  // 
+  //     return c.json({ programs, count: programs.length });
+  //   });
+  // 
+  //   // Get channel schedule
+  //   app.get('/api/epg/channel/:channelId', async (c) => {
+  //     const channelId = parseInt(c.req.param('channelId'));
+  //     const hours = parseInt(c.req.query('hours') || '24');
+  // 
+  //     const { getChannelSchedule } = await import('./services/epg');
+  //     
+  //     const schedule = await getChannelSchedule(channelId, hours);
+  // 
+  //     return c.json({ schedule });
+  //   });
+  // 
+  //   // Create program reminder
+  //   app.post('/api/epg/reminders', async (c) => {
+  //     const data = await c.req.json();
+  // 
+  //     const { createReminder } = await import('./services/epg');
+  //     
+  //     const reminder = await createReminder(data);
+  // 
+  //     return c.json(reminder);
+  //   });
+  // 
+  //   // Get user reminders
+  //   app.get('/api/epg/reminders/:userId', async (c) => {
+  //     const userId = parseInt(c.req.param('userId'));
+  //     const includeExpired = c.req.query('includeExpired') === 'true';
+  // 
+  //     const { getUserReminders } = await import('./services/epg');
+  //     
+  //     const reminders = await getUserReminders(userId, includeExpired);
+  // 
+  //     return c.json({ reminders });
+  //   });
+  // 
+  //   // Schedule recording
+  //   app.post('/api/epg/recordings', async (c) => {
+  //     const data = await c.req.json();
+  // 
+  //     const { scheduleRecording } = await import('./services/epg');
+  //     
+  //     const recording = await scheduleRecording(data);
+  // 
+  //     return c.json(recording);
+  //   });
+  // 
+  //   // Get user recordings
+  //   app.get('/api/epg/recordings/:userId', async (c) => {
+  //     const userId = parseInt(c.req.param('userId'));
+  //     const status = c.req.query('status');
+  // 
+  //     const { getUserRecordings } = await import('./services/epg');
+  //     
+  //     const recordings = await getUserRecordings(userId, status);
+  // 
+  //     return c.json({ recordings });
+  //   });
+  // 
+  //   // Update recording status
+  //   app.patch('/api/epg/recordings/:id', async (c) => {
+  //     const id = parseInt(c.req.param('id'));
+  //     const { status, fileUrl } = await c.req.json();
+  // 
+  //     const { updateRecordingStatus } = await import('./services/epg');
+  //     
+  //     const recording = await updateRecordingStatus(id, status, fileUrl);
+  // 
+  //     return c.json(recording);
+  //   });
+  // 
+  //   // Get catch-up content
+  //   app.get('/api/epg/catchup/:channelId', async (c) => {
+  //     const channelId = parseInt(c.req.param('channelId'));
+  //     const days = parseInt(c.req.query('days') || '7');
+  // 
+  //     const { getChannelCatchup } = await import('./services/epg');
+  //     
+  //     const catchup = await getChannelCatchup(channelId, days);
+  // 
+  //     return c.json({ catchup });
+  //   });
+  // 
+  //   // Track catch-up view
+  //   app.post('/api/epg/catchup/:id/view', async (c) => {
+  //     const id = parseInt(c.req.param('id'));
+  // 
+  //     const { trackCatchupView } = await import('./services/epg');
+  //     
+  //     await trackCatchupView(id);
+  // 
+  //     return c.json({ success: true });
+  //   });
+  // 
   // === BACKUP & RESTORE ===
   
   // Get all backups

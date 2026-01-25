@@ -3,7 +3,7 @@
  * Multi-CDN support with intelligent selection, caching, analytics, and cost optimization
  */
 
-import { db } from '@db';
+import { db } from '../db';
 import { 
   cdnProviders, 
   cdnConfigs, 

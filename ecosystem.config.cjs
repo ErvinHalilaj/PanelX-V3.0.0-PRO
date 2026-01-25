@@ -1,16 +1,17 @@
 module.exports = {
   apps: [{
     name: 'panelx',
-    script: 'npm',
-    args: 'run dev',
+    script: 'npx',
+    args: 'wrangler pages dev dist --ip 0.0.0.0 --port 3000',
     env: {
       NODE_ENV: 'development',
-      PORT: '5000',
-      DATABASE_URL: 'postgresql://user:password@localhost:5432/panelx',
-      SESSION_SECRET: 'panelx-super-secret-key-change-in-production'
+      PORT: 3000
     },
     watch: false,
     instances: 1,
-    exec_mode: 'fork'
+    exec_mode: 'fork',
+    autorestart: true,
+    max_restarts: 10,
+    min_uptime: '10s'
   }]
 };

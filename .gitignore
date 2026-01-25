@@ -6,3 +6,8 @@ vite.config.ts.*
 *.tar.gz
 .env
 core
+
+# Backups
+backups/
+*.backup
+*.sql.gz

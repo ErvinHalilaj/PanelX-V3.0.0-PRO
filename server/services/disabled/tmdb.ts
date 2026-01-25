@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import { db } from "./db";
+import { db } from "../db";
 import { tmdbMetadata, tmdbSyncQueue, tmdbSyncLogs, series, vodInfo } from "@shared/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 

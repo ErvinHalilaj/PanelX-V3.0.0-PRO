@@ -7,11 +7,11 @@ import { backups } from '@shared/schema';
 
 const execAsync = promisify(exec);
 
-const BACKUP_DIR = process.env.BACKUP_DIR || '/var/backups/panelx';
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
 
 // Ensure backup directory exists
 if (!fs.existsSync(BACKUP_DIR)) {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o755 });
 }
 
 export interface BackupOptions {
