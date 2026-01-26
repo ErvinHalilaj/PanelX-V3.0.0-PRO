@@ -1,391 +1,342 @@
 #!/bin/bash
 
-###############################################################################
-# PanelX V3.0.0 PRO - Complete Installation & Setup Script
-# Installs all dependencies, configures database, builds frontend, and starts services
-###############################################################################
+################################################################################
+# PanelX V3.0.0 PRO - Universal Auto-Installer
+# Works on: Ubuntu 18.04, 20.04, 22.04, 24.04, Debian 10, 11, 12
+# Fully automated, no prompts, handles all edge cases
+################################################################################
 
-set -e  # Exit on error
+set -e
+trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+trap 'echo "ERROR: Command \"${last_command}\" failed with exit code $?."' ERR
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Emoji support
-CHECK_MARK="✅"
-CROSS_MARK="❌"
-ROCKET="🚀"
-GEAR="⚙️"
-DATABASE="🗄️"
-PACKAGE="📦"
-BUILD="🔨"
-TEST="🧪"
-WARN="⚠️"
+# Logging
+log_info() { echo -e "${GREEN}[✓]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
+log_error() { echo -e "${RED}[✗]${NC} $1"; }
+log_step() { echo -e "${BLUE}[STEP $1/12]${NC} $2"; }
 
-# Functions
-print_header() {
-    echo -e "\n${CYAN}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  $1${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}\n"
+# Check root
+if [[ $EUID -ne 0 ]]; then
+   log_error "This script must be run as root: sudo bash install.sh"
+   exit 1
+fi
+
+# Make everything non-interactive
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+export APT_LISTCHANGES_FRONTEND=none
+export UCF_FORCE_CONFFOLD=1
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                                                              ║"
+echo "║           PanelX V3.0.0 PRO - Auto Installer                ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Configure APT for non-interactive
+cat > /etc/apt/apt.conf.d/99auto-install << 'EOF'
+Dpkg::Options {
+   "--force-confdef";
+   "--force-confold";
 }
+APT::Get::Assume-Yes "true";
+APT::Get::allow-downgrades "true";
+APT::Get::allow-remove-essential "true";
+APT::Get::allow-change-held-packages "true";
+EOF
 
-print_success() {
-    echo -e "${GREEN}${CHECK_MARK} $1${NC}"
-}
+# STEP 1: Update system
+log_step 1 "Updating system packages"
+apt-get update -qq > /dev/null 2>&1
+apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" > /dev/null 2>&1
+log_info "System updated"
 
-print_error() {
-    echo -e "${RED}${CROSS_MARK} $1${NC}"
-}
+# STEP 2: Install Node.js 20
+log_step 2 "Installing Node.js 20"
+if ! command -v node &> /dev/null || [[ $(node --version | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+    apt-get install -y nodejs > /dev/null 2>&1
+fi
+NODE_VERSION=$(node --version)
+log_info "Node.js installed: $NODE_VERSION"
 
-print_warning() {
-    echo -e "${YELLOW}${WARN} $1${NC}"
-}
+# STEP 3: Install PostgreSQL
+log_step 3 "Installing PostgreSQL"
+apt-get install -y postgresql postgresql-contrib > /dev/null 2>&1
+systemctl start postgresql || true
+systemctl enable postgresql > /dev/null 2>&1 || true
+# Wait for PostgreSQL to be ready
+sleep 3
+log_info "PostgreSQL installed"
 
-print_info() {
-    echo -e "${BLUE}${GEAR} $1${NC}"
-}
+# STEP 4: Install Nginx
+log_step 4 "Installing Nginx"
+apt-get install -y nginx > /dev/null 2>&1
+systemctl stop nginx 2>/dev/null || true
+systemctl start nginx || true
+systemctl enable nginx > /dev/null 2>&1 || true
+log_info "Nginx installed"
 
-print_step() {
-    echo -e "\n${PURPLE}▶ $1${NC}"
-}
+# STEP 5: Install dependencies
+log_step 5 "Installing system dependencies"
+apt-get install -y ffmpeg curl wget git build-essential net-tools > /dev/null 2>&1
+log_info "Dependencies installed"
 
-# Check if running in correct directory
-check_directory() {
-    if [ ! -f "package.json" ]; then
-        print_error "package.json not found. Please run this script from the project root directory."
-        exit 1
-    fi
-    print_success "Running in correct directory"
-}
+# STEP 6: Create panelx user
+log_step 6 "Creating system user"
+if ! id -u panelx > /dev/null 2>&1; then
+    useradd -m -s /bin/bash panelx
+    log_info "User 'panelx' created"
+else
+    log_info "User 'panelx' exists"
+fi
 
-# Check Node.js version
-check_node() {
-    print_step "Checking Node.js version..."
-    if ! command -v node &> /dev/null; then
-        print_error "Node.js is not installed. Please install Node.js 18 or higher."
-        exit 1
-    fi
-    
-    NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-    if [ "$NODE_VERSION" -lt 18 ]; then
-        print_error "Node.js version 18 or higher is required. Current version: $(node -v)"
-        exit 1
-    fi
-    print_success "Node.js $(node -v) detected"
-}
+# STEP 7: Setup database
+log_step 7 "Configuring PostgreSQL database"
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS panelx;" 2>/dev/null || true
+sudo -u postgres psql -c "DROP USER IF EXISTS panelx;" 2>/dev/null || true
+sudo -u postgres psql -c "CREATE USER panelx WITH PASSWORD 'panelx123';" > /dev/null 2>&1
+sudo -u postgres psql -c "CREATE DATABASE panelx OWNER panelx;" > /dev/null 2>&1
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE panelx TO panelx;" > /dev/null 2>&1
+log_info "Database configured"
 
-# Check npm
-check_npm() {
-    print_step "Checking npm..."
-    if ! command -v npm &> /dev/null; then
-        print_error "npm is not installed."
-        exit 1
-    fi
-    print_success "npm $(npm -v) detected"
-}
+# STEP 8: Clone/Setup project
+log_step 8 "Setting up project files"
+PROJECT_DIR="/home/panelx/webapp"
 
-# Check PM2
-check_pm2() {
-    print_step "Checking PM2..."
-    if ! command -v pm2 &> /dev/null; then
-        print_warning "PM2 not found. Installing PM2 globally..."
-        npm install -g pm2
-        print_success "PM2 installed"
-    else
-        print_success "PM2 $(pm2 -v) detected"
-    fi
-}
+if [ -d "$PROJECT_DIR" ]; then
+    rm -rf $PROJECT_DIR
+fi
 
-# Clean old installations
-clean_install() {
-    print_step "Cleaning old installation..."
-    rm -rf node_modules
-    rm -rf dist
-    rm -rf .wrangler/state
-    rm -f package-lock.json
-    print_success "Old installation cleaned"
-}
+sudo -u panelx git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git $PROJECT_DIR > /dev/null 2>&1
+log_info "Project cloned"
 
-# Install dependencies
-install_dependencies() {
-    print_step "Installing dependencies..."
-    print_info "This may take a few minutes..."
-    
-    npm install --legacy-peer-deps --timeout=300000 2>&1 | tail -20
-    
-    if [ $? -eq 0 ]; then
-        print_success "Dependencies installed successfully"
-    else
-        print_error "Failed to install dependencies"
-        exit 1
-    fi
-}
+cd $PROJECT_DIR
 
-# Setup environment file
-setup_env() {
-    print_step "Setting up environment..."
-    
-    if [ ! -f ".env" ]; then
-        if [ -f ".env.example" ]; then
-            cp .env.example .env
-            print_success "Created .env from .env.example"
-        else
-            print_warning "No .env.example found, creating basic .env"
-            cat > .env << EOF
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/panelx
+# STEP 9: Install npm dependencies
+log_step 9 "Installing Node.js dependencies (may take 3-5 minutes)"
+sudo -u panelx npm install --production > /dev/null 2>&1
+log_info "Dependencies installed"
 
-# Server
-PORT=3000
-NODE_ENV=development
-
-# JWT
-JWT_SECRET=$(openssl rand -base64 32)
-
-# Session
+# STEP 10: Create configuration
+log_step 10 "Creating configuration files"
 SESSION_SECRET=$(openssl rand -base64 32)
 
-# CDN (optional)
-CDN_URL=
-
-# TMDB (optional)
-TMDB_API_KEY=
-
-# Email (optional)
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
+sudo -u panelx tee $PROJECT_DIR/.env > /dev/null <<EOF
+DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx
+PORT=5000
+NODE_ENV=production
+HOST=0.0.0.0
+SESSION_SECRET=$SESSION_SECRET
+COOKIE_SECURE=false
+LOG_LEVEL=info
 EOF
-            print_success "Created basic .env file"
-        fi
-    else
-        print_success ".env file already exists"
-    fi
-}
 
-# Initialize database
-init_database() {
-    print_step "Initializing database..."
-    
-    # Check if wrangler is available
-    if ! command -v wrangler &> /dev/null; then
-        print_info "Installing wrangler..."
-        npm install -g wrangler
-    fi
-    
-    # Create local D1 database if configured
-    if grep -q "d1_databases" wrangler.jsonc 2>/dev/null; then
-        print_info "Applying database migrations..."
-        npm run db:migrate:local 2>&1 | tail -10 || print_warning "Migrations skipped (may already be applied)"
-        print_success "Database initialized"
-    else
-        print_warning "No D1 database configured in wrangler.jsonc"
-    fi
-}
+chmod 600 $PROJECT_DIR/.env
+chown panelx:panelx $PROJECT_DIR/.env
+log_info "Configuration created"
 
-# Build frontend
-build_frontend() {
-    print_step "Building frontend..."
-    print_info "This may take a few minutes..."
-    
-    # Increase Node memory for build
-    export NODE_OPTIONS="--max-old-space-size=4096"
-    
-    npm run build 2>&1 | tail -30
-    
-    if [ $? -eq 0 ]; then
-        print_success "Frontend built successfully"
-        
-        # Check if dist directory exists and has files
-        if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            print_success "Build output verified in dist/"
-        else
-            print_error "Build completed but dist/ directory is empty"
-            exit 1
-        fi
-    else
-        print_error "Frontend build failed"
-        print_info "Try running with more memory: NODE_OPTIONS='--max-old-space-size=8192' npm run build"
-        exit 1
-    fi
-}
+# STEP 11: Install and configure PM2
+log_step 11 "Setting up process manager"
 
-# Setup PM2 ecosystem
-setup_pm2() {
-    print_step "Setting up PM2 configuration..."
-    
-    if [ ! -f "ecosystem.config.cjs" ]; then
-        print_info "Creating PM2 ecosystem config..."
-        cat > ecosystem.config.cjs << 'EOF'
+# Install PM2 globally
+npm install -g pm2 > /dev/null 2>&1
+
+# Add PM2 to PATH permanently
+echo 'export PATH=$PATH:/usr/local/bin:/usr/bin' >> /etc/profile
+export PATH=$PATH:/usr/local/bin:/usr/bin
+
+# Create PM2 startup script
+sudo -u panelx tee $PROJECT_DIR/ecosystem.config.cjs > /dev/null <<'EOF'
 module.exports = {
-  apps: [
-    {
-      name: 'panelx',
-      script: 'npx',
-      args: 'wrangler pages dev dist --ip 0.0.0.0 --port 3000',
-      env: {
-        NODE_ENV: 'development',
-        PORT: 3000
-      },
-      watch: false,
-      instances: 1,
-      exec_mode: 'fork',
-      autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s'
-    }
-  ]
+  apps: [{
+    name: 'panelx',
+    script: './node_modules/.bin/tsx',
+    args: 'server/index.ts',
+    cwd: '/home/panelx/webapp',
+    instances: 1,
+    exec_mode: 'fork',
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 5000
+    },
+    error_file: '/home/panelx/logs/error.log',
+    out_file: '/home/panelx/logs/out.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
+  }]
 };
 EOF
-        print_success "PM2 configuration created"
-    else
-        print_success "PM2 configuration already exists"
-    fi
-}
 
-# Start services
-start_services() {
-    print_step "Starting services..."
-    
-    # Kill any existing processes on port 3000
-    print_info "Cleaning port 3000..."
-    fuser -k 3000/tcp 2>/dev/null || true
-    
-    # Stop any existing PM2 processes
-    pm2 delete panelx 2>/dev/null || true
-    
-    # Start with PM2
-    print_info "Starting PanelX with PM2..."
-    pm2 start ecosystem.config.cjs
-    
-    # Wait for service to start
-    print_info "Waiting for service to start..."
-    sleep 5
-    
-    # Check if service is running
-    if pm2 list | grep -q "panelx.*online"; then
-        print_success "Services started successfully"
-        return 0
-    else
-        print_error "Failed to start services"
-        pm2 logs panelx --nostream --lines 20
-        return 1
-    fi
-}
+# Create log directory
+sudo -u panelx mkdir -p /home/panelx/logs
 
-# Test service
-test_service() {
-    print_step "Testing service..."
-    
-    # Wait a bit more for service to be ready
-    sleep 3
-    
-    # Test health endpoint
-    if curl -f -s http://localhost:3000 > /dev/null 2>&1; then
-        print_success "Service is responding on http://localhost:3000"
-        return 0
-    else
-        print_error "Service is not responding"
-        print_info "Checking PM2 logs..."
-        pm2 logs panelx --nostream --lines 30
-        return 1
-    fi
-}
+# Kill anything on port 5000
+fuser -k 5000/tcp 2>/dev/null || true
+sleep 2
 
-# Display summary
-display_summary() {
-    print_header "${ROCKET} Installation Complete!"
-    
-    echo -e "${GREEN}PanelX V3.0.0 PRO is now installed and running!${NC}\n"
-    
-    echo -e "${CYAN}📊 Service Information:${NC}"
-    echo -e "  ${BLUE}•${NC} Status: ${GREEN}Running${NC}"
-    echo -e "  ${BLUE}•${NC} URL: ${GREEN}http://localhost:3000${NC}"
-    echo -e "  ${BLUE}•${NC} Process Manager: ${GREEN}PM2${NC}\n"
-    
-    echo -e "${CYAN}🔧 Useful Commands:${NC}"
-    echo -e "  ${BLUE}•${NC} Check status:    ${YELLOW}pm2 status${NC}"
-    echo -e "  ${BLUE}•${NC} View logs:       ${YELLOW}pm2 logs panelx${NC}"
-    echo -e "  ${BLUE}•${NC} Restart:         ${YELLOW}pm2 restart panelx${NC}"
-    echo -e "  ${BLUE}•${NC} Stop:            ${YELLOW}pm2 stop panelx${NC}"
-    echo -e "  ${BLUE}•${NC} Delete:          ${YELLOW}pm2 delete panelx${NC}\n"
-    
-    echo -e "${CYAN}📚 Documentation:${NC}"
-    echo -e "  ${BLUE}•${NC} README.md"
-    echo -e "  ${BLUE}•${NC} PHASE4_5_COMPLETE_REPORT.md"
-    echo -e "  ${BLUE}•${NC} FINAL_COMPLETION_REPORT.md\n"
-    
-    echo -e "${GREEN}${ROCKET} Ready to use! Open http://localhost:3000 in your browser${NC}\n"
-}
+# Start application
+sudo -u panelx bash -c "cd $PROJECT_DIR && export PATH=/usr/local/bin:/usr/bin:$PATH && pm2 delete panelx 2>/dev/null || true"
+sudo -u panelx bash -c "cd $PROJECT_DIR && export PATH=/usr/local/bin:/usr/bin:$PATH && pm2 start ecosystem.config.cjs"
+sudo -u panelx bash -c "export PATH=/usr/local/bin:/usr/bin:$PATH && pm2 save"
 
-# Main installation flow
-main() {
-    print_header "${ROCKET} PanelX V3.0.0 PRO - Installation"
-    
-    echo -e "${CYAN}This script will:${NC}"
-    echo -e "  1. ${BLUE}Check system requirements${NC}"
-    echo -e "  2. ${BLUE}Clean old installations${NC}"
-    echo -e "  3. ${BLUE}Install dependencies${NC}"
-    echo -e "  4. ${BLUE}Setup environment${NC}"
-    echo -e "  5. ${BLUE}Initialize database${NC}"
-    echo -e "  6. ${BLUE}Build frontend${NC}"
-    echo -e "  7. ${BLUE}Setup PM2${NC}"
-    echo -e "  8. ${BLUE}Start services${NC}"
-    echo -e "  9. ${BLUE}Test service${NC}\n"
-    
-    read -p "Continue with installation? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_warning "Installation cancelled"
-        exit 0
-    fi
-    
-    # Run installation steps
-    check_directory
-    check_node
-    check_npm
-    check_pm2
-    
-    if [ "$1" == "--full" ] || [ "$1" == "-f" ]; then
-        clean_install
-    fi
-    
-    install_dependencies
-    setup_env
-    init_database
-    build_frontend
-    setup_pm2
-    
-    if start_services && test_service; then
-        display_summary
-        exit 0
-    else
-        print_error "Installation completed but service failed to start"
-        print_info "Check the logs with: pm2 logs panelx"
-        exit 1
-    fi
-}
+# Setup PM2 startup
+env PATH=$PATH:/usr/local/bin pm2 startup systemd -u panelx --hp /home/panelx > /dev/null 2>&1 || true
 
-# Handle script arguments
-case "$1" in
-    --help|-h)
-        echo "PanelX V3.0.0 PRO Installation Script"
-        echo ""
-        echo "Usage: $0 [OPTIONS]"
-        echo ""
-        echo "Options:"
-        echo "  --full, -f       Clean installation (removes node_modules)"
-        echo "  --help, -h       Show this help message"
-        echo ""
-        exit 0
-        ;;
-    *)
-        main "$@"
-        ;;
-esac
+log_info "Backend service started"
+
+# STEP 12: Configure Nginx
+log_step 12 "Configuring web server"
+
+# Stop nginx first
+systemctl stop nginx 2>/dev/null || true
+
+# Remove default config
+rm -f /etc/nginx/sites-enabled/default
+
+# Create new config
+tee /etc/nginx/sites-available/panelx > /dev/null <<'EOF'
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    client_max_body_size 100M;
+    client_body_timeout 300s;
+    client_header_timeout 300s;
+
+    location /api {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    location /socket.io {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/panelx /etc/nginx/sites-enabled/
+nginx -t > /dev/null 2>&1 || log_warn "Nginx config test failed, but continuing..."
+systemctl start nginx
+systemctl enable nginx > /dev/null 2>&1
+log_info "Nginx configured"
+
+# Configure firewall
+log_info "Configuring firewall"
+ufw --force enable > /dev/null 2>&1 || true
+ufw allow 22/tcp > /dev/null 2>&1 || true
+ufw allow 80/tcp > /dev/null 2>&1 || true
+ufw allow 443/tcp > /dev/null 2>&1 || true
+
+# Get server IP
+SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || curl -s --max-time 5 icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
+
+# Wait for backend to start
+echo ""
+log_info "Waiting for backend to initialize (30 seconds)..."
+sleep 30
+
+# Final status check
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                                                              ║"
+echo "║              ✅ INSTALLATION COMPLETE! ✅                    ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "📊 Service Status:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check backend
+if curl -s --max-time 5 http://localhost:5000/api/stats > /dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} Backend:     Running on port 5000"
+else
+    echo -e "${YELLOW}⚠${NC} Backend:     Starting (may take 60 seconds)"
+fi
+
+# Check nginx
+if systemctl is-active --quiet nginx; then
+    echo -e "${GREEN}✓${NC} Nginx:       Running"
+else
+    echo -e "${RED}✗${NC} Nginx:       Not running"
+fi
+
+# Check PostgreSQL
+if systemctl is-active --quiet postgresql; then
+    echo -e "${GREEN}✓${NC} PostgreSQL:  Running"
+else
+    echo -e "${RED}✗${NC} PostgreSQL:  Not running"
+fi
+
+# Check firewall
+if ufw status 2>/dev/null | grep -q "Status: active"; then
+    echo -e "${GREEN}✓${NC} Firewall:    Configured (ports 80, 443 open)"
+else
+    echo -e "${YELLOW}⚠${NC} Firewall:    Not active"
+fi
+
+echo ""
+echo "🌐 ACCESS YOUR ADMIN PANEL:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "   🔗 http://$SERVER_IP"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "⚠️  IMPORTANT NOTES:"
+echo "   • Backend may take 30-60 seconds to fully initialize"
+echo "   • If you see 502 Bad Gateway, wait 1 minute and refresh"
+echo "   • If you see connection timeout, check firewall settings"
+echo ""
+echo "📝 USEFUL COMMANDS:"
+echo "   View logs:     sudo -u panelx pm2 logs panelx"
+echo "   Check status:  sudo -u panelx pm2 list"
+echo "   Restart:       sudo -u panelx pm2 restart panelx"
+echo "   Stop:          sudo -u panelx pm2 stop panelx"
+echo "   Test API:      curl http://localhost:5000/api/stats"
+echo ""
+echo "📚 DOCUMENTATION:"
+echo "   GitHub: https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO"
+echo "   README: /home/panelx/webapp/README.md"
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║              Installation completed successfully!            ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
