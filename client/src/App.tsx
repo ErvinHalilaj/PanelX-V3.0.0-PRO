@@ -62,7 +62,7 @@ import LoopingChannels from "@/pages/LoopingChannels";
 import AutoblockRules from "@/pages/AutoblockRules";
 import StatsSnapshots from "@/pages/StatsSnapshots";
 import ImpersonationLogs from "@/pages/ImpersonationLogs";
-import { AdminAuthProvider } from "@/components/AdminAuthProvider";
+import { AdminAuthProvider, useAdminAuth } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
 function AdminRouter() {
@@ -131,13 +131,26 @@ function AdminRouter() {
 function AdminPanel() {
   return (
     <AdminAuthProvider>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <main className="flex-1 ml-64 p-0">
-          <AdminRouter />
-        </main>
-      </div>
+      <AdminPanelContent />
     </AdminAuthProvider>
+  );
+}
+
+function AdminPanelContent() {
+  const { user } = useAdminAuth();
+  
+  // Only render the full layout when user is authenticated
+  if (!user) {
+    return null; // AdminAuthProvider will show login form
+  }
+  
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+      <main className="flex-1 ml-64 p-0">
+        <AdminRouter />
+      </main>
+    </div>
   );
 }
 
