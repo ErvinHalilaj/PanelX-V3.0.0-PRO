@@ -9,6 +9,7 @@
 ################################################################################
 
 set -e
+set -o pipefail
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'handle_error' ERR
 
@@ -41,6 +42,24 @@ if [[ $EUID -ne 0 ]]; then
    log_error "This script must be run as root"
    echo "Usage: sudo bash autoinstaller.sh"
    exit 1
+fi
+
+# Check if running on supported OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    case "$ID" in
+        ubuntu|debian)
+            log_info "Detected: $PRETTY_NAME"
+            ;;
+        *)
+            log_warn "Unsupported OS: $PRETTY_NAME"
+            log_warn "This installer is designed for Ubuntu/Debian"
+            log_warn "Continuing anyway, but some steps may fail..."
+            sleep 3
+            ;;
+    esac
+else
+    log_warn "Cannot detect OS version, continuing anyway..."
 fi
 
 # Banner
@@ -100,16 +119,46 @@ log_info "System packages updated"
 # STEP 2: Install Node.js 20
 # ============================================================================
 log_step 2 "Installing Node.js 20"
-if ! command -v node &> /dev/null || [[ $(node --version | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
-    log_info "Downloading Node.js repository..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
-    log_info "Installing Node.js..."
-    apt-get install -y nodejs 2>&1 | tail -3
+
+# Remove old Node.js if exists
+apt-get remove -y nodejs npm 2>/dev/null || true
+apt-get autoremove -y 2>/dev/null || true
+
+# Add NodeSource repository
+log_info "Adding Node.js 20 repository..."
+curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/nodesource_setup.sh
+chmod +x /tmp/nodesource_setup.sh
+bash /tmp/nodesource_setup.sh > /dev/null 2>&1
+rm -f /tmp/nodesource_setup.sh
+
+# Install Node.js
+log_info "Installing Node.js 20..."
+apt-get update -qq > /dev/null 2>&1
+apt-get install -y nodejs 2>&1 | tail -5
+
+# Verify installation
+if ! command -v node &> /dev/null; then
+    log_error "Node.js installation failed"
+    log_error "Trying alternative method..."
+    
+    # Alternative: Install from NodeSource directly
+    curl -sL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
 fi
-NODE_VERSION=$(node --version)
-NPM_VERSION=$(npm --version)
-log_info "Node.js installed: $NODE_VERSION"
-log_info "NPM installed: v$NPM_VERSION"
+
+# Update PATH and verify again
+export PATH="/usr/bin:/usr/local/bin:$PATH"
+hash -r
+
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node --version)
+    NPM_VERSION=$(npm --version)
+    log_info "Node.js installed: $NODE_VERSION"
+    log_info "NPM installed: v$NPM_VERSION"
+else
+    log_error "Failed to install Node.js. Please check your system."
+    exit 1
+fi
 
 # ============================================================================
 # STEP 3: Install PostgreSQL
