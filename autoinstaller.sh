@@ -264,23 +264,24 @@ echo "   This may take a while, please wait..."
 
 cd "$PROJECT_DIR"
 
-# Install production dependencies
-sudo -u panelx npm install --production 2>&1 | grep -E "(added|removed|up to date)" || true
+# Install ALL dependencies (not just production)
+# The backend needs all dependencies to run, including devDependencies
+log_info "Installing all npm dependencies..."
+sudo -u panelx npm install 2>&1 | grep -E "(added|removed|up to date|packages in)" || true
 
-# Install tsx as a project dependency (required by PM2)
-log_info "Installing TypeScript runtime (tsx)..."
-sudo -u panelx npm install tsx 2>&1 | tail -2
-
-# Also install globally as fallback
-npm install -g tsx 2>&1 | tail -2
-
-# Verify tsx is installed
-if [ -f "$PROJECT_DIR/node_modules/.bin/tsx" ]; then
-    log_info "TSX installed successfully in project"
-else
-    log_warn "TSX not found in node_modules, trying alternative..."
-    sudo -u panelx npm install --save tsx
+# Verify critical dependencies are installed
+if [ ! -d "$PROJECT_DIR/node_modules/tsx" ]; then
+    log_warn "tsx not found, installing explicitly..."
+    sudo -u panelx npm install tsx
 fi
+
+if [ ! -d "$PROJECT_DIR/node_modules/otpauth" ]; then
+    log_warn "otpauth not found, installing explicitly..."
+    sudo -u panelx npm install otpauth
+fi
+
+# Also install tsx globally as fallback
+npm install -g tsx 2>&1 | tail -2
 
 log_info "Node.js dependencies installed"
 
