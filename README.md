@@ -8,6 +8,40 @@
 
 > **Professional IPTV/OTT Management Platform** with complete admin panel, real-time monitoring, multi-server architecture, and advanced features.
 
+## 🚀 One-Command Installation
+
+Install PanelX on your Ubuntu/Debian VPS in 5-10 minutes with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ErvinHalilaj/PanelX-V3.0.0-PRO/main/autoinstaller.sh | sudo bash
+```
+
+**What gets installed:**
+- ✅ Node.js 20 LTS
+- ✅ PostgreSQL with configured database
+- ✅ Nginx web server
+- ✅ PM2 process manager
+- ✅ Complete PanelX application with 60+ admin pages
+- ✅ Database tables (43 tables automatically created)
+- ✅ Initial admin user (admin/admin123)
+- ✅ Firewall configuration
+
+**System Requirements:**
+- Ubuntu 18.04+ or Debian 10+ (fresh VPS recommended)
+- 2GB RAM minimum (4GB+ recommended)
+- 2 CPU cores minimum
+- 10GB disk space minimum (20GB+ recommended)
+- Public IP with ports 80/443 accessible
+
+**After Installation:**
+1. Access your panel at `http://YOUR_SERVER_IP`
+2. Login with username `admin` and password `admin123`
+3. **IMPORTANT:** Change the default password immediately!
+
+**Read the complete installation guide:** [BULLETPROOF_INSTALLATION.md](BULLETPROOF_INSTALLATION.md)
+
+---
+
 ## 🎯 What Is This?
 
 PanelX V3.0.0 PRO is a **complete, production-ready IPTV/OTT management platform** featuring:

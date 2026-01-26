@@ -26,7 +26,7 @@ NC='\033[0m'
 log_info() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
-log_step() { echo -e "\n${CYAN}${BOLD}[STEP $1/13]${NC} $2"; }
+log_step() { echo -e "\n${CYAN}${BOLD}[STEP $1/15]${NC} $2"; }
 log_debug() { [[ "$DEBUG" == "1" ]] && echo -e "${BLUE}[DEBUG]${NC} $1"; }
 
 # Error handler
@@ -286,6 +286,27 @@ npm install -g tsx 2>&1 | tail -2
 log_info "Node.js dependencies installed"
 
 # ============================================================================
+# STEP 9B: Build Frontend Application
+# ============================================================================
+log_info "Building React frontend application..."
+echo "   This may take 3-5 minutes..."
+
+cd "$PROJECT_DIR"
+
+# Build the frontend with increased memory
+log_info "Compiling frontend with Vite..."
+sudo -u panelx bash -c "cd $PROJECT_DIR && NODE_OPTIONS='--max-old-space-size=4096' npm run build" 2>&1 | tail -10
+
+# Verify build was successful
+if [ -d "$PROJECT_DIR/dist" ] && [ -f "$PROJECT_DIR/dist/index.html" ]; then
+    log_info "Frontend built successfully"
+    log_info "Build output: $(du -sh $PROJECT_DIR/dist | cut -f1)"
+else
+    log_warn "Frontend build may have failed, but continuing..."
+    log_warn "You can build manually later with: npm run build"
+fi
+
+# ============================================================================
 # STEP 10: Create Configuration Files
 # ============================================================================
 log_step 10 "Creating configuration files"
@@ -390,9 +411,32 @@ env PATH=$PATH:/usr/local/bin pm2 startup systemd -u panelx --hp /home/panelx > 
 log_info "Backend service started with PM2"
 
 # ============================================================================
-# STEP 12: Configure Nginx
+# STEP 12: Setup Database Tables
 # ============================================================================
-log_step 12 "Configuring Nginx web server"
+log_step 12 "Setting up database tables"
+
+# Wait for backend to be ready
+sleep 5
+
+# Push database schema using drizzle-kit
+log_info "Creating database tables..."
+cd "$PROJECT_DIR"
+sudo -u panelx bash -c "cd $PROJECT_DIR && npx drizzle-kit push --force" 2>&1 | grep -E "(Applying|Changes|Success|created)" || true
+
+# Seed database with initial data
+log_info "Seeding database with initial data..."
+sudo -u panelx bash -c "cd $PROJECT_DIR && npm run db:seed" 2>&1 | tail -15 || log_warn "Database seeding skipped"
+
+# Restart backend to apply changes
+log_info "Restarting backend..."
+sudo -u panelx bash -c "export PATH=/usr/local/bin:/usr/bin:\$PATH && pm2 restart panelx" > /dev/null 2>&1
+
+log_info "Database setup complete"
+
+# ============================================================================
+# STEP 13: Configure Nginx
+# ============================================================================
+log_step 13 "Configuring Nginx web server"
 
 # Stop nginx
 systemctl stop nginx 2>/dev/null || true
@@ -483,9 +527,9 @@ else
 fi
 
 # ============================================================================
-# STEP 13: Configure Firewall
+# STEP 14: Configure Firewall
 # ============================================================================
-log_step 13 "Configuring firewall"
+log_step 14 "Configuring firewall"
 
 # Reset UFW to clean state
 ufw --force reset > /dev/null 2>&1 || true
