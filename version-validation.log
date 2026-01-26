@@ -1,0 +1,93 @@
+🔍 Validating all package versions in package.json...
+
+✅ @hookform/resolvers
+✅ @octokit/rest
+✅ @radix-ui/react-accordion
+✅ @radix-ui/react-alert-dialog
+✅ @radix-ui/react-aspect-ratio
+✅ @radix-ui/react-avatar
+✅ @radix-ui/react-checkbox
+✅ @radix-ui/react-dialog
+✅ @radix-ui/react-dropdown-menu
+✅ @radix-ui/react-label
+✅ @radix-ui/react-popover
+✅ @radix-ui/react-progress
+✅ @radix-ui/react-radio-group
+✅ @radix-ui/react-select
+✅ @radix-ui/react-separator
+✅ @radix-ui/react-slider
+✅ @radix-ui/react-slot
+✅ @radix-ui/react-switch
+✅ @radix-ui/react-tabs
+✅ @radix-ui/react-toast
+✅ @radix-ui/react-tooltip
+✅ @tanstack/react-query
+✅ @types/bcryptjs
+✅ @types/body-parser
+✅ @types/cookie-parser
+✅ @types/cors
+✅ @types/qrcode
+✅ axios@1.13.3
+✅ bcryptjs@3.0.3
+✅ body-parser@1.20.3
+✅ chart.js@4.5.1
+✅ class-variance-authority@0.7.0
+✅ clsx@2.1.1
+✅ cmdk@1.0.4
+✅ cookie-parser@1.4.7
+✅ cors@2.8.6
+✅ date-fns@4.1.0
+✅ dotenv@17.2.3
+✅ drizzle-kit@0.31.8
+✅ drizzle-orm@0.45.1
+✅ drizzle-zod@0.8.3
+✅ express@4.21.2
+✅ express-session@1.18.1
+❌ framer-motion@11.17.8 - VERSION NOT FOUND!
+   💡 Latest available: 12.29.2
+✅ hls.js@1.5.19
+✅ lucide-react@0.468.0
+✅ multer@1.4.5-lts.1
+✅ otpauth@9.4.1
+✅ pg@8.13.1
+✅ postgres@3.4.5
+✅ qrcode@1.5.4
+✅ react@18.3.1
+✅ react-chartjs-2@5.3.1
+❌ react-day-picker@9.4.5 - VERSION NOT FOUND!
+   💡 Latest available: 9.13.0
+✅ react-dom@18.3.1
+✅ react-hook-form@7.54.1
+✅ react-router-dom@7.1.3
+✅ react-simple-maps@3.0.0
+✅ recharts@2.15.1
+✅ sharp@0.33.5
+✅ socket.io@4.8.1
+✅ socket.io-client@4.8.1
+✅ sonner@1.7.3
+✅ ssh2@1.17.0
+✅ tailwind-merge@2.5.5
+✅ tailwindcss-animate@1.0.7
+❌ vaul@1.3.1 - VERSION NOT FOUND!
+   💡 Latest available: 1.1.2
+❌ wouter@3.4.2 - VERSION NOT FOUND!
+   💡 Latest available: 3.9.0
+✅ zod@3.24.1
+✅ @types/express
+✅ @types/express-session
+✅ @types/multer
+✅ @types/node
+✅ @types/pg
+✅ @types/react
+✅ @types/react-dom
+✅ @vitejs/plugin-react
+✅ autoprefixer@10.4.20
+✅ esbuild@0.24.2
+✅ postcss@8.4.49
+✅ tailwindcss@3.4.17
+✅ terser@5.46.0
+✅ tsx@4.19.2
+✅ typescript@5.6.3
+✅ vite@7.3.0
+
+❌ Found 4 invalid package versions!
