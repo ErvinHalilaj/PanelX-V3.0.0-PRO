@@ -19,8 +19,7 @@
     "db:studio": "drizzle-kit studio",
     "check": "tsc",
     "clean": "rm -rf dist node_modules/.vite",
-    "install:all": "npm install && npm install tsx dotenv -g",
-    "postinstall": "npm run build"
+    "install:all": "npm install && npm install tsx dotenv -g"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -70,7 +69,7 @@
     "hls.js": "^1.5.19",
     "lucide-react": "^0.468.0",
     "multer": "^1.4.5-lts.1",
-    "otpauth": "^10.0.1",
+    "otpauth": "^9.4.1",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
     "qrcode": "^1.5.4",
