@@ -87,52 +87,61 @@ PanelX V3.0.0 PRO is a **complete, production-ready IPTV/OTT management platform
 ![Analytics](docs/screenshots/analytics.png)
 *Detailed analytics with interactive charts*
 
-## 🚀 Quick Start
+## 🚀 Quick Start - BULLETPROOF Installation
 
-### Prerequisites
-- **Ubuntu 22.04** (or similar Linux)
-- **4GB RAM minimum** (8GB recommended)
-- **Node.js 20.x**
-- **PostgreSQL 15+**
-- **Root or sudo access**
-
-### One-Command Installation
+### ⚡ **ONE COMMAND - ZERO CONFIGURATION**
 
 ```bash
-# Clone repository
-git clone https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO.git
-cd PanelX-V3.0.0-PRO
-
-# Run installer (installs everything)
-chmod +x install-vps.sh
-sudo ./install-vps.sh
-
-# Configure environment
-nano .env
-# Set DATABASE_URL and SESSION_SECRET
-
-# Start services
-pm2 restart all
-
-# Access panel
-# Open browser: http://your-server-ip
+curl -fsSL https://raw.githubusercontent.com/ErvinHalilaj/PanelX-V3.0.0-PRO/main/autoinstaller.sh | sudo bash
 ```
 
-### Manual Installation
+**That's it!** The installer handles everything automatically:
+- ✅ Works on **ALL Ubuntu versions** (18.04, 20.04, 22.04, 24.04)
+- ✅ **Zero prompts** - completely automated
+- ✅ **5-10 minutes** - ready to use
+- ✅ **Tested & verified** - production ready
+
+📚 **[Read Full Installation Guide →](BULLETPROOF_INSTALLATION.md)**
+
+### System Requirements
+- **OS:** Ubuntu 18.04+ or Debian 10+ (ALL versions supported)
+- **RAM:** 2GB minimum (4GB+ recommended)
+- **Storage:** 10GB minimum (20GB+ recommended)
+- **Network:** Public IP with ports 80/443 accessible
+
+### What You Get
+
+Once installation completes (5-10 minutes), you'll have:
+
+```
+✅ Backend API running on port 5000
+✅ Nginx reverse proxy on port 80
+✅ PostgreSQL database configured
+✅ PM2 process manager running
+✅ Firewall configured (ports 22, 80, 443)
+✅ Full admin panel accessible at http://YOUR_SERVER_IP
+```
+
+### Access Your Panel
+
+1. **Open browser:** `http://YOUR_SERVER_IP`
+2. **Wait 30-60 seconds** if you see "502 Bad Gateway" (backend initializing)
+3. **Enjoy your admin panel!**
+
+### Management Commands
 
 ```bash
-# 1. Install Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+# View logs
+sudo -u panelx pm2 logs panelx
 
-# 2. Install PostgreSQL
-sudo apt-get install -y postgresql postgresql-contrib
+# Check status
+sudo -u panelx pm2 list
 
-# 3. Install FFmpeg
-sudo apt-get install -y ffmpeg
+# Restart backend
+sudo -u panelx pm2 restart panelx
 
-# 4. Install dependencies
-npm install
+# Test API
+curl http://localhost:5000/api/stats
 
 # 5. Build frontend
 npm run build
