@@ -263,10 +263,24 @@ log_step 9 "Installing Node.js dependencies (3-5 minutes)"
 echo "   This may take a while, please wait..."
 
 cd "$PROJECT_DIR"
+
+# Install production dependencies
 sudo -u panelx npm install --production 2>&1 | grep -E "(added|removed|up to date)" || true
 
-# Install tsx globally for running TypeScript
+# Install tsx as a project dependency (required by PM2)
+log_info "Installing TypeScript runtime (tsx)..."
+sudo -u panelx npm install tsx 2>&1 | tail -2
+
+# Also install globally as fallback
 npm install -g tsx 2>&1 | tail -2
+
+# Verify tsx is installed
+if [ -f "$PROJECT_DIR/node_modules/.bin/tsx" ]; then
+    log_info "TSX installed successfully in project"
+else
+    log_warn "TSX not found in node_modules, trying alternative..."
+    sudo -u panelx npm install --save tsx
+fi
 
 log_info "Node.js dependencies installed"
 
@@ -305,8 +319,8 @@ sudo -u panelx tee "$PROJECT_DIR/ecosystem.config.cjs" > /dev/null <<'EOF'
 module.exports = {
   apps: [{
     name: 'panelx',
-    script: './node_modules/.bin/tsx',
-    args: 'server/index.ts',
+    script: 'npx',
+    args: 'tsx server/index.ts',
     cwd: '/home/panelx/webapp',
     instances: 1,
     exec_mode: 'fork',
