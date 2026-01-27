@@ -141,16 +141,7 @@ function AdminPanel() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Switch>
-          <Route path="/portal" component={ClientPortal} />
-          <Route path="/reseller" component={ResellerDashboard} />
-          <Route>
-            <AdminPanel />
-          </Route>
-        </Switch>
-      </TooltipProvider>
+      <div>Test App Loading</div>
     </QueryClientProvider>
   );
 }
