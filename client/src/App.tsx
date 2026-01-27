@@ -131,8 +131,11 @@ function AdminRouter() {
 function AdminPanel() {
   return (
     <AdminAuthProvider>
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <h1 className="text-4xl">Admin Panel Loaded!</h1>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 ml-64 p-0">
+          <AdminRouter />
+        </main>
       </div>
     </AdminAuthProvider>
   );
@@ -141,7 +144,16 @@ function AdminPanel() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div>Test App Loading</div>
+      <TooltipProvider>
+        <Toaster />
+        <Switch>
+          <Route path="/portal" component={ClientPortal} />
+          <Route path="/reseller" component={ResellerDashboard} />
+          <Route>
+            <AdminPanel />
+          </Route>
+        </Switch>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

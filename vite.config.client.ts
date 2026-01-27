@@ -14,30 +14,9 @@ export default defineConfig({
   build: {
     outDir: '../dist/public',
     emptyOutDir: true,
-    target: 'esnext',
-    sourcemap: false,
+    target: 'es2020',
+    sourcemap: true,
     minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('recharts') || id.includes('chart.js')) {
-              return 'charts';
-            }
-            if (id.includes('@radix-ui')) {
-              return 'radix-ui';
-            }
-            if (id.includes('lucide-react')) {
-              return 'icons';
-            }
-            return 'vendor';
-          }
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1500
+    chunkSizeWarningLimit: 2000
   }
 });
