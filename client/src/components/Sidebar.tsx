@@ -49,7 +49,10 @@ import {
   Video,
   ImagePlus,
   Calendar,
-  Palette
+  Palette,
+  ShoppingBag,
+  Receipt,
+  Lock
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 
@@ -93,7 +96,10 @@ export function Sidebar() {
     { icon: History, label: "Connection History", href: "/connection-history" },
     { icon: CreditCard, label: "Credit History", href: "/credit-transactions" },
     { icon: Gift, label: "Activation Codes", href: "/activation-codes" },
+    { icon: Code, label: "Embedded Lines", href: "/embedded-lines" },
     { icon: MessageSquare, label: "Tickets", href: "/tickets" },
+    { icon: ShoppingBag, label: "Shop Products", href: "/shop-products" },
+    { icon: Receipt, label: "Shop Orders", href: "/shop-orders" },
     { icon: TrendingUp, label: "Reseller Panel", href: "/reseller" },
   ];
 
@@ -106,6 +112,7 @@ export function Sidebar() {
     { icon: Shield, label: "Blocked UAs", href: "/blocked-uas" },
     { icon: ShieldBan, label: "Reserved Usernames", href: "/reserved-usernames" },
     { icon: ShieldAlert, label: "Autoblock Rules", href: "/autoblock-rules" },
+    { icon: ShieldAlert, label: "VPN Detection", href: "/vpn-detection" },
     { icon: Key, label: "Two-Factor Auth", href: "/two-factor" },
     { icon: Fingerprint, label: "Fingerprinting", href: "/fingerprinting" },
     { icon: UserCheck, label: "Impersonation Logs", href: "/impersonation-logs" },
@@ -121,6 +128,7 @@ export function Sidebar() {
     { icon: Activity, label: "System Monitoring", href: "/monitoring" },
     { icon: Activity, label: "Activity Logs", href: "/activity-logs" },
     { icon: BarChart3, label: "Stats Snapshots", href: "/stats-snapshots" },
+    { icon: Lock, label: "SSL Certificates", href: "/ssl-certificates" },
     { icon: Archive, label: "Backups", href: "/backups" },
     { icon: Webhook, label: "Webhooks", href: "/webhooks" },
     { icon: Globe, label: "Client Portal", href: "/portal" },

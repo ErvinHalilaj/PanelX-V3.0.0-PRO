@@ -62,6 +62,11 @@ import LoopingChannels from "@/pages/LoopingChannels";
 import AutoblockRules from "@/pages/AutoblockRules";
 import StatsSnapshots from "@/pages/StatsSnapshots";
 import ImpersonationLogs from "@/pages/ImpersonationLogs";
+import VpnDetection from "@/pages/VpnDetection";
+import ShopProducts from "@/pages/ShopProducts";
+import ShopOrders from "@/pages/ShopOrders";
+import SslCertificates from "@/pages/SslCertificates";
+import EmbeddedLines from "@/pages/EmbeddedLines";
 import { AdminAuthProvider, useAdminAuth } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -121,6 +126,11 @@ function AdminRouter() {
       <Route path="/autoblock-rules" component={AutoblockRules} />
       <Route path="/stats-snapshots" component={StatsSnapshots} />
       <Route path="/impersonation-logs" component={ImpersonationLogs} />
+      <Route path="/vpn-detection" component={VpnDetection} />
+      <Route path="/shop-products" component={ShopProducts} />
+      <Route path="/shop-orders" component={ShopOrders} />
+      <Route path="/ssl-certificates" component={SslCertificates} />
+      <Route path="/embedded-lines" component={EmbeddedLines} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />
