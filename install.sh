@@ -64,24 +64,44 @@ log_info "System updated"
 
 # STEP 2: Install Node.js 20
 log_step 2 "Installing Node.js 20"
-if ! command -v node &> /dev/null || [[ $(node --version | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
-    apt-get install -y nodejs > /dev/null 2>&1
-fi
 
-# Ensure npm is available - refresh PATH
+# Remove any broken node installation first
+apt-get remove -y nodejs npm 2>/dev/null || true
+apt-get autoremove -y 2>/dev/null || true
+
+# Clean NodeSource list if exists
+rm -f /etc/apt/sources.list.d/nodesource.list 2>/dev/null || true
+
+# Install Node.js 20 from NodeSource
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3
+apt-get install -y nodejs 2>&1 | tail -3
+
+# Refresh PATH and hash
 hash -r
 export PATH="/usr/bin:/usr/local/bin:$PATH"
 
-# Verify npm is available
+# Verify both node and npm are available
+if ! command -v node &> /dev/null; then
+    log_error "Node.js installation failed!"
+    exit 1
+fi
+
 if ! command -v npm &> /dev/null; then
-    log_error "npm not found. Trying to install npm separately..."
-    apt-get install -y npm > /dev/null 2>&1 || true
+    log_warn "npm not bundled with nodejs, installing separately..."
+    apt-get install -y npm 2>&1 | tail -3 || {
+        # Try installing via n
+        curl -fsSL https://raw.githubusercontent.com/tj/n/master/bin/n | bash -s lts 2>&1 | tail -3
+    }
 fi
 
 NODE_VERSION=$(node --version)
 NPM_VERSION=$(npm --version 2>/dev/null || echo "not found")
 log_info "Node.js installed: $NODE_VERSION, npm: $NPM_VERSION"
+
+if [ "$NPM_VERSION" = "not found" ]; then
+    log_error "npm still not available after installation attempts"
+    exit 1
+fi
 
 # STEP 3: Install PostgreSQL
 log_step 3 "Installing PostgreSQL"
