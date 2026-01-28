@@ -2638,7 +2638,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2651,7 +2651,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2669,7 +2669,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2688,7 +2688,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2701,7 +2701,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2733,7 +2733,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -2746,13 +2746,17 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
   app.delete(api.streams.delete.path, requireAuth, async (req, res) => {
-    await storage.deleteStream(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteStream(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to delete stream" });
+    }
   });
 
   // Bulk edit streams
@@ -5256,7 +5260,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5269,7 +5273,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5310,7 +5314,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5323,7 +5327,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5481,7 +5485,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5534,7 +5538,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5547,7 +5551,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5577,7 +5581,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5590,7 +5594,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5628,7 +5632,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5641,7 +5645,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5676,7 +5680,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5689,7 +5693,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5721,7 +5725,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5740,7 +5744,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5764,7 +5768,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5794,7 +5798,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5807,7 +5811,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5837,7 +5841,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5850,7 +5854,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5880,7 +5884,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5893,7 +5897,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5923,7 +5927,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -5936,7 +5940,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -6355,7 +6359,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -6406,7 +6410,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -6477,7 +6481,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      throw err;
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
@@ -7455,6 +7459,61 @@ export async function registerRoutes(
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  // ============================================
+  // GLOBAL ERROR HANDLER (MUST BE LAST)
+  // ============================================
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('[ERROR]', {
+      message: err.message,
+      stack: err.stack,
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      params: req.params,
+      query: req.query,
+    });
+
+    // Check if response was already sent
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    // Handle specific error types
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        details: err.message 
+      });
+    }
+
+    if (err.name === 'UnauthorizedError') {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (err.code === '23505') { // PostgreSQL unique violation
+      return res.status(409).json({ 
+        message: 'Duplicate entry', 
+        details: err.detail 
+      });
+    }
+
+    if (err.code === '23503') { // PostgreSQL foreign key violation
+      return res.status(400).json({ 
+        message: 'Invalid reference', 
+        details: err.detail 
+      });
+    }
+
+    // Generic error response
+    res.status(500).json({ 
+      message: 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: err.message,
+        stack: err.stack 
+      })
+    });
   });
 
   return httpServer;

@@ -143,6 +143,10 @@ class MonitoringService {
   }
 
   private startMonitoring() {
+    // Collect initial metrics immediately
+    this.collectMetrics();
+    this.runHealthChecks();
+
     // Collect metrics every 30 seconds
     setInterval(() => {
       this.collectMetrics();
