@@ -355,8 +355,8 @@ ufw allow 22/tcp > /dev/null 2>&1 || true
 ufw allow 80/tcp > /dev/null 2>&1 || true
 ufw allow 443/tcp > /dev/null 2>&1 || true
 
-# Get server IP
-SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || curl -s --max-time 5 icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
+# Get server IPv4 address (force IPv4)
+SERVER_IP=$(curl -4 -s --max-time 5 ifconfig.me 2>/dev/null || curl -4 -s --max-time 5 icanhazip.com 2>/dev/null || curl -4 -s --max-time 5 ipinfo.io/ip 2>/dev/null || hostname -I | awk '{print $1}')
 
 # Wait for backend to start
 echo ""
