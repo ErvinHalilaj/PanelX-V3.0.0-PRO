@@ -2,6 +2,7 @@
  * Monitoring & Alerts Service
  * Real-time system monitoring, alerting, and health checks
  */
+import si from 'systeminformation';
 
 interface Alert {
   id: string;
@@ -164,45 +165,79 @@ class MonitoringService {
   }
 
   private async collectMetrics(): Promise<void> {
-    const metrics: SystemMetrics = {
-      timestamp: new Date(),
-      cpu: {
-        usage: Math.random() * 100, // Simulated
-        cores: 4,
-      },
-      memory: {
-        total: 8 * 1024 * 1024 * 1024, // 8GB
-        used: Math.random() * 6 * 1024 * 1024 * 1024,
-        free: 2 * 1024 * 1024 * 1024,
-        usagePercent: Math.random() * 75,
-      },
-      disk: {
-        total: 100 * 1024 * 1024 * 1024, // 100GB
-        used: Math.random() * 80 * 1024 * 1024 * 1024,
-        free: 20 * 1024 * 1024 * 1024,
-        usagePercent: Math.random() * 80,
-      },
-      network: {
-        bytesIn: Math.random() * 1000000,
-        bytesOut: Math.random() * 1000000,
-      },
-      streams: {
-        total: 100,
-        online: 85 + Math.floor(Math.random() * 10),
-        offline: 5 + Math.floor(Math.random() * 10),
-      },
-      users: {
-        total: 500,
-        active: 350,
-        online: 120 + Math.floor(Math.random() * 50),
-      },
-    };
+    try {
+      // Get real system metrics
+      const [cpuLoad, mem, disk, networkStats] = await Promise.all([
+        si.currentLoad(),
+        si.mem(),
+        si.fsSize(),
+        si.networkStats()
+      ]);
 
-    this.metricsHistory.push(metrics);
+      // Calculate CPU usage (average of all cores)
+      const cpuUsage = cpuLoad.currentLoad;
+      const cpuCores = cpuLoad.cpus.length;
 
-    // Keep only recent metrics
-    if (this.metricsHistory.length > this.maxHistorySize) {
-      this.metricsHistory.shift();
+      // Calculate memory usage
+      const memTotal = mem.total;
+      const memUsed = mem.used;
+      const memFree = mem.free;
+      const memUsagePercent = (memUsed / memTotal) * 100;
+
+      // Calculate disk usage (primary disk)
+      const primaryDisk = disk[0] || { size: 0, used: 0, available: 0 };
+      const diskTotal = primaryDisk.size;
+      const diskUsed = primaryDisk.used;
+      const diskFree = primaryDisk.available;
+      const diskUsagePercent = primaryDisk.use || 0;
+
+      // Calculate network stats
+      const netStats = networkStats[0] || { rx_bytes: 0, tx_bytes: 0 };
+      const bytesIn = netStats.rx_bytes;
+      const bytesOut = netStats.tx_bytes;
+
+      const metrics: SystemMetrics = {
+        timestamp: new Date(),
+        cpu: {
+          usage: Math.round(cpuUsage * 100) / 100,
+          cores: cpuCores,
+        },
+        memory: {
+          total: memTotal,
+          used: memUsed,
+          free: memFree,
+          usagePercent: Math.round(memUsagePercent * 100) / 100,
+        },
+        disk: {
+          total: diskTotal,
+          used: diskUsed,
+          free: diskFree,
+          usagePercent: Math.round(diskUsagePercent * 100) / 100,
+        },
+        network: {
+          bytesIn,
+          bytesOut,
+        },
+        streams: {
+          total: 100, // TODO: Get from database
+          online: 85,
+          offline: 15,
+        },
+        users: {
+          total: 500, // TODO: Get from database
+          active: 350,
+          online: 120,
+        },
+      };
+
+      this.metricsHistory.push(metrics);
+
+      // Keep only recent metrics
+      if (this.metricsHistory.length > this.maxHistorySize) {
+        this.metricsHistory.shift();
+      }
+    } catch (error) {
+      console.error('[Monitoring] Error collecting metrics:', error);
     }
   }
 
