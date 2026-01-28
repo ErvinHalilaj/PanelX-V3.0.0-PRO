@@ -2520,8 +2520,13 @@ export async function registerRoutes(
 
   app.post("/api/reseller/lines", requireReseller, async (req, res) => {
     try {
+      // Convert expDate string to Date object if provided
+      const bodyData = { ...req.body };
+      if (bodyData.expDate && typeof bodyData.expDate === 'string') {
+        bodyData.expDate = new Date(bodyData.expDate);
+      }
       const input = api.lines.create.input.parse({
-        ...req.body,
+        ...bodyData,
         memberId: req.session.userId // Force memberId to current reseller
       });
       const line = await storage.createLine(input);
@@ -5297,6 +5302,10 @@ export async function registerRoutes(
   app.post(api.lines.create.path, requireAuth, async (req, res) => {
     try {
       const { useCredits, creditCost, ...lineData } = req.body;
+      // Convert expDate string to Date object if provided
+      if (lineData.expDate && typeof lineData.expDate === 'string') {
+        lineData.expDate = new Date(lineData.expDate);
+      }
       const input = api.lines.create.input.omit({ useCredits: true, creditCost: true }).parse(lineData);
       
       // If using credits, deduct from reseller
@@ -5320,6 +5329,10 @@ export async function registerRoutes(
 
   app.put(api.lines.update.path, requireAuth, async (req, res) => {
     try {
+      // Convert expDate string to Date object if provided
+      if (req.body.expDate && typeof req.body.expDate === 'string') {
+        req.body.expDate = new Date(req.body.expDate);
+      }
       const input = api.lines.update.input.parse(req.body);
       const line = await storage.updateLine(Number(req.params.id), input);
       res.json(line);
@@ -7371,48 +7384,6 @@ export async function registerRoutes(
     }
   });
   
-  // Reseller create line (with credit deduction)
-  app.post("/api/reseller/lines", requireReseller, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // If package is specified, get its cost
-      let creditCost = 0;
-      if (req.body.packageId) {
-        const pkg = await storage.getPackage(req.body.packageId);
-        if (pkg) {
-          creditCost = pkg.credits;
-        }
-      }
-      
-      // Check if reseller has enough credits
-      if (creditCost > 0 && (user.credits || 0) < creditCost) {
-        return res.status(400).json({ message: "Insufficient credits" });
-      }
-      
-      // Create line with reseller as member
-      const lineData = {
-        ...req.body,
-        memberId: userId,
-      };
-      
-      const line = await storage.createLine(lineData);
-      
-      // Deduct credits if package was used
-      if (creditCost > 0) {
-        await storage.addCredits(userId, -creditCost, 'line_create', line.id);
-      }
-      
-      res.status(201).json(line);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
   
   // Reseller update line
   app.put("/api/reseller/lines/:id", requireReseller, async (req, res) => {
