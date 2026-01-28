@@ -2629,7 +2629,7 @@ export async function registerRoutes(
     res.json(user);
   });
 
-  app.post(api.users.create.path, async (req, res) => {
+  app.post(api.users.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.users.create.input.parse(req.body);
       const user = await storage.createUser(input);
@@ -2642,7 +2642,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.users.update.path, async (req, res) => {
+  app.put(api.users.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.users.update.input.parse(req.body);
       const user = await storage.updateUser(Number(req.params.id), input);
@@ -2655,12 +2655,12 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.users.delete.path, async (req, res) => {
+  app.delete(api.users.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteUser(Number(req.params.id));
     res.status(204).send();
   });
 
-  app.post(api.users.addCredits.path, async (req, res) => {
+  app.post(api.users.addCredits.path, requireAdmin, async (req, res) => {
     try {
       const { amount, reason } = api.users.addCredits.input.parse(req.body);
       const user = await storage.addCredits(Number(req.params.id), amount, reason || 'admin_add');
@@ -2679,7 +2679,7 @@ export async function registerRoutes(
     res.json(categories);
   });
 
-  app.post(api.categories.create.path, async (req, res) => {
+  app.post(api.categories.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.categories.create.input.parse(req.body);
       const category = await storage.createCategory(input);
@@ -2692,7 +2692,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.categories.update.path, async (req, res) => {
+  app.put(api.categories.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.categories.update.input.parse(req.body);
       const category = await storage.updateCategory(Number(req.params.id), input);
@@ -2705,7 +2705,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.categories.delete.path, async (req, res) => {
+  app.delete(api.categories.delete.path, requireAuth, async (req, res) => {
     await storage.deleteCategory(Number(req.params.id));
     res.status(204).send();
   });
@@ -2724,7 +2724,7 @@ export async function registerRoutes(
     res.json(stream);
   });
 
-  app.post(api.streams.create.path, async (req, res) => {
+  app.post(api.streams.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.streams.create.input.parse(req.body);
       const stream = await storage.createStream(input);
@@ -2737,7 +2737,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.streams.update.path, async (req, res) => {
+  app.put(api.streams.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.streams.update.input.parse(req.body);
       const stream = await storage.updateStream(Number(req.params.id), input);
@@ -2750,7 +2750,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.streams.delete.path, async (req, res) => {
+  app.delete(api.streams.delete.path, requireAuth, async (req, res) => {
     await storage.deleteStream(Number(req.params.id));
     res.status(204).send();
   });
@@ -5247,7 +5247,7 @@ export async function registerRoutes(
     res.json(bouquet);
   });
 
-  app.post(api.bouquets.create.path, async (req, res) => {
+  app.post(api.bouquets.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.bouquets.create.input.parse(req.body);
       const bouquet = await storage.createBouquet(input);
@@ -5260,7 +5260,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.bouquets.update.path, async (req, res) => {
+  app.put(api.bouquets.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.bouquets.update.input.parse(req.body);
       const bouquet = await storage.updateBouquet(Number(req.params.id), input);
@@ -5273,7 +5273,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.bouquets.delete.path, async (req, res) => {
+  app.delete(api.bouquets.delete.path, requireAuth, async (req, res) => {
     await storage.deleteBouquet(Number(req.params.id));
     res.status(204).send();
   });
@@ -5290,7 +5290,7 @@ export async function registerRoutes(
     res.json(line);
   });
 
-  app.post(api.lines.create.path, async (req, res) => {
+  app.post(api.lines.create.path, requireAuth, async (req, res) => {
     try {
       const { useCredits, creditCost, ...lineData } = req.body;
       const input = api.lines.create.input.omit({ useCredits: true, creditCost: true }).parse(lineData);
@@ -5314,7 +5314,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.lines.update.path, async (req, res) => {
+  app.put(api.lines.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.lines.update.input.parse(req.body);
       const line = await storage.updateLine(Number(req.params.id), input);
@@ -5327,7 +5327,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.lines.delete.path, async (req, res) => {
+  app.delete(api.lines.delete.path, requireAuth, async (req, res) => {
     await storage.deleteLine(Number(req.params.id));
     res.status(204).send();
   });
@@ -5525,7 +5525,7 @@ export async function registerRoutes(
     res.json(server);
   });
 
-  app.post(api.servers.create.path, async (req, res) => {
+  app.post(api.servers.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.servers.create.input.parse(req.body);
       const server = await storage.createServer(input);
@@ -5538,7 +5538,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.servers.update.path, async (req, res) => {
+  app.put(api.servers.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.servers.update.input.parse(req.body);
       const server = await storage.updateServer(Number(req.params.id), input);
@@ -5551,7 +5551,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.servers.delete.path, async (req, res) => {
+  app.delete(api.servers.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteServer(Number(req.params.id));
     res.status(204).send();
   });
@@ -5568,7 +5568,7 @@ export async function registerRoutes(
     res.json(source);
   });
 
-  app.post(api.epgSources.create.path, async (req, res) => {
+  app.post(api.epgSources.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.epgSources.create.input.parse(req.body);
       const source = await storage.createEpgSource(input);
@@ -5581,7 +5581,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.epgSources.update.path, async (req, res) => {
+  app.put(api.epgSources.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.epgSources.update.input.parse(req.body);
       const source = await storage.updateEpgSource(Number(req.params.id), input);
@@ -5594,7 +5594,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.epgSources.delete.path, async (req, res) => {
+  app.delete(api.epgSources.delete.path, requireAuth, async (req, res) => {
     await storage.deleteEpgSource(Number(req.params.id));
     res.status(204).send();
   });
@@ -5619,7 +5619,7 @@ export async function registerRoutes(
     res.json(s);
   });
 
-  app.post(api.series.create.path, async (req, res) => {
+  app.post(api.series.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.series.create.input.parse(req.body);
       const s = await storage.createSeries(input);
@@ -5632,7 +5632,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.series.update.path, async (req, res) => {
+  app.put(api.series.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.series.update.input.parse(req.body);
       const s = await storage.updateSeries(Number(req.params.id), input);
@@ -5645,7 +5645,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.series.delete.path, async (req, res) => {
+  app.delete(api.series.delete.path, requireAuth, async (req, res) => {
     await storage.deleteSeries(Number(req.params.id));
     res.status(204).send();
   });
@@ -5664,7 +5664,7 @@ export async function registerRoutes(
     res.json(episode);
   });
 
-  app.post(api.episodes.create.path, async (req, res) => {
+  app.post(api.episodes.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.episodes.create.input.parse({
         ...req.body,
@@ -5680,7 +5680,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.episodes.update.path, async (req, res) => {
+  app.put(api.episodes.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.episodes.update.input.parse(req.body);
       const episode = await storage.updateEpisode(Number(req.params.id), input);
@@ -5693,7 +5693,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.episodes.delete.path, async (req, res) => {
+  app.delete(api.episodes.delete.path, requireAuth, async (req, res) => {
     await storage.deleteEpisode(Number(req.params.id));
     res.status(204).send();
   });
