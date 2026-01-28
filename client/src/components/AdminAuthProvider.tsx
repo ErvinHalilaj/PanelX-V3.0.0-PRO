@@ -107,54 +107,77 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
 
   if (!user || user.role !== "admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Lock className="h-6 w-6 text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/20 via-transparent to-transparent rounded-full blur-3xl" />
+          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-primary/10 via-transparent to-transparent rounded-full blur-3xl" />
+        </div>
+        
+        <div className="relative z-10 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 mb-4">
+              <span className="w-2 h-10 bg-primary rounded-full" />
+              <h1 className="text-4xl font-bold tracking-tight">
+                Panel<span className="text-primary">X</span>
+              </h1>
             </div>
-            <CardTitle className="text-2xl">Admin Panel</CardTitle>
-            <CardDescription>
-              Sign in with your admin credentials
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="admin-username">Username</Label>
-                <Input
-                  id="admin-username"
-                  data-testid="input-admin-username"
-                  placeholder="admin"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                />
+            <p className="text-sm text-muted-foreground font-mono">v3.0.0 PRO</p>
+          </div>
+          
+          <Card className="border-white/10 bg-card/80 backdrop-blur-xl shadow-2xl">
+            <CardHeader className="text-center pb-4">
+              <div className="mx-auto mb-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20">
+                <Lock className="h-7 w-7 text-primary" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">Password</Label>
-                <Input
-                  id="admin-password"
-                  data-testid="input-admin-password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={loginMutation.isPending}
-                data-testid="button-admin-login"
-              >
-                {loginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Sign In
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <CardTitle className="text-xl font-semibold">Welcome Back</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Sign in to access your admin dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pb-8">
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-username" className="text-sm font-medium">Username</Label>
+                  <Input
+                    id="admin-username"
+                    data-testid="input-admin-username"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                    className="h-11 bg-muted/50 border-white/10 focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password" className="text-sm font-medium">Password</Label>
+                  <Input
+                    id="admin-password"
+                    data-testid="input-admin-password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    className="h-11 bg-muted/50 border-white/10 focus:border-primary"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-11 btn-glow font-semibold text-base"
+                  disabled={loginMutation.isPending}
+                  data-testid="button-admin-login"
+                >
+                  {loginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+          
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            IPTV Management Panel
+          </p>
+        </div>
       </div>
     );
   }

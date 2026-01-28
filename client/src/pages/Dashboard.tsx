@@ -36,49 +36,45 @@ const SAMPLE_connectionsData = [
 
 // Sample data - Will use real stream counts when implemented
 const SAMPLE_contentDistribution = [
-  { name: "Live TV", value: 65, color: "#8b5cf6" },
+  { name: "Live TV", value: 65, color: "#06b6d4" },
   { name: "Movies", value: 25, color: "#10b981" },
   { name: "Series", value: 10, color: "#f59e0b" },
 ];
 
 function StatsCard({ title, value, icon: Icon, color, subtext, trend }: any) {
+  const bgColorClass = color.replace('text-', 'bg-').split(' ')[0];
   return (
-    <motion.div 
-      whileHover={{ y: -5 }}
-      className="bg-card/50 backdrop-blur-xl border border-white/5 p-6 rounded-2xl shadow-xl relative overflow-hidden group"
-    >
-      <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
-        <Icon className="w-24 h-24" />
-      </div>
-      <div className="relative z-10">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${color} bg-opacity-10`}>
-          <Icon className={`w-6 h-6 ${color.replace('text-', 'text-')}`} />
+    <div className="stats-card p-5 group">
+      <div className="flex items-start justify-between">
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${bgColorClass}/10`}>
+          <Icon className={`w-5 h-5 ${color.split(' ')[0]}`} />
         </div>
-        <h3 className="text-muted-foreground font-medium text-sm uppercase tracking-wider">{title}</h3>
-        <div className="flex items-end gap-2">
-          <p className="text-3xl font-display font-bold text-white mt-1">{value}</p>
-          {trend !== undefined && (
-            <span className={`text-xs mb-1 ${trend >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {trend >= 0 ? "+" : ""}{trend}%
-            </span>
-          )}
-        </div>
-        {subtext && <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">{subtext}</p>}
+        {trend !== undefined && (
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${trend >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+            {trend >= 0 ? "+" : ""}{trend}%
+          </span>
+        )}
       </div>
-    </motion.div>
+      <div className="mt-4">
+        <p className="text-2xl font-bold">{value}</p>
+        <h3 className="text-muted-foreground text-sm mt-0.5">{title}</h3>
+      </div>
+      {subtext && <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">{subtext}</p>}
+    </div>
   );
 }
 
 function MiniCard({ title, value, icon: Icon, color }: { title: string; value: string | number; icon: React.ComponentType<{ className?: string }>; color: string }) {
+  const bgColor = color.replace('text-', 'bg-');
   return (
-    <Card className="bg-card/40 border-white/5">
+    <Card className="bg-card/60 border-border/50 hover:border-border transition-colors">
       <CardContent className="p-4 flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color} bg-opacity-10`}>
-          <Icon className={`w-5 h-5 ${color}`} />
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${bgColor}/10`}>
+          <Icon className={`w-4 h-4 ${color}`} />
         </div>
         <div>
+          <p className="text-lg font-semibold">{value}</p>
           <p className="text-xs text-muted-foreground">{title}</p>
-          <p className="text-lg font-bold">{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -210,8 +206,8 @@ export default function Dashboard() {
               <AreaChart data={SAMPLE_bandwidthData}>
                 <defs>
                   <linearGradient id="colorBw" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -224,8 +220,8 @@ export default function Dashboard() {
                 <Area 
                   type="monotone" 
                   dataKey="bandwidth" 
-                  stroke="hsl(262, 83%, 58%)" 
-                  strokeWidth={3}
+                  stroke="#06b6d4" 
+                  strokeWidth={2}
                   fillOpacity={1} 
                   fill="url(#colorBw)" 
                 />
