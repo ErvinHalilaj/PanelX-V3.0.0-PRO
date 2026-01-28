@@ -1,0 +1,76 @@
+
+root@vps3262906:~# sudo -u panelx pm2 logs panelx --lines 30
+[TAILING] Tailing last 30 lines for [panelx] process (change the value with --lines option)
+/home/panelx/logs/out-0.log last 30 lines:
+/home/panelx/logs/error-0.log last 30 lines:
+0|panelx   | 2026-01-28 22:39:48 +00:00: Example: postgresql://panelx:panelx123@localhost:5432/panelx
+0|panelx   | 2026-01-28 22:39:48 +00:00: /home/panelx/webapp/server/db.ts:11
+0|panelx   | 2026-01-28 22:39:48 +00:00:   throw new Error(
+0|panelx   | 2026-01-28 22:39:48 +00:00:         ^
+0|panelx   | 2026-01-28 22:39:48 +00:00:
+0|panelx   | 2026-01-28 22:39:48 +00:00:
+0|panelx   | 2026-01-28 22:39:48 +00:00: Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|panelx   | 2026-01-28 22:39:48 +00:00:     at <anonymous> (/home/panelx/webapp/server/db.ts:11:9)
+0|panelx   | 2026-01-28 22:39:48 +00:00:     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+0|panelx   | 2026-01-28 22:39:48 +00:00:     at async ModuleLoader.import (node:internal/modules/esm/loader:336:24)
+0|panelx   | 2026-01-28 22:39:48 +00:00:     at async loadESM (node:internal/process/esm_loader:34:7)
+0|panelx   | 2026-01-28 22:39:48 +00:00:     at async handleMainPromise (node:internal/modules/run_main:106:12)
+0|panelx   | 2026-01-28 22:39:48 +00:00:
+0|panelx   | 2026-01-28 22:39:48 +00:00: Node.js v18.19.1
+0|panelx   | 2026-01-28 22:39:51 +00:00: ❌ DATABASE_URL environment variable is not set!
+0|panelx   | 2026-01-28 22:39:51 +00:00: Expected format: postgresql://username:password@host:port/database
+0|panelx   | 2026-01-28 22:39:51 +00:00: Example: postgresql://panelx:panelx123@localhost:5432/panelx
+0|panelx   | 2026-01-28 22:39:51 +00:00: /home/panelx/webapp/server/db.ts:11
+0|panelx   | 2026-01-28 22:39:51 +00:00:   throw new Error(
+0|panelx   | 2026-01-28 22:39:51 +00:00:         ^
+0|panelx   | 2026-01-28 22:39:51 +00:00:
+0|panelx   | 2026-01-28 22:39:51 +00:00:
+0|panelx   | 2026-01-28 22:39:51 +00:00: Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|panelx   | 2026-01-28 22:39:51 +00:00:     at <anonymous> (/home/panelx/webapp/server/db.ts:11:9)
+0|panelx   | 2026-01-28 22:39:51 +00:00:     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+0|panelx   | 2026-01-28 22:39:51 +00:00:     at async ModuleLoader.import (node:internal/modules/esm/loader:336:24)
+0|panelx   | 2026-01-28 22:39:51 +00:00:     at async loadESM (node:internal/process/esm_loader:34:7)
+0|panelx   | 2026-01-28 22:39:51 +00:00:     at async handleMainPromise (node:internal/modules/run_main:106:12)
+0|panelx   | 2026-01-28 22:39:51 +00:00:
+0|panelx   | 2026-01-28 22:39:51 +00:00: Node.js v18.19.1
+
+0|panelx  | 2026-01-28 22:39:54 +00:00: ❌ DATABASE_URL environment variable is not set!
+0|panelx  | 2026-01-28 22:39:54 +00:00: Expected format: postgresql://username:password@host:port/database
+0|panelx  | 2026-01-28 22:39:54 +00:00: Example: postgresql://panelx:panelx123@localhost:5432/panelx
+0|panelx  | 2026-01-28 22:39:54 +00:00: /home/panelx/webapp/server/db.ts:11
+0|panelx  | 2026-01-28 22:39:54 +00:00:   throw new Error(
+0|panelx  | 2026-01-28 22:39:54 +00:00:         ^
+0|panelx  | 2026-01-28 22:39:54 +00:00:
+0|panelx  | 2026-01-28 22:39:54 +00:00:
+0|panelx  | 2026-01-28 22:39:54 +00:00: Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|panelx  | 2026-01-28 22:39:54 +00:00:     at <anonymous> (/home/panelx/webapp/server/db.ts:11:9)
+0|panelx  | 2026-01-28 22:39:54 +00:00:     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+0|panelx  | 2026-01-28 22:39:54 +00:00:     at async ModuleLoader.import (node:internal/modules/esm/loader:336:24)
+0|panelx  | 2026-01-28 22:39:54 +00:00:     at async loadESM (node:internal/process/esm_loader:34:7)
+0|panelx  | 2026-01-28 22:39:54 +00:00:     at async handleMainPromise (node:internal/modules/run_main:106:12)
+0|panelx  | 2026-01-28 22:39:54 +00:00:
+0|panelx  | 2026-01-28 22:39:54 +00:00: Node.js v18.19.1
+0|panelx  | 2026-01-28 22:39:57 +00:00: ❌ DATABASE_URL environment variable is not set!
+0|panelx  | 2026-01-28 22:39:57 +00:00: Expected format: postgresql://username:password@host:port/database
+0|panelx  | 2026-01-28 22:39:57 +00:00: Example: postgresql://panelx:panelx123@localhost:5432/panelx
+0|panelx  | 2026-01-28 22:39:57 +00:00: /home/panelx/webapp/server/db.ts:11
+0|panelx  | 2026-01-28 22:39:57 +00:00:   throw new Error(
+0|panelx  | 2026-01-28 22:39:57 +00:00:         ^
+0|panelx  | 2026-01-28 22:39:57 +00:00:
+0|panelx  | 2026-01-28 22:39:57 +00:00:
+0|panelx  | 2026-01-28 22:39:57 +00:00: Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|panelx  | 2026-01-28 22:39:57 +00:00:     at <anonymous> (/home/panelx/webapp/server/db.ts:11:9)
+0|panelx  | 2026-01-28 22:39:57 +00:00:     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+0|panelx  | 2026-01-28 22:39:57 +00:00:     at async ModuleLoader.import (node:internal/modules/esm/loader:336:24)
+0|panelx  | 2026-01-28 22:39:57 +00:00:     at async loadESM (node:internal/process/esm_loader:34:7)
+0|panelx  | 2026-01-28 22:39:57 +00:00:     at async handleMainPromise (node:internal/modules/run_main:106:12)
+0|panelx  | 2026-01-28 22:39:57 +00:00:
+0|panelx  | 2026-01-28 22:39:57 +00:00: Node.js v18.19.1
+^C
+root@vps3262906:~# sudo -u panelx pm2 list
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ panelx             │ fork     │ 123  │ online    │ 0%       │ 66.3mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+root@vps3262906:~#

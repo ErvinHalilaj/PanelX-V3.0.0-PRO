@@ -226,8 +226,8 @@ $NPM_BIN install -g pm2 2>&1 | tail -3
 echo 'export PATH=$PATH:/usr/local/bin:/usr/bin' >> /etc/profile
 export PATH=$PATH:/usr/local/bin:/usr/bin
 
-# Create PM2 startup script
-sudo -u panelx tee $PROJECT_DIR/ecosystem.config.cjs > /dev/null <<'EOF'
+# Create PM2 startup script with all environment variables
+sudo -u panelx tee $PROJECT_DIR/ecosystem.config.cjs > /dev/null <<EOF
 module.exports = {
   apps: [{
     name: 'panelx',
@@ -241,7 +241,12 @@ module.exports = {
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',
-      PORT: 5000
+      PORT: 5000,
+      HOST: '0.0.0.0',
+      DATABASE_URL: 'postgresql://panelx:panelx123@localhost:5432/panelx',
+      SESSION_SECRET: '$SESSION_SECRET',
+      COOKIE_SECURE: 'false',
+      LOG_LEVEL: 'info'
     },
     error_file: '/home/panelx/logs/error.log',
     out_file: '/home/panelx/logs/out.log',
