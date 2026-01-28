@@ -112,28 +112,28 @@ class ResellerService {
 
     // Create user with reseller role
     const hashedPassword = await this.hashPassword(password);
-    const user = await storage.createUser({
+    const newUser = await storage.createUser({
       username,
       email: email || `${username}@reseller.local`,
       password: hashedPassword,
       role: 'reseller',
-      credits: user.credits || 0,
-      maxCredits: user.maxCredits || maxCredits,
+      credits: initialCredits,
+      maxCredits: maxCredits,
       isActive: true,
       parentId: parentResellerId,
       createdBy: 0, // Admin or system
     });
 
     const resellerAccount: ResellerAccount = {
-      id: user.id,
-      username: user.username,
-      email: user.email || '',
-      credits: user.credits || 0,
-      maxCredits: user.maxCredits || maxCredits,
-      parentResellerId,
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email || '',
+      credits: newUser.credits || 0,
+      maxCredits: newUser.maxCredits || maxCredits,
+      parentResellerId: parentResellerId ?? undefined,
       permissions: permissions || this.defaultPermissions,
       status: 'active',
-      createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+      createdAt: newUser.createdAt ? new Date(newUser.createdAt) : new Date(),
     };
 
     return resellerAccount;
@@ -154,7 +154,7 @@ class ResellerService {
       email: user.email || '',
       credits: user.credits || 0,
       maxCredits: user.maxCredits || 10000,
-      parentResellerId: user.parentId,
+      parentResellerId: user.parentId ?? undefined,
       permissions: this.defaultPermissions, // TODO: Load from DB
       status: user.isActive ? 'active' : 'inactive',
       createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
@@ -202,7 +202,7 @@ class ResellerService {
       email: u.email || '',
       credits: u.credits || 0,
       maxCredits: u.maxCredits || 10000,
-      parentResellerId: u.parentId,
+      parentResellerId: u.parentId ?? undefined,
       permissions: this.defaultPermissions,
       status: u.isActive ? 'active' : 'inactive',
       createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
@@ -237,7 +237,7 @@ class ResellerService {
       userId: resellerId,
       amount,
       reason,
-      referenceId,
+      referenceId: referenceId ? parseInt(referenceId) : null,
     });
 
     return { success: true, newBalance };
@@ -274,7 +274,7 @@ class ResellerService {
       userId: resellerId,
       amount: -amount,
       reason,
-      referenceId,
+      referenceId: referenceId ? parseInt(referenceId) : null,
     });
 
     return { success: true, newBalance };
@@ -360,7 +360,7 @@ class ResellerService {
     // Get lines created by this reseller or their users
     const allLines = await storage.getLines();
     const resellerLines = allLines.filter(l => 
-      l.userId === resellerId || resellerUsers.some(u => u.id === l.userId)
+      l.memberId === resellerId || resellerUsers.some(u => u.id === l.memberId)
     );
     const activeLines = resellerLines.filter(l => {
       if (!l.expDate) return true;
@@ -381,13 +381,13 @@ class ResellerService {
     const transactions = await storage.getCreditTransactions();
     const recentTransactions = transactions
       .filter(t => t.userId === resellerId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => new Date(b.createdAt || new Date()).getTime() - new Date(a.createdAt || new Date()).getTime())
       .slice(0, 10);
 
     const recentActivity = recentTransactions.map(t => ({
       type: t.amount > 0 ? 'credit_add' : 'credit_deduct',
       description: t.reason || 'Credit transaction',
-      timestamp: new Date(t.createdAt),
+      timestamp: new Date(t.createdAt || new Date()),
     }));
 
     return {

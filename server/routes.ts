@@ -3437,7 +3437,7 @@ export async function registerRoutes(
     try {
       const parseResult = insertCatchupSettingsSchema.partial().safeParse(req.body);
       if (!parseResult.success) {
-        return res.status(400).json({ message: "Invalid catchup settings", errors: parseResult.error.errors });
+        return res.status(400).json({ message: "Invalid catchup settings", errors: parseResult.error.issues });
       }
       const settings = await storage.updateCatchupSettings(parseResult.data);
       res.json(settings);
@@ -3496,7 +3496,7 @@ export async function registerRoutes(
     try {
       const parseResult = insertOnDemandSettingsSchema.partial().safeParse(req.body);
       if (!parseResult.success) {
-        return res.status(400).json({ message: "Invalid on-demand settings", errors: parseResult.error.errors });
+        return res.status(400).json({ message: "Invalid on-demand settings", errors: parseResult.error.issues });
       }
       const settings = await storage.updateOnDemandSettings(parseResult.data);
       res.json(settings);
@@ -8835,7 +8835,7 @@ export async function registerRoutes(
       
       // Get user's lines
       const userLines = await storage.getLines();
-      const myLines = userLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      const myLines = userLines.filter(l => l.memberId === userId);
       
       const now = new Date();
       const activeLines = myLines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > now));
@@ -8870,7 +8870,7 @@ export async function registerRoutes(
       if (!userId) return res.status(401).json({ message: "Not authenticated" });
       
       const userLines = await storage.getLines();
-      const myLines = userLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      const myLines = userLines.filter(l => l.memberId === userId);
       res.json(myLines);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -8909,7 +8909,7 @@ export async function registerRoutes(
           .limit(1);
         
         const allLines = await storage.getLines();
-        const lineCount = allLines.filter(l => l.createdBy === reseller.id || l.parentResellerIdd === reseller.id).length;
+        const lineCount = allLines.filter(l => l.memberId === reseller.id).length;
         
         return {
           ...reseller,
@@ -8932,7 +8932,7 @@ export async function registerRoutes(
       const days = Number(req.query.days) || 30;
       
       const allLines = await storage.getLines();
-      const userLines = allLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      const userLines = allLines.filter(l => l.memberId === userId);
       
       // Get credit transactions
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

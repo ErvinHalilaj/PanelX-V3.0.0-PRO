@@ -595,6 +595,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(creditTransactions.createdAt));
   }
 
+  async createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction> {
+    const [newTransaction] = await db.insert(creditTransactions).values(transaction).returning();
+    return newTransaction;
+  }
+
   // Stats
   async getStats() {
     const [streamsCount] = await db.select({ count: count() }).from(streams);

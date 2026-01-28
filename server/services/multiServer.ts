@@ -30,6 +30,72 @@ export interface ServerHealth {
 }
 
 /**
+ * Check server health and return current status
+ */
+export async function checkServerHealth(serverId: number): Promise<ServerHealth> {
+  try {
+    // Get latest health log
+    const [latestHealth] = await db
+      .select()
+      .from(serverHealthLogs)
+      .where(eq(serverHealthLogs.serverId, serverId))
+      .orderBy(desc(serverHealthLogs.createdAt))
+      .limit(1);
+
+    // Get active stream count for this server
+    const [streamCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(streams)
+      .where(and(
+        eq(streams.serverId, serverId),
+        eq(streams.monitorStatus, 'online')
+      ));
+
+    if (!latestHealth) {
+      return {
+        serverId,
+        status: 'offline',
+        cpuUsage: 0,
+        memoryUsage: 0,
+        diskUsage: 0,
+        bandwidth: 0,
+        activeConnections: 0,
+        activeStreams: streamCount?.count || 0,
+        responseTime: 0,
+        lastCheck: new Date(),
+      };
+    }
+
+    return {
+      serverId,
+      status: (latestHealth.status as 'healthy' | 'warning' | 'critical' | 'offline') || 'healthy',
+      cpuUsage: latestHealth.cpuUsage || 0,
+      memoryUsage: latestHealth.memoryUsage || 0,
+      diskUsage: latestHealth.diskUsage || 0,
+      bandwidth: latestHealth.bandwidth || 0,
+      activeConnections: latestHealth.activeConnections || 0,
+      activeStreams: streamCount?.count || 0,
+      responseTime: latestHealth.responseTime || 0,
+      lastCheck: latestHealth.createdAt || new Date(),
+    };
+  } catch (error) {
+    console.error("Failed to check server health:", error);
+    return {
+      serverId,
+      status: 'offline',
+      cpuUsage: 0,
+      memoryUsage: 0,
+      diskUsage: 0,
+      bandwidth: 0,
+      activeConnections: 0,
+      activeStreams: 0,
+      responseTime: 0,
+      lastCheck: new Date(),
+    };
+  }
+}
+
+/**
  * Record server health metrics
  */
 export async function recordServerHealth(
