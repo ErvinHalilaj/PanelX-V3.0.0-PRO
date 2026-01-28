@@ -105,3 +105,15 @@ Let's Encrypt integration for automatic SSL:
 - Vite with React plugin.
 - `tsx` for TypeScript execution.
 - Replit-specific plugins.
+
+## Recent Changes
+
+### January 28, 2026 - Batch 1 Frontend Complete
+Added 5 new admin pages for Batch 1 features:
+- **VpnDetection.tsx**: VPN detection settings, detection logs, IP ranges, and IP lookup tool
+- **ShopProducts.tsx**: Product management with bouquet selection, pricing, and descriptions
+- **ShopOrders.tsx**: Order management with tabs for orders and payment methods, order fulfillment
+- **SslCertificates.tsx**: SSL certificate management with Let's Encrypt integration and install script
+- **EmbeddedLines.tsx**: Embed token management with domain/IP restrictions and stats
+
+All pages follow existing patterns with shadcn/ui components, TanStack Query for data fetching, and proper cache invalidation.
