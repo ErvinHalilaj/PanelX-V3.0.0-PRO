@@ -357,6 +357,8 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  public db = db;
+  
   // Users
   async getUsers(): Promise<User[]> {
     return await db.select().from(users);

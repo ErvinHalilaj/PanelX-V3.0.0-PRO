@@ -768,7 +768,7 @@ export async function registerRoutes(
   // Update IP whitelist rule
   app.put("/api/ip-whitelist/:id", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const { ipAddress, ipRange, description, isActive, isGlobal, allowAdmin, allowReseller } = req.body;
 
       const [updated] = await db.update(ipWhitelist)
@@ -798,7 +798,7 @@ export async function registerRoutes(
   // Delete IP whitelist rule
   app.delete("/api/ip-whitelist/:id", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       
       await db.delete(ipWhitelist).where(eq(ipWhitelist.id, id));
       
@@ -855,7 +855,7 @@ export async function registerRoutes(
   // Get audit log by ID
   app.get("/api/audit-logs/:id", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       
       const [log] = await db.select()
         .from(auditLogs)
@@ -1031,7 +1031,7 @@ export async function registerRoutes(
   app.patch("/api/bandwidth/alerts/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
       const alert = await storage.updateBandwidthAlert(
-        parseInt(req.params.id),
+        parseInt(req.params.id as string),
         req.body
       );
       res.json(alert);
@@ -1047,7 +1047,7 @@ export async function registerRoutes(
   // Delete bandwidth alert
   app.delete("/api/bandwidth/alerts/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
-      await storage.deleteBandwidthAlert(parseInt(req.params.id));
+      await storage.deleteBandwidthAlert(parseInt(req.params.id as string));
       res.json({ message: "Bandwidth alert deleted successfully" });
     } catch (error: any) {
       console.error("Failed to delete bandwidth alert:", error);
@@ -1158,7 +1158,7 @@ export async function registerRoutes(
   app.get("/api/geo/lookup/:ip", requireAuth, async (req, res) => {
     try {
       const geoip = await import("./services/geoip");
-      const geoData = await geoip.lookupIP(req.params.ip);
+      const geoData = await geoip.lookupIP(req.params.ip as string);
       
       if (!geoData) {
         return res.status(404).json({ message: "IP address not found or invalid" });
@@ -1218,7 +1218,7 @@ export async function registerRoutes(
   // Get server health history
   app.get("/api/servers/:id/health/history", requireAuth, async (req, res) => {
     try {
-      const serverId = parseInt(req.params.id);
+      const serverId = parseInt(req.params.id as string);
       const hours = req.query.hours ? parseInt(req.query.hours as string) : 24;
       
       const multiServer = await import("./services/multiServer");
@@ -1237,7 +1237,7 @@ export async function registerRoutes(
   // Record server health metrics
   app.post("/api/servers/:id/health", requireAuth, async (req, res) => {
     try {
-      const serverId = parseInt(req.params.id);
+      const serverId = parseInt(req.params.id as string);
       
       const multiServer = await import("./services/multiServer");
       await multiServer.recordServerHealth(serverId, req.body);
@@ -1288,7 +1288,7 @@ export async function registerRoutes(
   app.post("/api/servers/failover", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { fromServerId, toServerId, reason } = req.body;
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       
       if (!fromServerId || !toServerId) {
         return res.status(400).json({ message: "fromServerId and toServerId are required" });
@@ -1394,7 +1394,7 @@ export async function registerRoutes(
   // Get TMDB details
   app.get("/api/tmdb/:tmdbId", requireAuth, async (req, res) => {
     try {
-      const tmdbId = parseInt(req.params.tmdbId);
+      const tmdbId = parseInt(req.params.tmdbId as string);
       const { mediaType } = req.query;
       
       if (!mediaType) {
@@ -1501,8 +1501,8 @@ export async function registerRoutes(
       const storage = await import("./storage");
       
       // Get all series without TMDB ID
-      const allSeries = await storage.storage.getAllSeries();
-      const missingTMDB = allSeries.filter(s => !s.tmdbId);
+      const allSeries = await storage.storage.getSeries();
+      const missingTMDB = allSeries.filter((s: { id: number; name: string; tmdbId?: string | null; releaseDate?: string | null }) => !s.tmdbId);
       
       // Add to queue
       let added = 0;
@@ -1570,7 +1570,7 @@ export async function registerRoutes(
   app.post("/api/subtitles", requireAuth, async (req, res) => {
     try {
       const subtitle = await import("./services/subtitle");
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       
       const subtitleId = await subtitle.uploadSubtitle({
         ...req.body,
@@ -1590,8 +1590,8 @@ export async function registerRoutes(
   // Download subtitle
   app.get("/api/subtitles/:id/download", requireAuth, async (req, res) => {
     try {
-      const subtitleId = parseInt(req.params.id);
-      const userId = (req.user as any)?.id;
+      const subtitleId = parseInt(req.params.id as string);
+      const userId = req.session.userId!;
       const ipAddress = req.ip;
       const userAgent = req.get('user-agent');
       
@@ -1618,7 +1618,7 @@ export async function registerRoutes(
   // Update subtitle
   app.patch("/api/subtitles/:id", requireAuth, async (req, res) => {
     try {
-      const subtitleId = parseInt(req.params.id);
+      const subtitleId = parseInt(req.params.id as string);
       
       const subtitle = await import("./services/subtitle");
       await subtitle.updateSubtitle(subtitleId, req.body);
@@ -1636,7 +1636,7 @@ export async function registerRoutes(
   // Delete subtitle
   app.delete("/api/subtitles/:id", requireAuth, async (req, res) => {
     try {
-      const subtitleId = parseInt(req.params.id);
+      const subtitleId = parseInt(req.params.id as string);
       
       const subtitle = await import("./services/subtitle");
       await subtitle.deleteSubtitle(subtitleId);
@@ -1710,7 +1710,7 @@ export async function registerRoutes(
   app.post("/api/subtitles/batch-import", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { directoryPath, referenceType, referenceId } = req.body;
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       
       if (!directoryPath || !referenceType || !referenceId) {
         return res.status(400).json({ 
@@ -1746,7 +1746,7 @@ export async function registerRoutes(
   app.post("/api/invoices", requireAuth, async (req, res) => {
     try {
       const invoice = await import("./services/invoice");
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       
       const invoiceId = await invoice.createInvoice({
         userId,
@@ -1763,7 +1763,7 @@ export async function registerRoutes(
   // Get invoice by ID
   app.get("/api/invoices/:id", requireAuth, async (req, res) => {
     try {
-      const invoiceId = parseInt(req.params.id);
+      const invoiceId = parseInt(req.params.id as string);
       
       const invoice = await import("./services/invoice");
       const result = await invoice.getInvoice(invoiceId);
@@ -1782,7 +1782,7 @@ export async function registerRoutes(
   // Get user invoices
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       const { status } = req.query;
       
       const invoice = await import("./services/invoice");
@@ -1798,7 +1798,7 @@ export async function registerRoutes(
   // Mark invoice as paid
   app.post("/api/invoices/:id/pay", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const invoiceId = parseInt(req.params.id);
+      const invoiceId = parseInt(req.params.id as string);
       
       const invoice = await import("./services/invoice");
       await invoice.markInvoicePaid(invoiceId, req.body);
@@ -1813,7 +1813,7 @@ export async function registerRoutes(
   // Cancel invoice
   app.post("/api/invoices/:id/cancel", requireAuth, async (req, res) => {
     try {
-      const invoiceId = parseInt(req.params.id);
+      const invoiceId = parseInt(req.params.id as string);
       
       const invoice = await import("./services/invoice");
       await invoice.cancelInvoice(invoiceId);
@@ -1848,7 +1848,7 @@ export async function registerRoutes(
   // Create API key
   app.post("/api/api-keys", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       const { keyName, permissions, ipWhitelist, rateLimit, expiresAt } = req.body;
       
       const apiKey = await import("./services/apiKey");
@@ -1869,7 +1869,7 @@ export async function registerRoutes(
   // Get user API keys
   app.get("/api/api-keys", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       
       const apiKey = await import("./services/apiKey");
       const keys = await apiKey.getUserApiKeys(userId);
@@ -1890,7 +1890,7 @@ export async function registerRoutes(
   // Revoke API key
   app.post("/api/api-keys/:id/revoke", requireAuth, async (req, res) => {
     try {
-      const keyId = parseInt(req.params.id);
+      const keyId = parseInt(req.params.id as string);
       
       const apiKey = await import("./services/apiKey");
       await apiKey.revokeApiKey(keyId);
@@ -1905,7 +1905,7 @@ export async function registerRoutes(
   // Delete API key
   app.delete("/api/api-keys/:id", requireAuth, async (req, res) => {
     try {
-      const keyId = parseInt(req.params.id);
+      const keyId = parseInt(req.params.id as string);
       
       const apiKey = await import("./services/apiKey");
       await apiKey.deleteApiKey(keyId);
@@ -1920,7 +1920,7 @@ export async function registerRoutes(
   // Get API key usage statistics
   app.get("/api/api-keys/:id/stats", requireAuth, async (req, res) => {
     try {
-      const keyId = parseInt(req.params.id);
+      const keyId = parseInt(req.params.id as string);
       const { startDate, endDate } = req.query;
       
       const apiKey = await import("./services/apiKey");
@@ -1955,7 +1955,7 @@ export async function registerRoutes(
   // Calculate reseller commissions
   app.get("/api/commissions/calculate/:resellerId", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const resellerId = parseInt(req.params.resellerId);
+      const resellerId = parseInt(req.params.resellerId as string);
       const { startDate, endDate } = req.query;
       
       if (!startDate || !endDate) {
@@ -2002,7 +2002,7 @@ export async function registerRoutes(
   // Mark commission as paid
   app.post("/api/commissions/payments/:id/pay", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const paymentId = parseInt(req.params.id);
+      const paymentId = parseInt(req.params.id as string);
       
       const commission = await import("./services/commission");
       await commission.markCommissionPaid(paymentId, req.body);
@@ -2017,7 +2017,7 @@ export async function registerRoutes(
   // Get reseller commission payments
   app.get("/api/commissions/payments", requireAuth, async (req, res) => {
     try {
-      const userId = (req.user as any)?.id;
+      const userId = req.session.userId!;
       const { status } = req.query;
       
       const commission = await import("./services/commission");
@@ -2396,7 +2396,7 @@ export async function registerRoutes(
   // Get backup by ID
   app.get("/api/backups/:id", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const backup = await getBackup(id);
       
       if (!backup) {
@@ -2413,7 +2413,7 @@ export async function registerRoutes(
   // Download backup file
   app.get("/api/backups/:id/download", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const backup = await getBackup(id);
       
       if (!backup) {
@@ -2438,7 +2438,7 @@ export async function registerRoutes(
   // Restore from backup
   app.post("/api/backups/:id/restore", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       
       // Log this critical action
       await logAuditEvent(
@@ -2464,7 +2464,7 @@ export async function registerRoutes(
   // Delete backup
   app.delete("/api/backups/:id", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id as string);
       const backup = await getBackup(id);
       
       if (!backup) {
@@ -3753,7 +3753,7 @@ export async function registerRoutes(
   // Delete poster
   app.delete("/api/media/posters/:filename", requireAuth, async (req, res) => {
     try {
-      const { filename } = req.params;
+      const filename = req.params.filename as string;
       const { mediaUploadManager } = await import('./mediaUploadManager');
       const deleted = await mediaUploadManager.deletePoster(filename);
 
@@ -3771,7 +3771,7 @@ export async function registerRoutes(
   // Delete subtitle
   app.delete("/api/media/subtitles/:filename", requireAuth, async (req, res) => {
     try {
-      const { filename } = req.params;
+      const filename = req.params.filename as string;
       const { mediaUploadManager } = await import('./mediaUploadManager');
       const deleted = await mediaUploadManager.deleteSubtitle(filename);
 
@@ -3923,7 +3923,7 @@ export async function registerRoutes(
   // Destroy session
   app.delete("/api/auth/sessions/:sessionId", requireAuth, async (req, res) => {
     try {
-      const { sessionId } = req.params;
+      const sessionId = req.params.sessionId as string;
       const { authService } = await import('./authService');
       
       const success = await authService.destroySession(sessionId);
@@ -4065,7 +4065,7 @@ export async function registerRoutes(
       const userId = (req as any).user?.id;
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-      const { keyId } = req.params;
+      const keyId = req.params.keyId as string;
       const { authService } = await import('./authService');
       
       const success = await authService.revokeApiKey(userId, keyId);
@@ -4262,7 +4262,7 @@ export async function registerRoutes(
       const { resellerService } = await import('./resellerService');
       const result = await resellerService.purchasePackage(
         Number(id),
-        packageId,
+        packageId as string,
         paymentReference
       );
 
@@ -4380,7 +4380,7 @@ export async function registerRoutes(
       }
 
       const { securityService } = await import('./securityService');
-      const success = await securityService.updateDeviceTrustLevel(fingerprint, trustLevel);
+      const success = await securityService.updateDeviceTrustLevel(fingerprint as string, trustLevel);
 
       if (!success) {
         return res.status(404).json({ message: "Device not found" });
@@ -4396,7 +4396,7 @@ export async function registerRoutes(
   // Remove device
   app.delete("/api/security/devices/:fingerprint", requireAuth, async (req, res) => {
     try {
-      const { fingerprint } = req.params;
+      const fingerprint = req.params.fingerprint as string;
       const { securityService } = await import('./securityService');
       const success = await securityService.removeDevice(fingerprint);
 
@@ -4500,7 +4500,7 @@ export async function registerRoutes(
   // Update rate limit rule
   app.put("/api/security/rate-limits/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const { securityService } = await import('./securityService');
       const updated = await securityService.updateRateLimitRule(id, updates);
@@ -4519,7 +4519,7 @@ export async function registerRoutes(
   // Delete rate limit rule
   app.delete("/api/security/rate-limits/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { securityService } = await import('./securityService');
       const success = await securityService.deleteRateLimitRule(id);
 
@@ -4622,7 +4622,7 @@ export async function registerRoutes(
   // Get theme by ID
   app.get("/api/branding/themes/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { brandingService } = await import('./brandingService');
       const theme = brandingService.getTheme(id);
 
@@ -4654,7 +4654,7 @@ export async function registerRoutes(
   // Update theme
   app.put("/api/branding/themes/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const { brandingService } = await import('./brandingService');
       const updated = await brandingService.updateTheme(id, updates);
@@ -4673,7 +4673,7 @@ export async function registerRoutes(
   // Delete theme
   app.delete("/api/branding/themes/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { brandingService } = await import('./brandingService');
       const success = await brandingService.deleteTheme(id);
 
@@ -4724,7 +4724,7 @@ export async function registerRoutes(
   // Update custom page
   app.put("/api/branding/pages/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const { brandingService } = await import('./brandingService');
       const updated = await brandingService.updateCustomPage(id, updates);
@@ -4743,7 +4743,7 @@ export async function registerRoutes(
   // Delete custom page
   app.delete("/api/branding/pages/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { brandingService } = await import('./brandingService');
       const success = await brandingService.deleteCustomPage(id);
 
@@ -4820,7 +4820,7 @@ export async function registerRoutes(
   // Get backup
   app.get("/api/backups/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { backupService } = await import('./backupService');
       const backup = backupService.getBackup(id);
 
@@ -4838,7 +4838,7 @@ export async function registerRoutes(
   // Delete backup
   app.delete("/api/backups/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { backupService } = await import('./backupService');
       const success = await backupService.deleteBackup(id);
 
@@ -4856,7 +4856,7 @@ export async function registerRoutes(
   // Restore backup
   app.post("/api/backups/:id/restore", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { verify } = req.body;
       const { backupService } = await import('./backupService');
       
@@ -4872,7 +4872,7 @@ export async function registerRoutes(
   // Verify backup
   app.post("/api/backups/:id/verify", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { backupService } = await import('./backupService');
       const valid = await backupService.verifyBackup(id);
 
@@ -4926,7 +4926,7 @@ export async function registerRoutes(
   // Get backup schedule
   app.get("/api/backups/schedules/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { backupService } = await import('./backupService');
       const schedule = backupService.getSchedule(id);
 
@@ -4944,7 +4944,7 @@ export async function registerRoutes(
   // Update backup schedule
   app.put("/api/backups/schedules/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const { backupService } = await import('./backupService');
       const updated = await backupService.updateSchedule(id, updates);
@@ -4963,7 +4963,7 @@ export async function registerRoutes(
   // Delete backup schedule
   app.delete("/api/backups/schedules/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { backupService } = await import('./backupService');
       const success = await backupService.deleteSchedule(id);
 
@@ -5016,7 +5016,7 @@ export async function registerRoutes(
   app.put("/api/webhooks/:id", requireAuth, async (req, res) => {
     try {
       const { webhookService } = await import('./webhookService');
-      const webhook = await webhookService.updateWebhook(req.params.id, req.body);
+      const webhook = await webhookService.updateWebhook(req.params.id as string, req.body);
       if (!webhook) return res.status(404).json({ message: "Webhook not found" });
       res.json(webhook);
     } catch (error: any) {
@@ -5027,7 +5027,7 @@ export async function registerRoutes(
   app.delete("/api/webhooks/:id", requireAuth, async (req, res) => {
     try {
       const { webhookService } = await import('./webhookService');
-      await webhookService.deleteWebhook(req.params.id);
+      await webhookService.deleteWebhook(req.params.id as string);
       res.json({ message: "Webhook deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5037,7 +5037,7 @@ export async function registerRoutes(
   app.get("/api/webhooks/:id/deliveries", requireAuth, async (req, res) => {
     try {
       const { webhookService } = await import('./webhookService');
-      const deliveries = webhookService.getDeliveries(req.params.id);
+      const deliveries = webhookService.getDeliveries(req.params.id as string);
       res.json({ deliveries });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5069,7 +5069,7 @@ export async function registerRoutes(
   app.put("/api/cron-jobs/:id", requireAuth, async (req, res) => {
     try {
       const { cronJobService } = await import('./cronJobService');
-      const job = await cronJobService.updateJob(req.params.id, req.body);
+      const job = await cronJobService.updateJob(req.params.id as string, req.body);
       if (!job) return res.status(404).json({ message: "Job not found" });
       res.json(job);
     } catch (error: any) {
@@ -5080,7 +5080,7 @@ export async function registerRoutes(
   app.delete("/api/cron-jobs/:id", requireAuth, async (req, res) => {
     try {
       const { cronJobService } = await import('./cronJobService');
-      await cronJobService.deleteJob(req.params.id);
+      await cronJobService.deleteJob(req.params.id as string);
       res.json({ message: "Job deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5090,7 +5090,7 @@ export async function registerRoutes(
   app.post("/api/cron-jobs/:id/run", requireAuth, async (req, res) => {
     try {
       const { cronJobService } = await import('./cronJobService');
-      await cronJobService.runJobNow(req.params.id);
+      await cronJobService.runJobNow(req.params.id as string);
       res.json({ message: "Job executed" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5143,7 +5143,7 @@ export async function registerRoutes(
   app.put("/api/monitoring/alerts/:id", requireAuth, async (req, res) => {
     try {
       const { monitoringService } = await import('./monitoringService');
-      const alert = await monitoringService.updateAlert(req.params.id, req.body);
+      const alert = await monitoringService.updateAlert(req.params.id as string, req.body);
       if (!alert) return res.status(404).json({ message: "Alert not found" });
       res.json(alert);
     } catch (error: any) {
@@ -5154,7 +5154,7 @@ export async function registerRoutes(
   app.delete("/api/monitoring/alerts/:id", requireAuth, async (req, res) => {
     try {
       const { monitoringService } = await import('./monitoringService');
-      await monitoringService.deleteAlert(req.params.id);
+      await monitoringService.deleteAlert(req.params.id as string);
       res.json({ message: "Alert deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5784,7 +5784,7 @@ export async function registerRoutes(
   });
 
   app.get(api.deviceTemplates.get.path, async (req, res) => {
-    const template = await storage.getDeviceTemplate(req.params.id);
+    const template = await storage.getDeviceTemplate(req.params.id as string);
     if (!template) return res.status(404).json({ message: "Device template not found" });
     res.json(template);
   });
@@ -6614,7 +6614,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/settings/:key", requireAdmin, async (req, res) => {
-    const setting = await storage.getSetting(req.params.key);
+    const setting = await storage.getSetting(req.params.key as string);
     if (!setting) return res.status(404).json({ message: "Setting not found" });
     res.json(setting);
   });
@@ -6636,9 +6636,9 @@ export async function registerRoutes(
     try {
       const updateSchema = z.object({ value: z.string() });
       const { value } = updateSchema.parse(req.body);
-      const existing = await storage.getSetting(req.params.key);
+      const existing = await storage.getSetting(req.params.key as string);
       if (!existing) return res.status(404).json({ message: "Setting not found" });
-      const setting = await storage.updateSetting(req.params.key, value);
+      const setting = await storage.updateSetting(req.params.key as string, value);
       res.json(setting);
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -6649,7 +6649,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/settings/:key", requireAdmin, async (req, res) => {
-    await storage.deleteSetting(req.params.key);
+    await storage.deleteSetting(req.params.key as string);
     res.status(204).send();
   });
 
@@ -6699,7 +6699,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/reserved-usernames/check/:username", requireAuth, async (req, res) => {
-    const isReserved = await storage.isUsernameReserved(req.params.username);
+    const isReserved = await storage.isUsernameReserved(req.params.username as string);
     res.json({ reserved: isReserved });
   });
 
@@ -7338,7 +7338,7 @@ export async function registerRoutes(
   // Reseller dashboard stats
   app.get("/api/reseller/stats", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const user = await storage.getUser(userId);
       const lines = await storage.getLines();
       const myLines = lines.filter(l => l.memberId === userId);
@@ -7362,7 +7362,7 @@ export async function registerRoutes(
   // Reseller's lines
   app.get("/api/reseller/lines", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const lines = await storage.getLines();
       const myLines = lines.filter(l => l.memberId === userId);
       res.json(myLines);
@@ -7374,7 +7374,7 @@ export async function registerRoutes(
   // Reseller create line (with credit deduction)
   app.post("/api/reseller/lines", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -7417,7 +7417,7 @@ export async function registerRoutes(
   // Reseller update line
   app.put("/api/reseller/lines/:id", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const lineId = Number(req.params.id);
       const line = await storage.getLine(lineId);
       
@@ -7435,7 +7435,7 @@ export async function registerRoutes(
   // Reseller delete line
   app.delete("/api/reseller/lines/:id", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const lineId = Number(req.params.id);
       const line = await storage.getLine(lineId);
       
@@ -7453,7 +7453,7 @@ export async function registerRoutes(
   // Reseller credit transactions
   app.get("/api/reseller/credit-transactions", requireReseller, async (req, res) => {
     try {
-      const userId = req.session!.userId;
+      const userId = req.session.userId!;
       const transactions = await storage.getCreditTransactions(userId);
       res.json(transactions);
     } catch (err: any) {

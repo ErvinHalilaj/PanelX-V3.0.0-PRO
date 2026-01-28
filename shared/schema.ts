@@ -867,156 +867,156 @@ export const insertImpersonationLogSchema = createInsertSchema(impersonationLogs
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 
 export type Category = typeof categories.$inferSelect;
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertCategory = typeof categories.$inferInsert;
 
 export type Stream = typeof streams.$inferSelect;
-export type InsertStream = z.infer<typeof insertStreamSchema>;
+export type InsertStream = typeof streams.$inferInsert;
 
 export type Bouquet = typeof bouquets.$inferSelect;
-export type InsertBouquet = z.infer<typeof insertBouquetSchema>;
+export type InsertBouquet = typeof bouquets.$inferInsert;
 
 export type Line = typeof lines.$inferSelect;
-export type InsertLine = z.infer<typeof insertLineSchema>;
+export type InsertLine = typeof lines.$inferInsert;
 
 export type ActiveConnection = typeof activeConnections.$inferSelect;
-export type InsertActiveConnection = z.infer<typeof insertActiveConnectionSchema>;
+export type InsertActiveConnection = typeof activeConnections.$inferInsert;
 
 export type ActivityLog = typeof activityLog.$inferSelect;
-export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type InsertActivityLog = typeof activityLog.$inferInsert;
 
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
-export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
 
 // New types for additional features
 export type Server = typeof servers.$inferSelect;
-export type InsertServer = z.infer<typeof insertServerSchema>;
+export type InsertServer = typeof servers.$inferInsert;
 
 export type EpgSource = typeof epgSources.$inferSelect;
-export type InsertEpgSource = z.infer<typeof insertEpgSourceSchema>;
+export type InsertEpgSource = typeof epgSources.$inferInsert;
 
 export type EpgData = typeof epgData.$inferSelect;
-export type InsertEpgData = z.infer<typeof insertEpgDataSchema>;
+export type InsertEpgData = typeof epgData.$inferInsert;
 
 export type Series = typeof series.$inferSelect;
-export type InsertSeries = z.infer<typeof insertSeriesSchema>;
+export type InsertSeries = typeof series.$inferInsert;
 
 export type Episode = typeof episodes.$inferSelect;
-export type InsertEpisode = z.infer<typeof insertEpisodeSchema>;
+export type InsertEpisode = typeof episodes.$inferInsert;
 
 export type VodInfo = typeof vodInfo.$inferSelect;
-export type InsertVodInfo = z.infer<typeof insertVodInfoSchema>;
+export type InsertVodInfo = typeof vodInfo.$inferInsert;
 
 export type TvArchive = typeof tvArchive.$inferSelect;
-export type InsertTvArchive = z.infer<typeof insertTvArchiveSchema>;
+export type InsertTvArchive = typeof tvArchive.$inferInsert;
 
 export type BlockedIp = typeof blockedIps.$inferSelect;
-export type InsertBlockedIp = z.infer<typeof insertBlockedIpSchema>;
+export type InsertBlockedIp = typeof blockedIps.$inferInsert;
 
 export type BlockedUserAgent = typeof blockedUserAgents.$inferSelect;
-export type InsertBlockedUserAgent = z.infer<typeof insertBlockedUserAgentSchema>;
+export type InsertBlockedUserAgent = typeof blockedUserAgents.$inferInsert;
 
 export type DeviceTemplate = typeof deviceTemplates.$inferSelect;
-export type InsertDeviceTemplate = z.infer<typeof insertDeviceTemplateSchema>;
+export type InsertDeviceTemplate = typeof deviceTemplates.$inferInsert;
 
 export type TranscodeProfile = typeof transcodeProfiles.$inferSelect;
-export type InsertTranscodeProfile = z.infer<typeof insertTranscodeProfileSchema>;
+export type InsertTranscodeProfile = typeof transcodeProfiles.$inferInsert;
 
 export type StreamError = typeof streamErrors.$inferSelect;
-export type InsertStreamError = z.infer<typeof insertStreamErrorSchema>;
+export type InsertStreamError = typeof streamErrors.$inferInsert;
 
 export type ClientLog = typeof clientLogs.$inferSelect;
-export type InsertClientLog = z.infer<typeof insertClientLogSchema>;
+export type InsertClientLog = typeof clientLogs.$inferInsert;
 
 export type CronJob = typeof cronJobs.$inferSelect;
-export type InsertCronJob = z.infer<typeof insertCronJobSchema>;
+export type InsertCronJob = typeof cronJobs.$inferInsert;
 
 export type Backup = typeof backups.$inferSelect;
-export type InsertBackup = z.infer<typeof insertBackupSchema>;
+export type InsertBackup = typeof backups.$inferInsert;
 
 export type Webhook = typeof webhooks.$inferSelect;
-export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+export type InsertWebhook = typeof webhooks.$inferInsert;
 
 export type WebhookLog = typeof webhookLogs.$inferSelect;
-export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
+export type InsertWebhookLog = typeof webhookLogs.$inferInsert;
 
 export type ResellerGroup = typeof resellerGroups.$inferSelect;
-export type InsertResellerGroup = z.infer<typeof insertResellerGroupSchema>;
+export type InsertResellerGroup = typeof resellerGroups.$inferInsert;
 
 export type Package = typeof packages.$inferSelect;
-export type InsertPackage = z.infer<typeof insertPackageSchema>;
+export type InsertPackage = typeof packages.$inferInsert;
 
 export type Ticket = typeof tickets.$inferSelect;
-export type InsertTicket = z.infer<typeof insertTicketSchema>;
+export type InsertTicket = typeof tickets.$inferInsert;
 
 export type TicketReply = typeof ticketReplies.$inferSelect;
-export type InsertTicketReply = z.infer<typeof insertTicketReplySchema>;
+export type InsertTicketReply = typeof ticketReplies.$inferInsert;
 
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
-export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
+export type InsertLoginAttempt = typeof loginAttempts.$inferInsert;
 
 export type RateLimitSettings = typeof rateLimitSettings.$inferSelect;
-export type InsertRateLimitSettings = z.infer<typeof insertRateLimitSettingsSchema>;
+export type InsertRateLimitSettings = typeof rateLimitSettings.$inferInsert;
 
 export type Setting = typeof settings.$inferSelect;
-export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type InsertSetting = typeof settings.$inferInsert;
 
 export type AccessOutput = typeof accessOutputs.$inferSelect;
-export type InsertAccessOutput = z.infer<typeof insertAccessOutputSchema>;
+export type InsertAccessOutput = typeof accessOutputs.$inferInsert;
 
 export type ReservedUsername = typeof reservedUsernames.$inferSelect;
-export type InsertReservedUsername = z.infer<typeof insertReservedUsernameSchema>;
+export type InsertReservedUsername = typeof reservedUsernames.$inferInsert;
 
 export type CreatedChannel = typeof createdChannels.$inferSelect;
-export type InsertCreatedChannel = z.infer<typeof insertCreatedChannelSchema>;
+export type InsertCreatedChannel = typeof createdChannels.$inferInsert;
 
 export type Enigma2Device = typeof enigma2Devices.$inferSelect;
-export type InsertEnigma2Device = z.infer<typeof insertEnigma2DeviceSchema>;
+export type InsertEnigma2Device = typeof enigma2Devices.$inferInsert;
 
 export type Enigma2Action = typeof enigma2Actions.$inferSelect;
-export type InsertEnigma2Action = z.infer<typeof insertEnigma2ActionSchema>;
+export type InsertEnigma2Action = typeof enigma2Actions.$inferInsert;
 
 export type Signal = typeof signals.$inferSelect;
-export type InsertSignal = z.infer<typeof insertSignalSchema>;
+export type InsertSignal = typeof signals.$inferInsert;
 
 // New 1-Stream feature types
 export type ActivationCode = typeof activationCodes.$inferSelect;
-export type InsertActivationCode = z.infer<typeof insertActivationCodeSchema>;
+export type InsertActivationCode = typeof activationCodes.$inferInsert;
 
 export type ConnectionHistory = typeof connectionHistory.$inferSelect;
-export type InsertConnectionHistory = z.infer<typeof insertConnectionHistorySchema>;
+export type InsertConnectionHistory = typeof connectionHistory.$inferInsert;
 
 export type MostWatched = typeof mostWatched.$inferSelect;
-export type InsertMostWatched = z.infer<typeof insertMostWatchedSchema>;
+export type InsertMostWatched = typeof mostWatched.$inferInsert;
 
 export type TwoFactorAuth = typeof twoFactorAuth.$inferSelect;
-export type InsertTwoFactorAuth = z.infer<typeof insertTwoFactorAuthSchema>;
+export type InsertTwoFactorAuth = typeof twoFactorAuth.$inferInsert;
 
 export type FingerprintSettings = typeof fingerprintSettings.$inferSelect;
-export type InsertFingerprintSettings = z.infer<typeof insertFingerprintSettingsSchema>;
+export type InsertFingerprintSettings = typeof fingerprintSettings.$inferInsert;
 
 export type LineFingerprint = typeof lineFingerprints.$inferSelect;
-export type InsertLineFingerprint = z.infer<typeof insertLineFingerprintSchema>;
+export type InsertLineFingerprint = typeof lineFingerprints.$inferInsert;
 
 export type WatchFolder = typeof watchFolders.$inferSelect;
-export type InsertWatchFolder = z.infer<typeof insertWatchFolderSchema>;
+export type InsertWatchFolder = typeof watchFolders.$inferInsert;
 
 export type WatchFolderLog = typeof watchFolderLogs.$inferSelect;
-export type InsertWatchFolderLog = z.infer<typeof insertWatchFolderLogSchema>;
+export type InsertWatchFolderLog = typeof watchFolderLogs.$inferInsert;
 
 export type LoopingChannel = typeof loopingChannels.$inferSelect;
-export type InsertLoopingChannel = z.infer<typeof insertLoopingChannelSchema>;
+export type InsertLoopingChannel = typeof loopingChannels.$inferInsert;
 
 export type AutoblockRule = typeof autoblockRules.$inferSelect;
-export type InsertAutoblockRule = z.infer<typeof insertAutoblockRuleSchema>;
+export type InsertAutoblockRule = typeof autoblockRules.$inferInsert;
 
 export type StatisticsSnapshot = typeof statisticsSnapshots.$inferSelect;
-export type InsertStatisticsSnapshot = z.infer<typeof insertStatisticsSnapshotSchema>;
+export type InsertStatisticsSnapshot = typeof statisticsSnapshots.$inferInsert;
 
 export type ImpersonationLog = typeof impersonationLogs.$inferSelect;
-export type InsertImpersonationLog = z.infer<typeof insertImpersonationLogSchema>;
+export type InsertImpersonationLog = typeof impersonationLogs.$inferInsert;
 
 // Request Types
 export type CreateStreamRequest = InsertStream;
