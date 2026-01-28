@@ -67,6 +67,8 @@ import ShopProducts from "@/pages/ShopProducts";
 import ShopOrders from "@/pages/ShopOrders";
 import SslCertificates from "@/pages/SslCertificates";
 import EmbeddedLines from "@/pages/EmbeddedLines";
+import CatchupSettings from "@/pages/CatchupSettings";
+import OnDemandSettings from "@/pages/OnDemandSettings";
 import { AdminAuthProvider, useAdminAuth } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -131,6 +133,8 @@ function AdminRouter() {
       <Route path="/shop-orders" component={ShopOrders} />
       <Route path="/ssl-certificates" component={SslCertificates} />
       <Route path="/embedded-lines" component={EmbeddedLines} />
+      <Route path="/catchup-settings" component={CatchupSettings} />
+      <Route path="/on-demand-settings" component={OnDemandSettings} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

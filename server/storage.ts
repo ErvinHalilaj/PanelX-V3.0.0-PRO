@@ -7,7 +7,7 @@ import {
   createdChannels, enigma2Devices, enigma2Actions, signals,
   activationCodes, connectionHistory, mostWatched, twoFactorAuth, fingerprintSettings, lineFingerprints,
   watchFolders, watchFolderLogs, loopingChannels, autoblockRules, statisticsSnapshots, impersonationLogs,
-  bandwidthStats, bandwidthAlerts,
+  bandwidthStats, bandwidthAlerts, catchupSettings, onDemandSettings,
   type InsertUser, type InsertCategory, type InsertStream, type InsertBouquet, type InsertLine,
   type InsertActiveConnection, type InsertActivityLog, type InsertCreditTransaction,
   type InsertServer, type InsertEpgSource, type InsertEpgData, type InsertSeries, type InsertEpisode,
@@ -19,13 +19,15 @@ import {
   type InsertActivationCode, type InsertConnectionHistory, type InsertMostWatched, type InsertTwoFactorAuth,
   type InsertFingerprintSettings, type InsertLineFingerprint, type InsertWatchFolder, type InsertWatchFolderLog,
   type InsertLoopingChannel, type InsertAutoblockRule, type InsertStatisticsSnapshot, type InsertImpersonationLog,
+  type InsertCatchupSettings, type InsertOnDemandSettings,
   type User, type Category, type Stream, type Bouquet, type Line, type ActiveConnection, type ActivityLog, type CreditTransaction,
   type Server, type EpgSource, type EpgData, type Series, type Episode, type VodInfo, type TvArchive,
   type BlockedIp, type BlockedUserAgent, type DeviceTemplate, type TranscodeProfile, type StreamError, type ClientLog, type CronJob,
   type ResellerGroup, type Package, type Ticket, type TicketReply, type Backup, type Webhook, type WebhookLog,
   type Setting, type AccessOutput, type ReservedUsername, type CreatedChannel, type Enigma2Device, type Enigma2Action, type Signal,
   type ActivationCode, type ConnectionHistory, type MostWatched, type TwoFactorAuth, type FingerprintSettings, type LineFingerprint,
-  type WatchFolder, type WatchFolderLog, type LoopingChannel, type AutoblockRule, type StatisticsSnapshot, type ImpersonationLog
+  type WatchFolder, type WatchFolderLog, type LoopingChannel, type AutoblockRule, type StatisticsSnapshot, type ImpersonationLog,
+  type CatchupSettings, type OnDemandSettings
 } from "@shared/schema";
 import { eq, count, and, lt, sql, desc, gte, lte, or, isNull, inArray } from "drizzle-orm";
 
@@ -1644,6 +1646,60 @@ export class DatabaseStorage implements IStorage {
     await this.db
       .delete(bandwidthAlerts)
       .where(eq(bandwidthAlerts.id, id));
+  }
+
+  // ==========================================
+  // BATCH 2: Catchup Settings
+  // ==========================================
+
+  async getCatchupSettings(): Promise<CatchupSettings | undefined> {
+    const [settings] = await this.db.select().from(catchupSettings).limit(1);
+    return settings;
+  }
+
+  async updateCatchupSettings(updates: Partial<InsertCatchupSettings>): Promise<CatchupSettings> {
+    const existing = await this.getCatchupSettings();
+    if (existing) {
+      const [updated] = await this.db
+        .update(catchupSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(catchupSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(catchupSettings)
+        .values(updates as InsertCatchupSettings)
+        .returning();
+      return created;
+    }
+  }
+
+  // ==========================================
+  // BATCH 2: On-Demand Settings
+  // ==========================================
+
+  async getOnDemandSettings(): Promise<OnDemandSettings | undefined> {
+    const [settings] = await this.db.select().from(onDemandSettings).limit(1);
+    return settings;
+  }
+
+  async updateOnDemandSettings(updates: Partial<InsertOnDemandSettings>): Promise<OnDemandSettings> {
+    const existing = await this.getOnDemandSettings();
+    if (existing) {
+      const [updated] = await this.db
+        .update(onDemandSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(onDemandSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(onDemandSettings)
+        .values(updates as InsertOnDemandSettings)
+        .returning();
+      return created;
+    }
   }
 }
 

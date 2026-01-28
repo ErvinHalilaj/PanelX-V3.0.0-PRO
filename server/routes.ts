@@ -13,6 +13,7 @@ import {
   insertActivationCodeSchema, insertConnectionHistorySchema, insertTwoFactorAuthSchema,
   insertFingerprintSettingsSchema, insertLineFingerprintSchema, insertWatchFolderSchema,
   insertLoopingChannelSchema, insertAutoblockRuleSchema, insertStatisticsSnapshotSchema, insertImpersonationLogSchema,
+  insertCatchupSettingsSchema, insertOnDemandSettingsSchema,
   twoFactorAuth, twoFactorActivity, ipWhitelist, auditLogs, backups
 } from "@shared/schema";
 import * as OTPAuth from "otpauth";
@@ -3342,6 +3343,186 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('[API] Get ABR sessions error:', error);
       res.status(500).json({ message: error.message || "Failed to get ABR sessions" });
+    }
+  });
+
+  // ==========================================
+  // TRANSCODE PROFILES ENDPOINTS
+  // ==========================================
+  
+  app.get("/api/transcode-profiles", requireAuth, async (_req, res) => {
+    try {
+      const profiles = await storage.getTranscodeProfiles();
+      res.json(profiles);
+    } catch (error: any) {
+      console.error('[API] Get transcode profiles error:', error);
+      res.status(500).json({ message: error.message || "Failed to get transcode profiles" });
+    }
+  });
+
+  app.get("/api/transcode-profiles/:id", requireAuth, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const profile = await storage.getTranscodeProfile(id);
+      if (!profile) {
+        return res.status(404).json({ message: "Transcode profile not found" });
+      }
+      res.json(profile);
+    } catch (error: any) {
+      console.error('[API] Get transcode profile error:', error);
+      res.status(500).json({ message: error.message || "Failed to get transcode profile" });
+    }
+  });
+
+  app.post("/api/transcode-profiles", requireAdmin, async (req, res) => {
+    try {
+      const profile = await storage.createTranscodeProfile(req.body);
+      res.status(201).json(profile);
+    } catch (error: any) {
+      console.error('[API] Create transcode profile error:', error);
+      res.status(500).json({ message: error.message || "Failed to create transcode profile" });
+    }
+  });
+
+  app.put("/api/transcode-profiles/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const profile = await storage.updateTranscodeProfile(id, req.body);
+      res.json(profile);
+    } catch (error: any) {
+      console.error('[API] Update transcode profile error:', error);
+      res.status(500).json({ message: error.message || "Failed to update transcode profile" });
+    }
+  });
+
+  app.delete("/api/transcode-profiles/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteTranscodeProfile(id);
+      res.json({ message: "Transcode profile deleted" });
+    } catch (error: any) {
+      console.error('[API] Delete transcode profile error:', error);
+      res.status(500).json({ message: error.message || "Failed to delete transcode profile" });
+    }
+  });
+
+  // ==========================================
+  // CATCHUP SETTINGS ENDPOINTS (Batch 2)
+  // ==========================================
+
+  app.get("/api/catchup/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getCatchupSettings();
+      res.json(settings || {
+        enabled: false,
+        retentionDays: 7,
+        maxStorageGb: 100,
+        autoRecordEnabled: false,
+        autoRecordCategories: [],
+        defaultQuality: "source",
+        recordingsPath: "./recordings",
+        cleanupSchedule: "0 3 * * *"
+      });
+    } catch (error: any) {
+      console.error('[API] Get catchup settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to get catchup settings" });
+    }
+  });
+
+  app.put("/api/catchup/settings", requireAdmin, async (req, res) => {
+    try {
+      const parseResult = insertCatchupSettingsSchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid catchup settings", errors: parseResult.error.errors });
+      }
+      const settings = await storage.updateCatchupSettings(parseResult.data);
+      res.json(settings);
+    } catch (error: any) {
+      console.error('[API] Update catchup settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to update catchup settings" });
+    }
+  });
+
+  // Get storage usage for catchup
+  app.get("/api/catchup/storage", requireAdmin, async (_req, res) => {
+    try {
+      const archives = await storage.getTvArchives();
+      const totalBytes = archives.reduce((sum, a) => sum + (a.fileSize || 0), 0);
+      const totalGb = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+      
+      res.json({
+        totalArchives: archives.length,
+        storageUsedBytes: totalBytes,
+        storageUsedGb: parseFloat(totalGb),
+        activeRecordings: archives.filter(a => a.status === 'recording').length,
+        completedRecordings: archives.filter(a => a.status === 'completed').length
+      });
+    } catch (error: any) {
+      console.error('[API] Get catchup storage error:', error);
+      res.status(500).json({ message: error.message || "Failed to get catchup storage" });
+    }
+  });
+
+  // ==========================================
+  // ON-DEMAND SETTINGS ENDPOINTS (Batch 2)
+  // ==========================================
+
+  app.get("/api/on-demand/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getOnDemandSettings();
+      res.json(settings || {
+        enabled: true,
+        vodPath: "./vod",
+        autoScanEnabled: false,
+        scanInterval: 60,
+        transcodeEnabled: false,
+        generateThumbnails: true,
+        thumbnailInterval: 300,
+        allowedExtensions: ["mp4", "mkv", "avi", "ts", "m2ts"],
+        maxFileSize: 10240,
+        autoFetchMetadata: true
+      });
+    } catch (error: any) {
+      console.error('[API] Get on-demand settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to get on-demand settings" });
+    }
+  });
+
+  app.put("/api/on-demand/settings", requireAdmin, async (req, res) => {
+    try {
+      const parseResult = insertOnDemandSettingsSchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid on-demand settings", errors: parseResult.error.errors });
+      }
+      const settings = await storage.updateOnDemandSettings(parseResult.data);
+      res.json(settings);
+    } catch (error: any) {
+      console.error('[API] Update on-demand settings error:', error);
+      res.status(500).json({ message: error.message || "Failed to update on-demand settings" });
+    }
+  });
+
+  // Get VOD statistics
+  app.get("/api/on-demand/stats", requireAdmin, async (_req, res) => {
+    try {
+      const movies = await storage.getStreams(undefined, 'movie');
+      const allSeries = await storage.getSeries();
+      
+      // Count episodes across all series
+      let totalEpisodes = 0;
+      for (const s of allSeries) {
+        const episodes = await storage.getEpisodes(s.id);
+        totalEpisodes += episodes.length;
+      }
+      
+      res.json({
+        totalMovies: movies.length,
+        totalSeries: allSeries.length,
+        totalEpisodes
+      });
+    } catch (error: any) {
+      console.error('[API] Get on-demand stats error:', error);
+      res.status(500).json({ message: error.message || "Failed to get on-demand stats" });
     }
   });
 
@@ -7479,7 +7660,8 @@ export async function registerRoutes(
   // Check IP for VPN/Proxy
   app.get("/api/vpn-detection/check/:ip", requireAdmin, async (req, res) => {
     try {
-      const result = await vpnDetection.checkVpnProxy(req.params.ip);
+      const ip = String(req.params.ip);
+      const result = await vpnDetection.checkVpnProxy(ip);
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -7489,7 +7671,8 @@ export async function registerRoutes(
   // Lookup IP info
   app.get("/api/vpn-detection/lookup/:ip", requireAdmin, async (req, res) => {
     try {
-      const result = await vpnDetection.lookupIp(req.params.ip);
+      const ip = String(req.params.ip);
+      const result = await vpnDetection.lookupIp(ip);
       res.json(result || { message: "Could not lookup IP" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

@@ -106,7 +106,20 @@ Let's Encrypt integration for automatic SSL:
 - `tsx` for TypeScript execution.
 - Replit-specific plugins.
 
+### Batch 2 Features - Transcoding & Archives
+Advanced media processing and archive management:
+- **Transcode Profiles**: CRUD API for managing FFmpeg transcode settings (codec, bitrate, resolution).
+- **Catchup Settings**: Configurable TV archive retention, max storage, auto-record categories, cleanup schedule.
+- **On-Demand Settings**: VOD path configuration, auto-scan, TMDB integration, thumbnail generation.
+- **TV Archive Status Tracking**: Enhanced schema with status field (recording, completed, error).
+
 ## Recent Changes
+
+### January 28, 2026 - Batch 2 Complete
+Added Batch 2 backend and frontend features:
+- **Backend**: Catchup Settings API (`/api/catchup/settings`, `/api/catchup/storage`), On-Demand Settings API (`/api/on-demand/settings`, `/api/on-demand/stats`), Transcode Profiles CRUD API
+- **Frontend**: CatchupSettings.tsx (TV archive settings, storage monitoring, auto-record), OnDemandSettings.tsx (VOD settings, auto-scan, TMDB, thumbnails)
+- **Schema**: Added `catchupSettings` and `onDemandSettings` tables, enhanced `tvArchives` with status field
 
 ### January 28, 2026 - Batch 1 Frontend Complete
 Added 5 new admin pages for Batch 1 features:

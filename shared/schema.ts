@@ -133,6 +133,7 @@ export const tvArchive = pgTable("tv_archive", {
   endTime: timestamp("end_time").notNull(),
   duration: integer("duration"), // seconds
   fileSize: integer("file_size"), // bytes
+  status: text("status").default("recording"), // recording, completed, error
 });
 
 // Blocked IPs
@@ -2580,6 +2581,56 @@ export const insertShopSettingsSchema = createInsertSchema(shopSettings).omit({ 
 export const insertSslCertificateSchema = createInsertSchema(sslCertificates).omit({ id: true, createdAt: true });
 export const insertEmbeddedLineSchema = createInsertSchema(embeddedLines).omit({ id: true, createdAt: true, embedViews: true, lastUsed: true });
 export const insertVpnIpRangeSchema = createInsertSchema(vpnIpRanges).omit({ id: true, createdAt: true });
+
+// ==========================================
+// BATCH 2: Catchup Settings
+// ==========================================
+
+export const catchupSettings = pgTable("catchup_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(false),
+  retentionDays: integer("retention_days").default(7), // How long to keep archived content
+  maxStorageGb: integer("max_storage_gb").default(100), // Maximum storage for archives
+  autoRecordEnabled: boolean("auto_record_enabled").default(false), // Auto-record enabled channels
+  autoRecordCategories: jsonb("auto_record_categories").$type<number[]>().default([]), // Category IDs to auto-record
+  defaultQuality: text("default_quality").default("source"), // source, high, medium, low
+  transcodeProfileId: integer("transcode_profile_id").references(() => transcodeProfiles.id),
+  recordingsPath: text("recordings_path").default("./recordings"),
+  cleanupSchedule: text("cleanup_schedule").default("0 3 * * *"), // Cron for cleanup
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ==========================================
+// BATCH 2: On-Demand Settings
+// ==========================================
+
+export const onDemandSettings = pgTable("on_demand_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(true),
+  vodPath: text("vod_path").default("./vod"), // Path to VOD files
+  autoScanEnabled: boolean("auto_scan_enabled").default(false), // Auto-scan for new files
+  scanInterval: integer("scan_interval").default(60), // Minutes between scans
+  transcodeEnabled: boolean("transcode_enabled").default(false),
+  defaultTranscodeProfileId: integer("default_transcode_profile_id").references(() => transcodeProfiles.id),
+  generateThumbnails: boolean("generate_thumbnails").default(true),
+  thumbnailInterval: integer("thumbnail_interval").default(300), // Seconds between thumbnail captures
+  allowedExtensions: jsonb("allowed_extensions").$type<string[]>().default(["mp4", "mkv", "avi", "ts", "m2ts"]),
+  maxFileSize: integer("max_file_size").default(10240), // MB
+  tmdbApiKey: text("tmdb_api_key"), // For metadata fetching
+  autoFetchMetadata: boolean("auto_fetch_metadata").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Batch 2 Insert Schemas
+export const insertCatchupSettingsSchema = createInsertSchema(catchupSettings).omit({ id: true, updatedAt: true });
+export const insertOnDemandSettingsSchema = createInsertSchema(onDemandSettings).omit({ id: true, updatedAt: true });
+
+// Batch 2 Types
+export type CatchupSettings = typeof catchupSettings.$inferSelect;
+export type InsertCatchupSettings = typeof catchupSettings.$inferInsert;
+
+export type OnDemandSettings = typeof onDemandSettings.$inferSelect;
+export type InsertOnDemandSettings = typeof onDemandSettings.$inferInsert;
 
 // Batch 1 Types
 export type VpnDetectionSettings = typeof vpnDetectionSettings.$inferSelect;

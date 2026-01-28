@@ -119,7 +119,7 @@ app.use((req, res, next) => {
   log('WebSocket server initialized for real-time monitoring');
 
   // Initialize DVR manager for recording functionality
-  const dvrManager = initializeDVRManager(storage, './recordings');
+  const dvrManager = initializeDVRManager('./recordings');
   log('DVR manager initialized for recording functionality');
 
   // ALWAYS serve the app on the port specified in the environment variable PORT

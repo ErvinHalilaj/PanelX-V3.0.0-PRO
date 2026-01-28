@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Storage } from './storage';
+import { storage } from './storage';
 
 interface RecordingSession {
   id: number;
@@ -15,11 +15,9 @@ interface RecordingSession {
 
 export class DVRManager {
   private recordings: Map<number, RecordingSession> = new Map();
-  private storage: Storage;
   private recordingsDir: string;
 
-  constructor(storage: Storage, recordingsDir: string = './recordings') {
-    this.storage = storage;
+  constructor(recordingsDir: string = './recordings') {
     this.recordingsDir = recordingsDir;
     this.ensureRecordingsDirectory();
   }
@@ -48,7 +46,7 @@ export class DVRManager {
       }
 
       // Get stream info
-      const stream = await this.storage.getStream(streamId);
+      const stream = await storage.getStream(streamId);
       if (!stream) {
         throw new Error('Stream not found');
       }
@@ -59,7 +57,7 @@ export class DVRManager {
       const outputPath = path.join(this.recordingsDir, filename);
 
       // Create archive record in database
-      const archive = await this.storage.createTvArchiveEntry({
+      const archive = await storage.createTvArchiveEntry({
         streamId,
         archiveFile: filename,
         startTime: new Date(),
@@ -175,7 +173,7 @@ export class DVRManager {
       }
 
       // Update database
-      await this.storage.updateTvArchive(recordingId, {
+      await storage.updateTvArchive(recordingId, {
         status: success ? 'completed' : 'error',
         endTime: new Date(),
         fileSize
@@ -212,7 +210,7 @@ export class DVRManager {
   async deleteRecording(recordingId: number): Promise<void> {
     try {
       // Get recording info from database
-      const archive = await this.storage.getTvArchive(recordingId);
+      const archive = await storage.getTvArchive(recordingId);
       if (!archive) {
         throw new Error('Recording not found');
       }
@@ -232,7 +230,7 @@ export class DVRManager {
       }
 
       // Delete from database
-      await this.storage.deleteTvArchive(recordingId);
+      await storage.deleteTvArchive(recordingId);
 
       // Remove from recordings map
       this.recordings.delete(recordingId);
@@ -281,7 +279,7 @@ export class DVRManager {
    */
   async cleanupOldRecordings(maxAgeHours: number = 168): Promise<number> {
     try {
-      const archives = await this.storage.getTvArchives();
+      const archives = await storage.getTvArchives();
       const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
       
       let deletedCount = 0;
@@ -309,9 +307,9 @@ export class DVRManager {
 // Singleton instance
 let dvrManager: DVRManager | null = null;
 
-export function initializeDVRManager(storage: Storage, recordingsDir?: string): DVRManager {
+export function initializeDVRManager(recordingsDir?: string): DVRManager {
   if (!dvrManager) {
-    dvrManager = new DVRManager(storage, recordingsDir);
+    dvrManager = new DVRManager(recordingsDir);
     
     // Auto-cleanup every 24 hours
     setInterval(() => {
