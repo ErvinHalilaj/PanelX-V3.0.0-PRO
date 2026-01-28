@@ -6,7 +6,7 @@ import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { 
   insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema,
   insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema,
@@ -14,7 +14,11 @@ import {
   insertFingerprintSettingsSchema, insertLineFingerprintSchema, insertWatchFolderSchema,
   insertLoopingChannelSchema, insertAutoblockRuleSchema, insertStatisticsSnapshotSchema, insertImpersonationLogSchema,
   insertCatchupSettingsSchema, insertOnDemandSettingsSchema,
-  twoFactorAuth, twoFactorActivity, ipWhitelist, auditLogs, backups
+  twoFactorAuth, twoFactorActivity, ipWhitelist, auditLogs, backups,
+  // Batch 3 imports
+  loadBalancingSettings, loadBalancingRules, serverHealthLogs, serverFailoverHistory,
+  geoipSettings, geoipLogs, bandwidthStats, bandwidthAlerts, notificationHistory,
+  resellerPermissions, resellerSettings, creditTransactions
 } from "@shared/schema";
 import * as OTPAuth from "otpauth";
 import { auditLogMiddleware, logAuditEvent, logAuthFailure } from "./middleware/auditLog";
@@ -8208,6 +8212,753 @@ export async function registerRoutes(
     try {
       const script = sslService.generateInstallScript();
       res.type('text/plain').send(script);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 3: LOAD BALANCING & MULTI-SERVER
+  // ============================================
+
+  // Get load balancing settings
+  app.get("/api/load-balancing/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await db.select().from(loadBalancingSettings).limit(1);
+      if (settings.length === 0) {
+        // Create default settings
+        const [newSettings] = await db.insert(loadBalancingSettings).values({}).returning();
+        return res.json(newSettings);
+      }
+      res.json(settings[0]);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update load balancing settings
+  app.put("/api/load-balancing/settings", requireAdmin, async (req, res) => {
+    try {
+      const settings = await db.select().from(loadBalancingSettings).limit(1);
+      if (settings.length === 0) {
+        const [newSettings] = await db.insert(loadBalancingSettings).values(req.body).returning();
+        return res.json(newSettings);
+      }
+      const [updated] = await db.update(loadBalancingSettings)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(loadBalancingSettings.id, settings[0].id))
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get all servers with health info
+  app.get("/api/load-balancing/servers", requireAdmin, async (_req, res) => {
+    try {
+      const allServers = await storage.getServers();
+      const serverHealth = await Promise.all(allServers.map(async (server) => {
+        const healthLogs = await db.select()
+          .from(serverHealthLogs)
+          .where(eq(serverHealthLogs.serverId, server.id))
+          .orderBy(desc(serverHealthLogs.createdAt))
+          .limit(1);
+        return {
+          ...server,
+          lastHealth: healthLogs[0] || null,
+        };
+      }));
+      res.json(serverHealth);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get server health history
+  app.get("/api/load-balancing/servers/:id/health", requireAdmin, async (req, res) => {
+    try {
+      const hours = Number(req.query.hours) || 24;
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const logs = await db.select()
+        .from(serverHealthLogs)
+        .where(and(
+          eq(serverHealthLogs.serverId, Number(req.params.id)),
+          gte(serverHealthLogs.createdAt, since)
+        ))
+        .orderBy(serverHealthLogs.createdAt);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Trigger health check for a server
+  app.post("/api/load-balancing/servers/:id/health-check", requireAdmin, async (req, res) => {
+    try {
+      const server = await storage.getServer(Number(req.params.id));
+      if (!server) return res.status(404).json({ message: "Server not found" });
+      
+      // Import and use multiServer service
+      const { checkServerHealth } = await import("./services/multiServer");
+      const health = await checkServerHealth(server.id);
+      res.json(health);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get load balancing rules
+  app.get("/api/load-balancing/rules", requireAdmin, async (_req, res) => {
+    try {
+      const rules = await db.select().from(loadBalancingRules).orderBy(loadBalancingRules.priority);
+      res.json(rules);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create load balancing rule
+  app.post("/api/load-balancing/rules", requireAdmin, async (req, res) => {
+    try {
+      const [rule] = await db.insert(loadBalancingRules).values(req.body).returning();
+      res.json(rule);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update load balancing rule
+  app.put("/api/load-balancing/rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const [rule] = await db.update(loadBalancingRules)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(loadBalancingRules.id, Number(req.params.id)))
+        .returning();
+      res.json(rule);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete load balancing rule
+  app.delete("/api/load-balancing/rules/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(loadBalancingRules).where(eq(loadBalancingRules.id, Number(req.params.id)));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get failover history
+  app.get("/api/load-balancing/failover-history", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const history = await db.select()
+        .from(serverFailoverHistory)
+        .orderBy(desc(serverFailoverHistory.createdAt))
+        .limit(limit);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Manual failover trigger
+  app.post("/api/load-balancing/failover", requireAdmin, async (req, res) => {
+    try {
+      const { fromServerId, toServerId, reason } = req.body;
+      const { triggerFailover } = await import("./services/multiServer");
+      const result = await triggerFailover(fromServerId, toServerId, reason || "Manual failover");
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get load balancing statistics
+  app.get("/api/load-balancing/stats", requireAdmin, async (_req, res) => {
+    try {
+      const allServers = await storage.getServers();
+      const onlineServers = allServers.filter(s => s.status === 'online' && s.enabled);
+      const totalConnections = allServers.reduce((sum, s) => sum + (s.currentClients || 0), 0);
+      const avgCpu = onlineServers.length > 0 
+        ? onlineServers.reduce((sum, s) => sum + (s.cpuUsage || 0), 0) / onlineServers.length 
+        : 0;
+      const avgMemory = onlineServers.length > 0 
+        ? onlineServers.reduce((sum, s) => sum + (s.memoryUsage || 0), 0) / onlineServers.length 
+        : 0;
+      
+      res.json({
+        totalServers: allServers.length,
+        onlineServers: onlineServers.length,
+        offlineServers: allServers.length - onlineServers.length,
+        totalConnections,
+        avgCpuUsage: Math.round(avgCpu * 100) / 100,
+        avgMemoryUsage: Math.round(avgMemory * 100) / 100,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 3: GEOIP RESTRICTIONS
+  // ============================================
+
+  // Get GeoIP settings
+  app.get("/api/geoip/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await db.select().from(geoipSettings).limit(1);
+      if (settings.length === 0) {
+        const [newSettings] = await db.insert(geoipSettings).values({}).returning();
+        return res.json(newSettings);
+      }
+      res.json(settings[0]);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update GeoIP settings
+  app.put("/api/geoip/settings", requireAdmin, async (req, res) => {
+    try {
+      const settings = await db.select().from(geoipSettings).limit(1);
+      if (settings.length === 0) {
+        const [newSettings] = await db.insert(geoipSettings).values(req.body).returning();
+        return res.json(newSettings);
+      }
+      const [updated] = await db.update(geoipSettings)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(geoipSettings.id, settings[0].id))
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get GeoIP logs
+  app.get("/api/geoip/logs", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const action = req.query.action as string;
+      const conditions = [];
+      if (action) conditions.push(eq(geoipLogs.action, action));
+      
+      const logs = await db.select()
+        .from(geoipLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(geoipLogs.createdAt))
+        .limit(limit);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Lookup IP geolocation
+  app.get("/api/geoip/lookup/:ip", requireAdmin, async (req, res) => {
+    try {
+      const ip = req.params.ip;
+      // Use ip-api.com free service for lookup
+      const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as`);
+      const data = await response.json();
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get line GeoIP restrictions
+  app.get("/api/geoip/lines/:lineId", requireAdmin, async (req, res) => {
+    try {
+      const line = await storage.getLine(Number(req.params.lineId));
+      if (!line) return res.status(404).json({ message: "Line not found" });
+      res.json({
+        lineId: line.id,
+        username: line.username,
+        allowedCountries: line.allowedCountries || [],
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update line GeoIP restrictions
+  app.put("/api/geoip/lines/:lineId", requireAdmin, async (req, res) => {
+    try {
+      const { allowedCountries } = req.body;
+      const updated = await storage.updateLine(Number(req.params.lineId), { allowedCountries });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Check IP against line restrictions
+  app.post("/api/geoip/check", requireAdmin, async (req, res) => {
+    try {
+      const { lineId, ipAddress } = req.body;
+      const line = await storage.getLine(lineId);
+      if (!line) return res.status(404).json({ message: "Line not found" });
+      
+      // Get IP geolocation
+      const response = await fetch(`http://ip-api.com/json/${ipAddress}?fields=countryCode`);
+      const data = await response.json();
+      
+      const allowed = !line.allowedCountries || 
+        line.allowedCountries.length === 0 || 
+        line.allowedCountries.includes(data.countryCode);
+      
+      // Log the check
+      await db.insert(geoipLogs).values({
+        lineId,
+        ipAddress,
+        countryCode: data.countryCode,
+        action: allowed ? 'allowed' : 'blocked',
+        reason: allowed ? 'allowed' : 'country_not_in_whitelist',
+      });
+      
+      res.json({ 
+        allowed, 
+        countryCode: data.countryCode,
+        allowedCountries: line.allowedCountries || [] 
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get GeoIP statistics
+  app.get("/api/geoip/stats", requireAdmin, async (_req, res) => {
+    try {
+      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const logs = await db.select().from(geoipLogs).where(gte(geoipLogs.createdAt, last24h));
+      
+      const allowed = logs.filter(l => l.action === 'allowed').length;
+      const blocked = logs.filter(l => l.action === 'blocked').length;
+      
+      // Group by country
+      const byCountry: Record<string, { allowed: number; blocked: number }> = {};
+      logs.forEach(log => {
+        const country = log.countryCode || 'Unknown';
+        if (!byCountry[country]) byCountry[country] = { allowed: 0, blocked: 0 };
+        if (log.action === 'allowed') byCountry[country].allowed++;
+        else byCountry[country].blocked++;
+      });
+      
+      res.json({
+        last24h: { allowed, blocked, total: logs.length },
+        byCountry,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 3: BANDWIDTH MONITORING
+  // ============================================
+
+  // Get bandwidth overview
+  app.get("/api/bandwidth/overview", requireAdmin, async (_req, res) => {
+    try {
+      const { getRealTimeBandwidthOverview } = await import("./services/bandwidthMonitor");
+      const overview = await getRealTimeBandwidthOverview();
+      res.json(overview);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get bandwidth stats
+  app.get("/api/bandwidth/stats", requireAdmin, async (req, res) => {
+    try {
+      const hours = Number(req.query.hours) || 24;
+      const serverId = req.query.serverId ? Number(req.query.serverId) : undefined;
+      const startTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const endTime = new Date();
+      
+      const { getBandwidthStats } = await import("./services/bandwidthMonitor");
+      const stats = await getBandwidthStats(startTime, endTime, { serverId });
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get bandwidth alerts
+  app.get("/api/bandwidth/alerts", requireAdmin, async (_req, res) => {
+    try {
+      const alerts = await db.select().from(bandwidthAlerts).orderBy(desc(bandwidthAlerts.createdAt));
+      res.json(alerts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create bandwidth alert
+  app.post("/api/bandwidth/alerts", requireAdmin, async (req, res) => {
+    try {
+      const [alert] = await db.insert(bandwidthAlerts).values(req.body).returning();
+      res.json(alert);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update bandwidth alert
+  app.put("/api/bandwidth/alerts/:id", requireAdmin, async (req, res) => {
+    try {
+      const [alert] = await db.update(bandwidthAlerts)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(bandwidthAlerts.id, Number(req.params.id)))
+        .returning();
+      res.json(alert);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete bandwidth alert
+  app.delete("/api/bandwidth/alerts/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(bandwidthAlerts).where(eq(bandwidthAlerts.id, Number(req.params.id)));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get notification history
+  app.get("/api/bandwidth/notifications", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const notifications = await db.select()
+        .from(notificationHistory)
+        .orderBy(desc(notificationHistory.createdAt))
+        .limit(limit);
+      res.json(notifications);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Test notification
+  app.post("/api/bandwidth/test-notification", requireAdmin, async (req, res) => {
+    try {
+      const { type, recipient, message } = req.body;
+      
+      // Record test notification
+      const [notification] = await db.insert(notificationHistory).values({
+        type,
+        recipient,
+        message: message || 'Test notification from PanelX',
+        subject: 'Test Alert',
+        status: 'pending',
+      }).returning();
+      
+      // Simulate sending (in production, integrate with email/SMS/webhook)
+      await db.update(notificationHistory)
+        .set({ status: 'sent', sentAt: new Date() })
+        .where(eq(notificationHistory.id, notification.id));
+      
+      res.json({ success: true, notification });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get per-line bandwidth usage
+  app.get("/api/bandwidth/lines/:lineId", requireAdmin, async (req, res) => {
+    try {
+      const hours = Number(req.query.hours) || 24;
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+      
+      const stats = await db.select()
+        .from(bandwidthStats)
+        .where(and(
+          eq(bandwidthStats.lineId, Number(req.params.lineId)),
+          gte(bandwidthStats.periodStart, since)
+        ))
+        .orderBy(bandwidthStats.periodStart);
+      
+      const total = stats.reduce((sum, s) => ({
+        bytesIn: sum.bytesIn + (s.bytesIn || 0),
+        bytesOut: sum.bytesOut + (s.bytesOut || 0),
+        bytesTotal: sum.bytesTotal + (s.bytesTotal || 0),
+      }), { bytesIn: 0, bytesOut: 0, bytesTotal: 0 });
+      
+      res.json({ stats, total });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get per-server bandwidth usage
+  app.get("/api/bandwidth/servers/:serverId", requireAdmin, async (req, res) => {
+    try {
+      const hours = Number(req.query.hours) || 24;
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+      
+      const stats = await db.select()
+        .from(bandwidthStats)
+        .where(and(
+          eq(bandwidthStats.serverId, Number(req.params.serverId)),
+          gte(bandwidthStats.periodStart, since)
+        ))
+        .orderBy(bandwidthStats.periodStart);
+      
+      const total = stats.reduce((sum, s) => ({
+        bytesIn: sum.bytesIn + (s.bytesIn || 0),
+        bytesOut: sum.bytesOut + (s.bytesOut || 0),
+        bytesTotal: sum.bytesTotal + (s.bytesTotal || 0),
+      }), { bytesIn: 0, bytesOut: 0, bytesTotal: 0 });
+      
+      res.json({ stats, total });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 3: RESELLER PORTAL ENHANCEMENTS
+  // ============================================
+
+  // Get reseller permissions
+  app.get("/api/reseller/permissions/:userId", requireAdmin, async (req, res) => {
+    try {
+      const permissions = await db.select()
+        .from(resellerPermissions)
+        .where(eq(resellerPermissions.userId, Number(req.params.userId)));
+      res.json(permissions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Set reseller permissions
+  app.put("/api/reseller/permissions/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const { permissions } = req.body; // Array of permission objects
+      
+      // Delete existing permissions
+      await db.delete(resellerPermissions).where(eq(resellerPermissions.userId, userId));
+      
+      // Insert new permissions
+      if (permissions && permissions.length > 0) {
+        const toInsert = permissions.map((p: any) => ({
+          userId,
+          resource: p.resource,
+          canCreate: p.canCreate || false,
+          canRead: p.canRead !== false,
+          canUpdate: p.canUpdate || false,
+          canDelete: p.canDelete || false,
+        }));
+        await db.insert(resellerPermissions).values(toInsert);
+      }
+      
+      const updated = await db.select()
+        .from(resellerPermissions)
+        .where(eq(resellerPermissions.userId, userId));
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get reseller settings
+  app.get("/api/reseller/settings/:userId", requireAdmin, async (req, res) => {
+    try {
+      const settings = await db.select()
+        .from(resellerSettings)
+        .where(eq(resellerSettings.userId, Number(req.params.userId)))
+        .limit(1);
+      
+      if (settings.length === 0) {
+        // Return default settings
+        return res.json({
+          userId: Number(req.params.userId),
+          maxLines: 100,
+          maxSubResellers: 0,
+          defaultLineDuration: 30,
+          defaultMaxConnections: 1,
+          allowedBouquets: [],
+          creditCostPerLine: 1,
+          creditCostPerMonth: 1,
+          canCreateTrialLines: false,
+          trialLineDuration: 1,
+          maxTrialLines: 5,
+          customBranding: false,
+        });
+      }
+      res.json(settings[0]);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update reseller settings
+  app.put("/api/reseller/settings/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const existing = await db.select()
+        .from(resellerSettings)
+        .where(eq(resellerSettings.userId, userId))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        const [created] = await db.insert(resellerSettings)
+          .values({ ...req.body, userId })
+          .returning();
+        return res.json(created);
+      }
+      
+      const [updated] = await db.update(resellerSettings)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(resellerSettings.userId, userId))
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get reseller dashboard stats (for current reseller)
+  app.get("/api/reseller/dashboard", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      // Get user's lines
+      const userLines = await storage.getLines();
+      const myLines = userLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      
+      const now = new Date();
+      const activeLines = myLines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > now));
+      const expiredLines = myLines.filter(l => l.expDate && new Date(l.expDate) <= now);
+      const expiringLines = myLines.filter(l => {
+        if (!l.expDate) return false;
+        const exp = new Date(l.expDate);
+        const daysLeft = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+        return daysLeft > 0 && daysLeft <= 7;
+      });
+      
+      // Get user's credits
+      const user = await storage.getUser(userId);
+      
+      res.json({
+        totalLines: myLines.length,
+        activeLines: activeLines.length,
+        expiredLines: expiredLines.length,
+        expiringLines: expiringLines.length,
+        credits: user?.credits || 0,
+        maxCredits: user?.maxCredits || 0,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get reseller's lines
+  app.get("/api/reseller/lines", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const userLines = await storage.getLines();
+      const myLines = userLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      res.json(myLines);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get reseller's credit transactions
+  app.get("/api/reseller/transactions", requireReseller, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const limit = Number(req.query.limit) || 50;
+      const transactions = await db.select()
+        .from(creditTransactions)
+        .where(eq(creditTransactions.userId, userId))
+        .orderBy(desc(creditTransactions.createdAt))
+        .limit(limit);
+      res.json(transactions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get all resellers (admin only)
+  app.get("/api/resellers", requireAdmin, async (_req, res) => {
+    try {
+      const users = await storage.getUsers();
+      const resellers = users.filter(u => u.role === 'reseller');
+      
+      // Get settings and line counts for each reseller
+      const resellerData = await Promise.all(resellers.map(async (reseller) => {
+        const settings = await db.select()
+          .from(resellerSettings)
+          .where(eq(resellerSettings.userId, reseller.id))
+          .limit(1);
+        
+        const allLines = await storage.getLines();
+        const lineCount = allLines.filter(l => l.createdBy === reseller.id || l.parentResellerIdd === reseller.id).length;
+        
+        return {
+          ...reseller,
+          password: undefined, // Don't expose password
+          settings: settings[0] || null,
+          lineCount,
+        };
+      }));
+      
+      res.json(resellerData);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get reseller analytics
+  app.get("/api/reseller/analytics/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const days = Number(req.query.days) || 30;
+      
+      const allLines = await storage.getLines();
+      const userLines = allLines.filter(l => l.createdBy === userId || l.parentResellerIdd === userId);
+      
+      // Get credit transactions
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const transactions = await db.select()
+        .from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.userId, userId),
+          gte(creditTransactions.createdAt, since)
+        ))
+        .orderBy(creditTransactions.createdAt);
+      
+      const creditsUsed = transactions
+        .filter(t => t.amount < 0)
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      
+      const creditsAdded = transactions
+        .filter(t => t.amount > 0)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      res.json({
+        totalLines: userLines.length,
+        activeLines: userLines.filter(l => l.enabled).length,
+        creditsUsed,
+        creditsAdded,
+        transactions,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
