@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   LayoutDashboard, 
   Tv, 
@@ -80,6 +80,8 @@ interface NavSection {
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAdminAuth();
+  const navRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLDivElement>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     content: true,
     users: true,
@@ -190,6 +192,23 @@ export function Sidebar() {
 
   const sectionKeys = ['content', 'users', 'security', 'system'];
 
+  useEffect(() => {
+    navSections.forEach((section, index) => {
+      const hasActiveItem = section.items.some(item => location === item.href);
+      if (hasActiveItem) {
+        setOpenSections(prev => ({ ...prev, [sectionKeys[index]]: true }));
+      }
+    });
+  }, [location]);
+
+  useEffect(() => {
+    if (activeItemRef.current && navRef.current) {
+      setTimeout(() => {
+        activeItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      }, 50);
+    }
+  }, [location]);
+
   return (
     <aside className="w-[260px] bg-[hsl(222,47%,7%)] border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 z-50 overflow-hidden">
       <div className="p-5 border-b border-sidebar-border">
@@ -206,7 +225,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
+      <nav ref={navRef} className="flex-1 overflow-y-auto py-3 px-2">
         <Link href="/">
           <div 
             className={cn(
@@ -247,20 +266,24 @@ export function Sidebar() {
               
               {isOpen && (
                 <div className="mt-1 space-y-0.5 animate-fade-in">
-                  {section.items.map((item) => (
-                    <Link key={item.href} href={item.href}>
-                      <div 
-                        className={cn(
-                          "nav-item cursor-pointer text-[13px] pl-8",
-                          location === item.href && "active"
-                        )} 
-                        data-testid={`nav-${item.href.replace('/', '') || 'dashboard'}`}
-                      >
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                    </Link>
-                  ))}
+                  {section.items.map((item) => {
+                    const isActive = location === item.href;
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <div 
+                          ref={isActive ? activeItemRef : null}
+                          className={cn(
+                            "nav-item cursor-pointer text-[13px] pl-8",
+                            isActive && "active"
+                          )} 
+                          data-testid={`nav-${item.href.replace('/', '') || 'dashboard'}`}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
