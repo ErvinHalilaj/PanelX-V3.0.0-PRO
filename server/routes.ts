@@ -961,16 +961,15 @@ export async function registerRoutes(
   // Get bandwidth statistics for a time range
   app.get("/api/bandwidth/stats", requireAuth, async (req, res) => {
     try {
-      const { startTime, endTime, serverId, lineId, streamId, granularity } = req.query;
-      
-      if (!startTime || !endTime) {
-        return res.status(400).json({ message: "startTime and endTime are required" });
-      }
+      const { serverId, lineId, streamId, granularity, hours } = req.query;
+      const hoursNum = Number(hours) || 24;
+      const startTime = new Date(Date.now() - hoursNum * 60 * 60 * 1000);
+      const endTime = new Date();
 
       const bandwidthMonitor = await import("./services/bandwidthMonitor");
       const stats = await bandwidthMonitor.getBandwidthStats(
-        new Date(startTime as string),
-        new Date(endTime as string),
+        startTime,
+        endTime,
         {
           serverId: serverId ? parseInt(serverId as string) : undefined,
           lineId: lineId ? parseInt(lineId as string) : undefined,
