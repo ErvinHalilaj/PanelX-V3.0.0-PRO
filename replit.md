@@ -52,6 +52,27 @@ The system includes 22 core data models covering:
 - Two-Factor Authentication (2FA) for admin/reseller accounts.
 - Fingerprint watermarking for streams.
 - Autoblock rules for automated security actions.
+- **VPN/Proxy Detection** (Batch 1): Blocks VPN, proxy, datacenter, and Tor connections. Supports local IP range database, ip-api.com, and proxycheck.io providers with caching.
+
+### Shop Plugin (Batch 1)
+Complete e-commerce system for selling subscriptions:
+- Products: Subscription packages with duration, connections, and bouquet configuration.
+- Payment Methods: Stripe, PayPal, crypto, bank transfer support.
+- Orders: Automatic fulfillment generates lines when orders are paid.
+- API: Public storefront endpoints and admin management.
+
+### Embedded Lines (Batch 1)
+Token-based authentication for embedding players without exposing credentials:
+- Secure embed tokens for each line.
+- Domain restrictions to limit where embeds can be used.
+- IP whitelisting for embedded access.
+- View tracking and statistics.
+
+### SSL Certificates (Batch 1)
+Let's Encrypt integration for automatic SSL:
+- Certificate request and renewal automation.
+- Nginx configuration generation.
+- Expiration monitoring with auto-renewal.
 
 ### API Endpoints
 - **Admin API**: `/api/*` for managing users, content, subscriptions, servers, EPG, series, and security features.
@@ -59,6 +80,7 @@ The system includes 22 core data models covering:
 - **Stalker Portal API**: `/stalker_portal/c/`, `/stalker_portal/server/load.php`.
 - **Device Playlist Generator**: `/playlist/:deviceKey/:username/:password`.
 - **New APIs**: Activation codes, connection history, most watched, 2FA, fingerprint settings, watch folders, looping channels, autoblock rules, statistics snapshots, and impersonation logs.
+- **Batch 1 APIs**: VPN detection (`/api/vpn-detection/*`), Shop (`/api/shop/*`), Embedded lines (`/api/embedded-lines/*`, `/api/embed/*`), SSL certificates (`/api/ssl-certificates/*`).
 
 ## External Dependencies
 

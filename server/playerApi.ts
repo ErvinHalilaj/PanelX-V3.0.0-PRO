@@ -204,7 +204,17 @@ async function recordLoginAttempt(ipAddress: string, username: string, success: 
   }
 }
 
-// Authenticate a line with rate limiting
+// VPN detection service import (lazy loaded)
+let vpnDetectionService: typeof import("./services/vpnDetection") | null = null;
+
+async function getVpnDetectionService() {
+  if (!vpnDetectionService) {
+    vpnDetectionService = await import("./services/vpnDetection");
+  }
+  return vpnDetectionService;
+}
+
+// Authenticate a line with rate limiting and VPN detection
 async function authenticateLine(username: string, password: string, ipAddress?: string): Promise<Line | null> {
   const line = await storage.getLineByCredentials(username, password);
   
@@ -219,6 +229,20 @@ async function authenticateLine(username: string, password: string, ipAddress?: 
   // Check expiration
   if (line.expDate && new Date(line.expDate) < new Date()) {
     return null;
+  }
+  
+  // VPN/Proxy detection check
+  if (ipAddress) {
+    try {
+      const vpnService = await getVpnDetectionService();
+      const vpnCheck = await vpnService.checkVpnProxy(ipAddress, line.id);
+      if (!vpnCheck.allowed) {
+        console.log(`[VPN BLOCKED] Line ${line.id} (${username}) from IP ${ipAddress}: ${vpnCheck.result?.source}`);
+        return null;
+      }
+    } catch (err) {
+      console.error('[VPN Check Error]', err);
+    }
   }
   
   return line;

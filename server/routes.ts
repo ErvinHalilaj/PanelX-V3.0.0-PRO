@@ -7433,6 +7433,604 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // BATCH 1: VPN DETECTION, SHOP, SSL, EMBEDDED LINES
+  // ============================================
+  
+  // Import services
+  const vpnDetection = await import("./services/vpnDetection");
+  const shopService = await import("./services/shop");
+  const embeddedLinesService = await import("./services/embeddedLines");
+  const sslService = await import("./services/sslCertificates");
+
+  // ----- VPN DETECTION ROUTES -----
+  
+  // Get VPN detection settings
+  app.get("/api/vpn-detection/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await vpnDetection.getVpnDetectionSettings();
+      res.json(settings);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update VPN detection settings
+  app.put("/api/vpn-detection/settings", requireAdmin, async (req, res) => {
+    try {
+      const updated = await vpnDetection.updateVpnDetectionSettings(req.body);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get VPN detection logs
+  app.get("/api/vpn-detection/logs", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const offset = Number(req.query.offset) || 0;
+      const logs = await vpnDetection.getVpnDetectionLogs(limit, offset);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Check IP for VPN/Proxy
+  app.get("/api/vpn-detection/check/:ip", requireAdmin, async (req, res) => {
+    try {
+      const result = await vpnDetection.checkVpnProxy(req.params.ip);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Lookup IP info
+  app.get("/api/vpn-detection/lookup/:ip", requireAdmin, async (req, res) => {
+    try {
+      const result = await vpnDetection.lookupIp(req.params.ip);
+      res.json(result || { message: "Could not lookup IP" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get VPN IP ranges (local database)
+  app.get("/api/vpn-detection/ip-ranges", requireAdmin, async (_req, res) => {
+    try {
+      const ranges = await vpnDetection.getVpnIpRanges();
+      res.json(ranges);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Add VPN IP range
+  app.post("/api/vpn-detection/ip-ranges", requireAdmin, async (req, res) => {
+    try {
+      const range = await vpnDetection.addVpnIpRange(req.body);
+      res.json(range);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete VPN IP range
+  app.delete("/api/vpn-detection/ip-ranges/:id", requireAdmin, async (req, res) => {
+    try {
+      await vpnDetection.deleteVpnIpRange(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Clear VPN cache
+  app.post("/api/vpn-detection/clear-cache", requireAdmin, async (_req, res) => {
+    try {
+      await vpnDetection.clearVpnCache();
+      res.json({ message: "Cache cleared" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ----- SHOP ROUTES -----
+
+  // Public: Get shop products
+  app.get("/api/shop/products", async (_req, res) => {
+    try {
+      const products = await shopService.getProducts(true);
+      res.json(products);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Get all products (including disabled)
+  app.get("/api/shop/products/all", requireAdmin, async (_req, res) => {
+    try {
+      const products = await shopService.getProducts(false);
+      res.json(products);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get single product
+  app.get("/api/shop/products/:id", async (req, res) => {
+    try {
+      const product = await shopService.getProduct(Number(req.params.id));
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      res.json(product);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create product
+  app.post("/api/shop/products", requireAdmin, async (req, res) => {
+    try {
+      const product = await shopService.createProduct(req.body);
+      res.json(product);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update product
+  app.put("/api/shop/products/:id", requireAdmin, async (req, res) => {
+    try {
+      const product = await shopService.updateProduct(Number(req.params.id), req.body);
+      res.json(product);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete product
+  app.delete("/api/shop/products/:id", requireAdmin, async (req, res) => {
+    try {
+      await shopService.deleteProduct(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Public: Get payment methods
+  app.get("/api/shop/payment-methods", async (_req, res) => {
+    try {
+      const methods = await shopService.getPaymentMethods(true);
+      const safeMethods = methods.map(m => ({
+        id: m.id,
+        name: m.name,
+        methodType: m.methodType,
+        displayName: m.displayName,
+        icon: m.icon,
+        instructions: m.instructions,
+      }));
+      res.json(safeMethods);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Get all payment methods with full details
+  app.get("/api/shop/payment-methods/all", requireAdmin, async (_req, res) => {
+    try {
+      const methods = await shopService.getPaymentMethods(false);
+      res.json(methods);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create payment method
+  app.post("/api/shop/payment-methods", requireAdmin, async (req, res) => {
+    try {
+      const method = await shopService.createPaymentMethod(req.body);
+      res.json(method);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update payment method
+  app.put("/api/shop/payment-methods/:id", requireAdmin, async (req, res) => {
+    try {
+      const method = await shopService.updatePaymentMethod(Number(req.params.id), req.body);
+      res.json(method);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete payment method
+  app.delete("/api/shop/payment-methods/:id", requireAdmin, async (req, res) => {
+    try {
+      await shopService.deletePaymentMethod(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Public: Create order
+  app.post("/api/shop/orders", async (req, res) => {
+    try {
+      const order = await shopService.createOrder({
+        productId: req.body.productId,
+        guestEmail: req.body.email,
+        guestName: req.body.name,
+        paymentMethodId: req.body.paymentMethodId,
+        customerNotes: req.body.notes,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Get order by order number (public for customers to check status)
+  app.get("/api/shop/orders/track/:orderNumber", async (req, res) => {
+    try {
+      const order = await shopService.getOrderByNumber(req.params.orderNumber);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      const safeOrder = {
+        orderNumber: order.orderNumber,
+        productName: order.productName,
+        totalPrice: order.totalPrice,
+        currency: order.currency,
+        paymentStatus: order.paymentStatus,
+        fulfilled: order.fulfilled,
+        createdAt: order.createdAt,
+        generatedUsername: order.fulfilled ? order.generatedUsername : undefined,
+        generatedPassword: order.fulfilled ? order.generatedPassword : undefined,
+      };
+      res.json(safeOrder);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Get all orders
+  app.get("/api/shop/orders", requireAdmin, async (req, res) => {
+    try {
+      const orders = await shopService.getOrders({
+        status: req.query.status as string,
+        limit: Number(req.query.limit) || 100,
+        offset: Number(req.query.offset) || 0,
+      });
+      res.json(orders);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Get single order
+  app.get("/api/shop/orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const order = await shopService.getOrder(Number(req.params.id));
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Update order payment
+  app.post("/api/shop/orders/:id/payment", requireAdmin, async (req, res) => {
+    try {
+      const order = await shopService.updateOrderPayment(
+        Number(req.params.id),
+        req.body.transactionId || 'manual',
+        req.body.status
+      );
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Admin: Fulfill order manually
+  app.post("/api/shop/orders/:id/fulfill", requireAdmin, async (req, res) => {
+    try {
+      const order = await shopService.fulfillOrder(Number(req.params.id));
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Admin: Cancel order
+  app.post("/api/shop/orders/:id/cancel", requireAdmin, async (req, res) => {
+    try {
+      const order = await shopService.cancelOrder(Number(req.params.id), req.body.reason);
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Admin: Refund order
+  app.post("/api/shop/orders/:id/refund", requireAdmin, async (req, res) => {
+    try {
+      const order = await shopService.refundOrder(Number(req.params.id), req.body.reason);
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Admin: Get shop stats
+  app.get("/api/shop/stats", requireAdmin, async (_req, res) => {
+    try {
+      const stats = await shopService.getShopStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: Shop settings
+  app.get("/api/shop/settings", requireAdmin, async (_req, res) => {
+    try {
+      const settings = await shopService.getAllSettings();
+      res.json(settings);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/shop/settings", requireAdmin, async (req, res) => {
+    try {
+      await shopService.setSetting(req.body.key, req.body.value, req.body.type, req.body.description);
+      res.json({ message: "Setting saved" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // ----- EMBEDDED LINES ROUTES -----
+
+  // Get all embedded lines
+  app.get("/api/embedded-lines", requireAdmin, async (_req, res) => {
+    try {
+      const embedded = await embeddedLinesService.getAllEmbeddedLines();
+      res.json(embedded);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get embedded line by ID
+  app.get("/api/embedded-lines/:id", requireAdmin, async (req, res) => {
+    try {
+      const embedded = await embeddedLinesService.getEmbeddedLine(Number(req.params.id));
+      if (!embedded) return res.status(404).json({ message: "Embedded line not found" });
+      res.json(embedded);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get embedded line for a line
+  app.get("/api/lines/:lineId/embed", requireAdmin, async (req, res) => {
+    try {
+      const embedded = await embeddedLinesService.getEmbeddedLineByLineId(Number(req.params.lineId));
+      res.json(embedded || null);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create/update embedded line
+  app.post("/api/embedded-lines", requireAdmin, async (req, res) => {
+    try {
+      const embedded = await embeddedLinesService.createEmbeddedLine(req.body);
+      res.json(embedded);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update embedded line
+  app.put("/api/embedded-lines/:id", requireAdmin, async (req, res) => {
+    try {
+      const embedded = await embeddedLinesService.updateEmbeddedLine(Number(req.params.id), req.body);
+      res.json(embedded);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete embedded line
+  app.delete("/api/embedded-lines/:id", requireAdmin, async (req, res) => {
+    try {
+      await embeddedLinesService.deleteEmbeddedLine(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Regenerate embed token
+  app.post("/api/embedded-lines/:id/regenerate-token", requireAdmin, async (req, res) => {
+    try {
+      const embedded = await embeddedLinesService.regenerateToken(Number(req.params.id));
+      res.json(embedded);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Public: Validate embed access and get stream
+  app.get("/api/embed/:token", async (req, res) => {
+    try {
+      const domain = req.headers.origin || req.headers.referer;
+      const ip = req.ip;
+      const validation = await embeddedLinesService.validateEmbedAccess(
+        req.params.token,
+        domain ? new URL(domain).hostname : undefined,
+        ip
+      );
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.reason });
+      }
+      res.json({ valid: true, username: validation.line?.username });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public: Get embed playlist
+  app.get("/api/embed/:token/playlist", async (req, res) => {
+    try {
+      const playlist = await embeddedLinesService.getEmbedPlaylist(req.params.token);
+      if (!playlist) return res.status(403).json({ message: "Invalid token" });
+      res.redirect(playlist);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public: Get embed stream URL
+  app.get("/api/embed/:token/stream/:streamId", async (req, res) => {
+    try {
+      const format = (req.query.format as string) || 'm3u8';
+      const url = await embeddedLinesService.getEmbedPlayerUrl(
+        req.params.token,
+        Number(req.params.streamId),
+        format
+      );
+      if (!url) return res.status(403).json({ message: "Invalid token" });
+      res.redirect(url);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ----- SSL CERTIFICATE ROUTES -----
+
+  // Get all certificates
+  app.get("/api/ssl-certificates", requireAdmin, async (_req, res) => {
+    try {
+      const certs = await sslService.getCertificates();
+      res.json(certs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get single certificate
+  app.get("/api/ssl-certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      const cert = await sslService.getCertificate(Number(req.params.id));
+      if (!cert) return res.status(404).json({ message: "Certificate not found" });
+      res.json(cert);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create certificate record
+  app.post("/api/ssl-certificates", requireAdmin, async (req, res) => {
+    try {
+      const cert = await sslService.createCertificateRecord(req.body);
+      res.json(cert);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Update certificate
+  app.put("/api/ssl-certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      const cert = await sslService.updateCertificate(Number(req.params.id), req.body);
+      res.json(cert);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Delete certificate
+  app.delete("/api/ssl-certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      await sslService.deleteCertificate(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Request certificate from Let's Encrypt
+  app.post("/api/ssl-certificates/:id/request", requireAdmin, async (req, res) => {
+    try {
+      const result = await sslService.requestCertificate(Number(req.params.id));
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Renew certificate
+  app.post("/api/ssl-certificates/:id/renew", requireAdmin, async (req, res) => {
+    try {
+      const result = await sslService.renewCertificate(Number(req.params.id));
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  // Check expiring certificates
+  app.get("/api/ssl-certificates/check/expiring", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 30;
+      const expiring = await sslService.checkExpiringCertificates(days);
+      res.json(expiring);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Auto-renew expiring certificates
+  app.post("/api/ssl-certificates/auto-renew", requireAdmin, async (_req, res) => {
+    try {
+      const results = await sslService.autoRenewExpiring();
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get Nginx SSL config
+  app.get("/api/ssl-certificates/:id/nginx-config", requireAdmin, async (req, res) => {
+    try {
+      const cert = await sslService.getCertificate(Number(req.params.id));
+      if (!cert) return res.status(404).json({ message: "Certificate not found" });
+      const config = sslService.generateNginxSslConfig(cert.domain);
+      res.type('text/plain').send(config);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get install script
+  app.get("/api/ssl-certificates/install-script", requireAdmin, async (_req, res) => {
+    try {
+      const script = sslService.generateInstallScript();
+      res.type('text/plain').send(script);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
   // GLOBAL ERROR HANDLER (MUST BE LAST)
   // ============================================
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

@@ -2340,3 +2340,275 @@ export type InsertRecordingSchedule = typeof recordingSchedule.$inferInsert;
 export type CatchupContent = typeof catchupContent.$inferSelect;
 export type InsertCatchupContent = typeof catchupContent.$inferInsert;
 
+// ============================================
+// BATCH 1 FEATURES - VPN Detection, Shop, SSL, Embedded Lines
+// ============================================
+
+// VPN/Proxy Detection Settings
+export const vpnDetectionSettings = pgTable("vpn_detection_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(true),
+  blockVpn: boolean("block_vpn").default(true),
+  blockProxy: boolean("block_proxy").default(true),
+  blockDatacenter: boolean("block_datacenter").default(true),
+  blockTor: boolean("block_tor").default(true),
+  whitelistIps: jsonb("whitelist_ips").default([]), // Array of whitelisted IPs
+  logDetections: boolean("log_detections").default(true),
+  apiProvider: text("api_provider").default("local"), // 'local', 'ipapi', 'proxycheck', 'iphub'
+  apiKey: text("api_key"),
+  cacheHours: integer("cache_hours").default(24),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// VPN/Proxy IP Cache
+export const vpnIpCache = pgTable("vpn_ip_cache", {
+  id: serial("id").primaryKey(),
+  ipAddress: text("ip_address").notNull().unique(),
+  isVpn: boolean("is_vpn").default(false),
+  isProxy: boolean("is_proxy").default(false),
+  isDatacenter: boolean("is_datacenter").default(false),
+  isTor: boolean("is_tor").default(false),
+  isp: text("isp"),
+  org: text("org"),
+  asn: text("asn"),
+  country: text("country"),
+  riskScore: integer("risk_score").default(0), // 0-100
+  source: text("source"), // API that provided this data
+  checkedAt: timestamp("checked_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// VPN Detection Logs
+export const vpnDetectionLogs = pgTable("vpn_detection_logs", {
+  id: serial("id").primaryKey(),
+  lineId: integer("line_id").references(() => lines.id),
+  ipAddress: text("ip_address").notNull(),
+  detectionType: text("detection_type").notNull(), // 'vpn', 'proxy', 'datacenter', 'tor'
+  blocked: boolean("blocked").default(true),
+  userAgent: text("user_agent"),
+  country: text("country"),
+  isp: text("isp"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Shop Products
+export const shopProducts = pgTable("shop_products", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  productType: text("product_type").notNull(), // 'subscription', 'credits', 'addon'
+  
+  // For subscriptions
+  durationDays: integer("duration_days"),
+  maxConnections: integer("max_connections"),
+  bouquetIds: jsonb("bouquet_ids").default([]),
+  
+  // For credits
+  creditsAmount: integer("credits_amount"),
+  
+  // Pricing
+  price: real("price").notNull(),
+  currency: text("currency").default("USD"),
+  discountPercent: integer("discount_percent").default(0),
+  
+  // Display
+  featured: boolean("featured").default(false),
+  displayOrder: integer("display_order").default(0),
+  image: text("image"),
+  
+  // Availability
+  enabled: boolean("enabled").default(true),
+  stockLimit: integer("stock_limit"), // null = unlimited
+  soldCount: integer("sold_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Shop Payment Methods
+export const shopPaymentMethods = pgTable("shop_payment_methods", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  methodType: text("method_type").notNull(), // 'stripe', 'paypal', 'crypto', 'bank_transfer', 'credits'
+  enabled: boolean("enabled").default(true),
+  
+  // API Configuration
+  apiKey: text("api_key"),
+  apiSecret: text("api_secret"),
+  webhookSecret: text("webhook_secret"),
+  sandboxMode: boolean("sandbox_mode").default(true),
+  
+  // Display
+  displayName: text("display_name"),
+  icon: text("icon"),
+  instructions: text("instructions"),
+  displayOrder: integer("display_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Shop Orders
+export const shopOrders = pgTable("shop_orders", {
+  id: serial("id").primaryKey(),
+  orderNumber: text("order_number").notNull().unique(),
+  
+  // Customer
+  customerId: integer("customer_id").references(() => lines.id), // Existing line
+  guestEmail: text("guest_email"), // For new customers
+  guestName: text("guest_name"),
+  
+  // Product
+  productId: integer("product_id").references(() => shopProducts.id).notNull(),
+  productName: text("product_name").notNull(), // Snapshot at order time
+  quantity: integer("quantity").default(1),
+  
+  // Pricing
+  unitPrice: real("unit_price").notNull(),
+  discount: real("discount").default(0),
+  totalPrice: real("total_price").notNull(),
+  currency: text("currency").default("USD"),
+  
+  // Payment
+  paymentMethodId: integer("payment_method_id").references(() => shopPaymentMethods.id),
+  paymentStatus: text("payment_status").default("pending"), // 'pending', 'paid', 'failed', 'refunded'
+  paymentTransactionId: text("payment_transaction_id"),
+  paidAt: timestamp("paid_at"),
+  
+  // Fulfillment
+  fulfilled: boolean("fulfilled").default(false),
+  fulfilledAt: timestamp("fulfilled_at"),
+  generatedLineId: integer("generated_line_id").references(() => lines.id),
+  generatedUsername: text("generated_username"),
+  generatedPassword: text("generated_password"),
+  
+  // Notes
+  customerNotes: text("customer_notes"),
+  adminNotes: text("admin_notes"),
+  
+  // IP & tracking
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Shop Settings
+export const shopSettings = pgTable("shop_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value"),
+  settingType: text("setting_type").default("string"), // 'string', 'number', 'boolean', 'json'
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// SSL Certificates
+export const sslCertificates = pgTable("ssl_certificates", {
+  id: serial("id").primaryKey(),
+  domain: text("domain").notNull(),
+  status: text("status").default("pending"), // 'pending', 'active', 'expired', 'failed'
+  
+  // Certificate details
+  certificatePath: text("certificate_path"),
+  privateKeyPath: text("private_key_path"),
+  fullchainPath: text("fullchain_path"),
+  
+  // Dates
+  issuedAt: timestamp("issued_at"),
+  expiresAt: timestamp("expires_at"),
+  lastRenewalAt: timestamp("last_renewal_at"),
+  
+  // Auto-renewal
+  autoRenew: boolean("auto_renew").default(true),
+  renewalEmail: text("renewal_email"),
+  
+  // Logs
+  lastError: text("last_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Embedded Lines (Token-based auth without username/password)
+export const embeddedLines = pgTable("embedded_lines", {
+  id: serial("id").primaryKey(),
+  lineId: integer("line_id").references(() => lines.id).notNull(),
+  
+  // Token
+  embedToken: text("embed_token").notNull().unique(),
+  
+  // Restrictions
+  allowedDomains: jsonb("allowed_domains").default([]), // Domains where embedding is allowed
+  allowedIps: jsonb("allowed_ips").default([]),
+  
+  // Customization
+  customPlayerUrl: text("custom_player_url"),
+  playerSettings: jsonb("player_settings").default({}), // Player customization
+  
+  // Stats
+  embedViews: integer("embed_views").default(0),
+  lastUsed: timestamp("last_used"),
+  
+  // Enabled
+  enabled: boolean("enabled").default(true),
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Known VPN/Datacenter IP Ranges (Local database)
+export const vpnIpRanges = pgTable("vpn_ip_ranges", {
+  id: serial("id").primaryKey(),
+  startIp: text("start_ip").notNull(),
+  endIp: text("end_ip").notNull(),
+  cidr: text("cidr"), // Alternative to start/end
+  rangeType: text("range_type").notNull(), // 'vpn', 'proxy', 'datacenter', 'tor', 'residential'
+  provider: text("provider"), // NordVPN, ExpressVPN, AWS, etc.
+  country: text("country"),
+  notes: text("notes"),
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Batch 1 Insert Schemas
+export const insertVpnDetectionSettingsSchema = createInsertSchema(vpnDetectionSettings).omit({ id: true, updatedAt: true });
+export const insertVpnIpCacheSchema = createInsertSchema(vpnIpCache).omit({ id: true, checkedAt: true });
+export const insertVpnDetectionLogSchema = createInsertSchema(vpnDetectionLogs).omit({ id: true, createdAt: true });
+export const insertShopProductSchema = createInsertSchema(shopProducts).omit({ id: true, createdAt: true, soldCount: true });
+export const insertShopPaymentMethodSchema = createInsertSchema(shopPaymentMethods).omit({ id: true, createdAt: true });
+export const insertShopOrderSchema = createInsertSchema(shopOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertShopSettingsSchema = createInsertSchema(shopSettings).omit({ id: true, updatedAt: true });
+export const insertSslCertificateSchema = createInsertSchema(sslCertificates).omit({ id: true, createdAt: true });
+export const insertEmbeddedLineSchema = createInsertSchema(embeddedLines).omit({ id: true, createdAt: true, embedViews: true, lastUsed: true });
+export const insertVpnIpRangeSchema = createInsertSchema(vpnIpRanges).omit({ id: true, createdAt: true });
+
+// Batch 1 Types
+export type VpnDetectionSettings = typeof vpnDetectionSettings.$inferSelect;
+export type InsertVpnDetectionSettings = typeof vpnDetectionSettings.$inferInsert;
+
+export type VpnIpCache = typeof vpnIpCache.$inferSelect;
+export type InsertVpnIpCache = typeof vpnIpCache.$inferInsert;
+
+export type VpnDetectionLog = typeof vpnDetectionLogs.$inferSelect;
+export type InsertVpnDetectionLog = typeof vpnDetectionLogs.$inferInsert;
+
+export type ShopProduct = typeof shopProducts.$inferSelect;
+export type InsertShopProduct = typeof shopProducts.$inferInsert;
+
+export type ShopPaymentMethod = typeof shopPaymentMethods.$inferSelect;
+export type InsertShopPaymentMethod = typeof shopPaymentMethods.$inferInsert;
+
+export type ShopOrder = typeof shopOrders.$inferSelect;
+export type InsertShopOrder = typeof shopOrders.$inferInsert;
+
+export type ShopSetting = typeof shopSettings.$inferSelect;
+export type InsertShopSetting = typeof shopSettings.$inferInsert;
+
+export type SslCertificate = typeof sslCertificates.$inferSelect;
+export type InsertSslCertificate = typeof sslCertificates.$inferInsert;
+
+export type EmbeddedLine = typeof embeddedLines.$inferSelect;
+export type InsertEmbeddedLine = typeof embeddedLines.$inferInsert;
+
+export type VpnIpRange = typeof vpnIpRanges.$inferSelect;
+export type InsertVpnIpRange = typeof vpnIpRanges.$inferInsert;
+
