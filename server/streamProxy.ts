@@ -409,6 +409,68 @@ class StreamProxyManager {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
+  // Get real-time health data for all active streams
+  public getStreamHealthData(): Array<{
+    streamId: number;
+    status: string;
+    bitrate: number;
+    activeViewers: number;
+    bytesTransferred: number;
+  }> {
+    const healthData: Array<{
+      streamId: number;
+      status: string;
+      bitrate: number;
+      activeViewers: number;
+      bytesTransferred: number;
+    }> = [];
+
+    this.streamBandwidth.forEach((stats, streamId) => {
+      const viewers = Array.from(this.activeConnections.values())
+        .filter(c => c.streamId === streamId).length;
+      
+      // Calculate bitrate in kbps from bytes per second
+      const bitrateKbps = Math.round((stats.bytesPerSecond * 8) / 1000);
+      
+      healthData.push({
+        streamId,
+        status: viewers > 0 ? 'online' : 'idle',
+        bitrate: bitrateKbps,
+        activeViewers: viewers,
+        bytesTransferred: stats.totalBytes
+      });
+    });
+
+    return healthData;
+  }
+
+  // Get health data for a specific stream
+  public getStreamHealth(streamId: number): {
+    status: string;
+    bitrate: number;
+    activeViewers: number;
+    bytesTransferred: number;
+    connections: ActiveConnection[];
+  } | null {
+    const streamStats = this.streamBandwidth.get(streamId);
+    const connections = Array.from(this.activeConnections.values())
+      .filter(c => c.streamId === streamId);
+    
+    if (!streamStats && connections.length === 0) {
+      return null;
+    }
+
+    const bitrateKbps = streamStats ? Math.round((streamStats.bytesPerSecond * 8) / 1000) : 0;
+    
+    return {
+      status: connections.length > 0 ? 'online' : 'idle',
+      bitrate: bitrateKbps,
+      activeViewers: connections.length,
+      bytesTransferred: streamStats?.totalBytes || 0,
+      connections: connections.map(c => ({ ...c, response: undefined }))
+    };
+  }
+
   public destroy() {
     if (this.bandwidthInterval) {
       clearInterval(this.bandwidthInterval);

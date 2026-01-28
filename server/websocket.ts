@@ -73,6 +73,7 @@ export class WebSocketManager {
       this.broadcastConnectionsUpdate();
       this.broadcastBandwidthUpdate();
       this.broadcastSystemMetrics();
+      this.broadcastStreamHealth();
     }, 2000);
   }
 
@@ -299,6 +300,30 @@ export class WebSocketManager {
       viewerCount,
       timestamp: new Date().toISOString()
     });
+  }
+
+  // Real-time stream health broadcast
+  public broadcastStreamHealth() {
+    const proxyManager = getStreamProxyManager();
+    if (!proxyManager) return;
+
+    const healthData = proxyManager.getStreamHealthData();
+    this.io.emit('stream:health', {
+      streams: healthData,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Get stream health for API
+  public getStreamHealthSnapshot(): Array<{
+    streamId: number;
+    status: string;
+    bitrate: number;
+    activeViewers: number;
+  }> {
+    const proxyManager = getStreamProxyManager();
+    if (!proxyManager) return [];
+    return proxyManager.getStreamHealthData();
   }
 
   // Utility methods

@@ -27,6 +27,7 @@ import {
 import * as OTPAuth from "otpauth";
 import { auditLogMiddleware, logAuditEvent, logAuthFailure } from "./middleware/auditLog";
 import { createBackup, restoreBackup, cleanupOldBackups, listBackups, getBackup, getBackupFile } from "./utils/backup";
+import { getStreamProxyManager } from "./streamProxy";
 
 // Auth rate limiting cache
 const authRateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
@@ -8971,11 +8972,70 @@ export async function registerRoutes(
   // BATCH 4: STREAM MONITORING & HEALTH
   // ============================================
 
-  // Get all stream health metrics
+  // Get all stream health metrics with real-time data
   app.get("/api/stream-monitoring/health", requireAdmin, async (_req, res) => {
     try {
-      const metrics = await db.select().from(streamHealthMetrics).orderBy(streamHealthMetrics.streamId);
-      res.json(metrics);
+      const dbMetrics = await db.select().from(streamHealthMetrics).orderBy(streamHealthMetrics.streamId);
+      const allStreams = await storage.getStreams();
+      
+      // Get real-time data from stream proxy
+      const proxyManager = getStreamProxyManager();
+      const realTimeHealth = proxyManager?.getStreamHealthData() || [];
+      const realTimeMap = new Map(realTimeHealth.map(h => [h.streamId, h]));
+      
+      // Merge database metrics with real-time data
+      const mergedMetrics = allStreams.map(stream => {
+        const dbMetric = dbMetrics.find(m => m.streamId === stream.id);
+        const realTime = realTimeMap.get(stream.id);
+        
+        // If stream is actively being watched, use real-time data
+        if (realTime && realTime.activeViewers > 0) {
+          return {
+            id: dbMetric?.id || 0,
+            streamId: stream.id,
+            status: 'online',
+            uptime: dbMetric?.uptime || 100,
+            bitrate: realTime.bitrate,
+            fps: dbMetric?.fps || 30,
+            resolution: dbMetric?.resolution || '1920x1080',
+            codec: dbMetric?.codec || 'H.264',
+            errorCount: dbMetric?.errorCount || 0,
+            activeViewers: realTime.activeViewers,
+            restartCount: dbMetric?.restartCount || 0,
+            lastRestart: dbMetric?.lastRestart,
+            lastCheck: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+            streamName: stream.name,
+            isLive: true,
+          };
+        }
+        
+        // Otherwise return database metric or default
+        return dbMetric ? {
+          ...dbMetric,
+          streamName: stream.name,
+          isLive: dbMetric.status === 'online',
+        } : {
+          id: 0,
+          streamId: stream.id,
+          status: 'unknown',
+          uptime: 0,
+          bitrate: 0,
+          fps: 0,
+          resolution: null,
+          codec: null,
+          errorCount: 0,
+          activeViewers: 0,
+          restartCount: 0,
+          lastRestart: null,
+          lastCheck: null,
+          lastUpdated: null,
+          streamName: stream.name,
+          isLive: false,
+        };
+      });
+      
+      res.json(mergedMetrics);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -9020,21 +9080,52 @@ export async function registerRoutes(
     }
   });
 
-  // Get stream monitoring overview
+  // Get stream monitoring overview with real-time data
   app.get("/api/stream-monitoring/overview", requireAdmin, async (_req, res) => {
     try {
       const allStreams = await storage.getStreams();
       const allMetrics = await db.select().from(streamHealthMetrics);
       
-      const metricsMap = new Map(allMetrics.map(m => [m.streamId, m]));
+      // Get real-time data from stream proxy
+      const proxyManager = getStreamProxyManager();
+      const realTimeHealth = proxyManager?.getStreamHealthData() || [];
+      const proxyStats = proxyManager?.getStats();
       
-      const online = allMetrics.filter(m => m.status === "online").length;
-      const offline = allMetrics.filter(m => m.status === "offline").length;
-      const degraded = allMetrics.filter(m => m.status === "degraded").length;
-      const errors = allMetrics.filter(m => m.status === "error").length;
+      // Build map of real-time streaming data
+      const realTimeMap = new Map(realTimeHealth.map(h => [h.streamId, h]));
       
-      const totalViewers = allMetrics.reduce((sum, m) => sum + (m.activeViewers || 0), 0);
-      const avgBitrate = allMetrics.filter(m => m.bitrate).reduce((sum, m, _, arr) => sum + (m.bitrate || 0) / arr.length, 0);
+      // Count streams based on real-time and database status
+      let online = 0;
+      let offline = 0;
+      let degraded = 0;
+      let errors = 0;
+      let totalViewers = 0;
+      let totalBitrate = 0;
+      let bitrateCount = 0;
+      
+      allStreams.forEach(stream => {
+        const realTime = realTimeMap.get(stream.id);
+        const dbMetric = allMetrics.find(m => m.streamId === stream.id);
+        
+        if (realTime && realTime.activeViewers > 0) {
+          online++;
+          totalViewers += realTime.activeViewers;
+          if (realTime.bitrate > 0) {
+            totalBitrate += realTime.bitrate;
+            bitrateCount++;
+          }
+        } else if (dbMetric) {
+          if (dbMetric.status === 'online') online++;
+          else if (dbMetric.status === 'offline') offline++;
+          else if (dbMetric.status === 'degraded') degraded++;
+          else if (dbMetric.status === 'error') errors++;
+          totalViewers += dbMetric.activeViewers || 0;
+          if (dbMetric.bitrate) {
+            totalBitrate += dbMetric.bitrate;
+            bitrateCount++;
+          }
+        }
+      });
       
       res.json({
         totalStreams: allStreams.length,
@@ -9044,7 +9135,9 @@ export async function registerRoutes(
         degraded,
         errors,
         totalViewers,
-        avgBitrate: Math.round(avgBitrate),
+        avgBitrate: bitrateCount > 0 ? Math.round(totalBitrate / bitrateCount) : 0,
+        activeConnections: proxyStats?.activeConnections || 0,
+        bandwidthPerSecond: proxyStats?.bandwidthPerSecond || 0,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
