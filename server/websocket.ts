@@ -2,6 +2,7 @@ import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Storage } from './storage';
 import * as si from 'systeminformation';
+import { getStreamProxyManager } from './streamProxy';
 
 interface ConnectionInfo {
   lineId: number;
@@ -142,15 +143,20 @@ export class WebSocketManager {
   }
 
   private async getDashboardStats() {
-    const [streams, lines, activeConnections] = await Promise.all([
+    const [streams, lines] = await Promise.all([
       this.storage.getStreams(),
-      this.storage.getLines(),
-      this.getActiveConnectionsCount()
+      this.storage.getLines()
     ]);
 
     const onlineStreams = streams.filter(s => s.monitorStatus === 'online').length;
     const activeLines = lines.filter(l => l.enabled && !this.isExpired(l.expirationDate)).length;
     const expiredLines = lines.filter(l => this.isExpired(l.expirationDate)).length;
+
+    // Get real stats from stream proxy
+    const proxyManager = getStreamProxyManager();
+    const proxyStats = proxyManager?.getStats();
+    const realActiveConnections = proxyStats?.activeConnections || 0;
+    const realBandwidth = proxyStats?.bandwidthPerSecond || 0;
 
     return {
       totalStreams: streams.length,
@@ -159,8 +165,9 @@ export class WebSocketManager {
       totalLines: lines.length,
       activeLines,
       expiredLines,
-      activeConnections,
-      totalBandwidth: this.calculateTotalBandwidth(),
+      activeConnections: realActiveConnections,
+      totalBandwidth: this.formatBandwidth(realBandwidth),
+      bandwidthPerSecond: realBandwidth,
       timestamp: new Date().toISOString()
     };
   }
@@ -229,29 +236,35 @@ export class WebSocketManager {
   }
 
   private async getBandwidthData() {
-    const connections = await this.storage.getActiveConnections();
+    // Get real bandwidth data from stream proxy
+    const proxyManager = getStreamProxyManager();
+    const proxyStats = proxyManager?.getStats();
     
-    // Calculate bandwidth per stream
-    const streamBandwidth = new Map<number, number>();
-    connections.forEach(conn => {
-      if (conn.streamId) {
-        const current = streamBandwidth.get(conn.streamId) || 0;
-        streamBandwidth.set(conn.streamId, current + (conn.bytesTransferred || 0));
-      }
-    });
+    const bandwidthPerSecond = proxyStats?.bandwidthPerSecond || 0;
+    const bandwidthHistory = proxyStats?.bandwidthHistory || [];
+    const bandwidthByStream = proxyStats?.bandwidthByStream || {};
+    const connectionsByStream = proxyStats?.connectionsByStream || {};
 
-    // Get top 10 streams by bandwidth
-    const topStreams = Array.from(streamBandwidth.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([streamId, bytes]) => ({
-        streamId,
-        bandwidth: this.formatBandwidth(bytes)
-      }));
+    // Use actual bandwidth per stream (bytes/sec)
+    const topStreams = Object.entries(bandwidthByStream)
+      .map(([streamId, bps]) => ({
+        streamId: parseInt(streamId),
+        bandwidth: this.formatBandwidth(bps as number),
+        bytesPerSecond: bps as number,
+        viewers: (connectionsByStream[streamId] as number) || 0
+      }))
+      .sort((a, b) => b.bytesPerSecond - a.bytesPerSecond)
+      .slice(0, 10);
 
     return {
-      total: this.formatBandwidth(this.calculateTotalBandwidth()),
+      total: this.formatBandwidth(bandwidthPerSecond),
+      totalBytes: proxyStats?.totalBandwidth || 0,
+      perSecond: bandwidthPerSecond,
       perStream: topStreams,
+      history: bandwidthHistory.slice(0, 60).map(h => ({
+        ...h,
+        bandwidth: this.formatBandwidth(h.bytesPerSecond || 0)
+      })),
       timestamp: new Date().toISOString()
     };
   }

@@ -9791,6 +9791,145 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // STREAM PROXY ROUTES (For bandwidth tracking)
+  // ============================================
+  
+  // Import stream proxy manager
+  const { getStreamProxyManager } = await import('./streamProxy');
+  
+  // Live stream proxy - handles /live/{username}/{password}/{streamId}.ts or .m3u8
+  app.get('/live/:username/:password/:streamId.:ext', async (req, res) => {
+    try {
+      const { username, password, streamId, ext } = req.params;
+      
+      // Authenticate line
+      const line = await storage.getLineByCredentials(username, password);
+      if (!line) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Check if line is enabled
+      if (!line.enabled) {
+        return res.status(403).json({ error: 'Line is disabled' });
+      }
+      
+      // Check expiration
+      if (line.expDate && new Date(line.expDate) < new Date()) {
+        return res.status(403).json({ error: 'Line has expired' });
+      }
+      
+      const proxyManager = getStreamProxyManager();
+      if (!proxyManager) {
+        return res.status(500).json({ error: 'Stream proxy not initialized' });
+      }
+      
+      await proxyManager.proxyStream(req, res, line.id, parseInt(streamId), 'live');
+    } catch (err: any) {
+      console.error('[StreamProxy] Error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error' });
+      }
+    }
+  });
+  
+  // Movie stream proxy - handles /movie/{username}/{password}/{movieId}.{ext}
+  app.get('/movie/:username/:password/:movieId.:ext', async (req, res) => {
+    try {
+      const { username, password, movieId, ext } = req.params;
+      
+      const line = await storage.getLineByCredentials(username, password);
+      if (!line) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      if (!line.enabled) {
+        return res.status(403).json({ error: 'Line is disabled' });
+      }
+      
+      if (line.expDate && new Date(line.expDate) < new Date()) {
+        return res.status(403).json({ error: 'Line has expired' });
+      }
+      
+      const proxyManager = getStreamProxyManager();
+      if (!proxyManager) {
+        return res.status(500).json({ error: 'Stream proxy not initialized' });
+      }
+      
+      await proxyManager.proxyStream(req, res, line.id, parseInt(movieId), 'movie');
+    } catch (err: any) {
+      console.error('[StreamProxy] Error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error' });
+      }
+    }
+  });
+  
+  // Series episode proxy - handles /series/{username}/{password}/{episodeId}.{ext}
+  app.get('/series/:username/:password/:episodeId.:ext', async (req, res) => {
+    try {
+      const { username, password, episodeId, ext } = req.params;
+      
+      const line = await storage.getLineByCredentials(username, password);
+      if (!line) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      if (!line.enabled) {
+        return res.status(403).json({ error: 'Line is disabled' });
+      }
+      
+      if (line.expDate && new Date(line.expDate) < new Date()) {
+        return res.status(403).json({ error: 'Line has expired' });
+      }
+      
+      const proxyManager = getStreamProxyManager();
+      if (!proxyManager) {
+        return res.status(500).json({ error: 'Stream proxy not initialized' });
+      }
+      
+      await proxyManager.proxyStream(req, res, line.id, parseInt(episodeId), 'series');
+    } catch (err: any) {
+      console.error('[StreamProxy] Error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error' });
+      }
+    }
+  });
+  
+  // API endpoint to get proxy stats
+  app.get('/api/proxy/stats', requireAuth, async (req, res) => {
+    const proxyManager = getStreamProxyManager();
+    if (!proxyManager) {
+      return res.json({ 
+        activeConnections: 0, 
+        totalBandwidth: 0,
+        bandwidthPerSecond: 0
+      });
+    }
+    res.json(proxyManager.getStats());
+  });
+  
+  // API endpoint to get active connections from proxy
+  app.get('/api/proxy/connections', requireAuth, async (req, res) => {
+    const proxyManager = getStreamProxyManager();
+    if (!proxyManager) {
+      return res.json([]);
+    }
+    res.json(proxyManager.getActiveConnectionsList());
+  });
+  
+  // API endpoint to kick a connection
+  app.post('/api/proxy/kick', requireAdmin, async (req, res) => {
+    const { lineId, streamId } = req.body;
+    const proxyManager = getStreamProxyManager();
+    if (!proxyManager) {
+      return res.status(500).json({ error: 'Proxy not initialized' });
+    }
+    const kicked = proxyManager.kickConnection(lineId, streamId);
+    res.json({ kicked });
+  });
+
+  // ============================================
   // GLOBAL ERROR HANDLER (MUST BE LAST)
   // ============================================
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

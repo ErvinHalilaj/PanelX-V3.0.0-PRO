@@ -6,6 +6,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { initializeWebSocket } from "./websocket";
 import { initializeDVRManager } from "./dvrManager";
+import { initializeStreamProxy } from "./streamProxy";
 import crypto from "crypto";
 
 const app = express();
@@ -117,6 +118,10 @@ app.use((req, res, next) => {
   // Initialize WebSocket server for real-time updates
   const wsManager = initializeWebSocket(httpServer, storage);
   log('WebSocket server initialized for real-time monitoring');
+
+  // Initialize Stream Proxy for bandwidth tracking
+  const proxyManager = initializeStreamProxy(storage);
+  log('Stream proxy initialized for bandwidth tracking');
 
   // Initialize DVR manager for recording functionality
   const dvrManager = initializeDVRManager('./recordings');
