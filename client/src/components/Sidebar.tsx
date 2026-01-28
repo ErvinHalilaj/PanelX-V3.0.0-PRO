@@ -191,7 +191,7 @@ export function Sidebar() {
   const sectionKeys = ['content', 'users', 'security', 'system'];
 
   return (
-    <aside className="w-[260px] bg-sidebar-background border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 z-50">
+    <aside className="w-[260px] bg-[hsl(222,47%,7%)] border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 z-50 overflow-hidden">
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
