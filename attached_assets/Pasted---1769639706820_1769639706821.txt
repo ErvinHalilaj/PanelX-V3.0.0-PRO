@@ -1,0 +1,160 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║           PanelX V3.0.0 PRO - Auto Installer                ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+[STEP 1/12] Updating system packages
+[✓] System updated
+[STEP 2/12] Installing Node.js 20
+[✗] npm not found. Trying to install npm separately...
+[✓] Node.js installed: v18.19.1, npm: 9.2.0
+[STEP 3/12] Installing PostgreSQL
+[✓] PostgreSQL installed
+[STEP 4/12] Installing Nginx
+[✓] Nginx installed
+[STEP 5/12] Installing system dependencies
+[✓] Dependencies installed
+[STEP 6/12] Creating system user
+[✓] User 'panelx' exists
+[STEP 7/12] Configuring PostgreSQL database
+DROP DATABASE
+DROP ROLE
+[✓] Database configured
+[STEP 8/12] Setting up project files
+[✓] Project cloned
+[STEP 9/12] Installing Node.js dependencies (may take 3-5 minutes)
+[✓] Using npm at: /usr/bin/npm
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[✓] Dependencies installed
+[✓] Setting up database schema...
+[⣷] Pulling schema from database...
+[✓] Pulling schema from database...
+[✓] Changes applied
+[✓] Building frontend...
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 32.39s
+[✓] Frontend built
+[STEP 10/12] Creating configuration files
+[✓] Configuration created
+[STEP 11/12] Setting up process manager
+
+13 packages are looking for funding
+  run `npm fund` for details
+
+                        -------------
+
+__/\\\\\\\\\\\\\____/\\\\____________/\\\\____/\\\\\\\\\_____
+ _\/\\\/////////\\\_\/\\\\\\________/\\\\\\__/\\\///////\\\___
+  _\/\\\_______\/\\\_\/\\\//\\\____/\\\//\\\_\///______\//\\\__
+   _\/\\\\\\\\\\\\\/__\/\\\\///\\\/\\\/_\/\\\___________/\\\/___
+    _\/\\\/////////____\/\\\__\///\\\/___\/\\\________/\\\//_____
+     _\/\\\_____________\/\\\____\///_____\/\\\_____/\\\//________
+      _\/\\\_____________\/\\\_____________\/\\\___/\\\/___________
+       _\/\\\_____________\/\\\_____________\/\\\__/\\\\\\\\\\\\\\\_
+        _\///______________\///______________\///__\///////////////__
+
+
+                          Runtime Edition
+
+        PM2 is a Production Process Manager for Node.js applications
+                     with a built-in Load Balancer.
+
+                Start and Daemonize any application:
+                $ pm2 start app.js
+
+                Load Balance 4 instances of api.js:
+                $ pm2 start api.js -i 4
+
+                Monitor in production:
+                $ pm2 monitor
+
+                Make pm2 auto-boot at server restart:
+                $ pm2 startup
+
+                To go further checkout:
+                http://pm2.io/
+
+
+                        -------------
+
+[PM2] Spawning PM2 daemon with pm2_home=/home/panelx/.pm2
+[PM2] PM2 Successfully daemonized
+[PM2][WARN] Applications panelx not running, starting...
+[PM2] App [panelx] launched (1 instances)
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ panelx             │ fork     │ 0    │ online    │ 0%       │ 13.8mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/panelx/.pm2/dump.pm2
+[✓] Backend service started
+[STEP 12/12] Configuring web server
+[✓] Nginx configured
+[✓] Configuring firewall
+
+[✓] Waiting for backend to initialize (30 seconds)...
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║              ✅ INSTALLATION COMPLETE! ✅                    ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+📊 Service Status:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠ Backend:     Starting (may take 60 seconds)
+✓ Nginx:       Running
+✓ PostgreSQL:  Running
+✓ Firewall:    Configured (ports 80, 443 open)
+
+🌐 ACCESS YOUR ADMIN PANEL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   🔗 Admin Panel: http://2604:a00:50:1b8:216:3eff:fe31:c9ba
+
+   📱 Default Login:
+      Username: admin
+      Password: admin123
+
+   ⚠️  CHANGE YOUR PASSWORD AFTER FIRST LOGIN!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📺 PLAYER API ENDPOINTS (Xtream Codes Compatible):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Player API:  http://2604:a00:50:1b8:216:3eff:fe31:c9ba/player_api.php
+   Playlist:    http://2604:a00:50:1b8:216:3eff:fe31:c9ba/get.php
+   EPG/XMLTV:   http://2604:a00:50:1b8:216:3eff:fe31:c9ba/xmltv.php
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  IMPORTANT NOTES:
+   • Backend may take 30-60 seconds to fully initialize
+   • If you see 502 Bad Gateway, wait 1 minute and refresh
+   • If you see connection timeout, check firewall settings
+
+📝 USEFUL COMMANDS:
+   View logs:     sudo -u panelx pm2 logs panelx
+   Check status:  sudo -u panelx pm2 list
+   Restart:       sudo -u panelx pm2 restart panelx
+   Stop:          sudo -u panelx pm2 stop panelx
+   Test API:      curl http://localhost:5000/api/stats
+
+📚 DOCUMENTATION:
+   GitHub: https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO
+   README: /home/panelx/webapp/README.md
+
+╔══════════════════════════════════════════════════════════════╗
+║              Installation completed successfully!            ║
+╚══════════════════════════════════════════════════════════════╝
+
+root@vps3262906:~#
