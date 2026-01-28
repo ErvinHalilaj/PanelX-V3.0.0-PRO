@@ -113,7 +113,22 @@ Advanced media processing and archive management:
 - **On-Demand Settings**: VOD path configuration, auto-scan, TMDB integration, thumbnail generation.
 - **TV Archive Status Tracking**: Enhanced schema with status field (recording, completed, error).
 
+### Batch 3 Features - Multi-Server & Reseller Management
+Advanced infrastructure and business management:
+- **Load Balancing**: Server health monitoring, load balancing rules, sync jobs, failover history.
+- **GeoIP Restrictions**: Country-based access control with IP lookup validation.
+- **Bandwidth Monitoring**: Real-time bandwidth stats, alerts, and usage analytics.
+- **Reseller Management**: Full reseller hierarchy, credit management, permissions, and analytics.
+
 ## Recent Changes
+
+### January 28, 2026 - Batch 3 Complete
+Added Batch 3 backend and frontend features:
+- **Schema**: Added `serverHealthLogs`, `loadBalancingRules`, `serverSyncJobs`, `serverFailoverHistory` tables
+- **Schema**: Enhanced `users` table with `email`, `maxCredits`, `parentId`, `isActive`, `createdBy` fields
+- **Backend**: Load Balancing API (`/api/load-balancing/*`), GeoIP API (`/api/geoip/*`), Bandwidth API (`/api/bandwidth/*`), Reseller API (`/api/reseller/*`)
+- **Frontend**: LoadBalancing.tsx (server health, rules, sync, failover), GeoipRestrictions.tsx (country restrictions, IP lookup), BandwidthMonitoring.tsx (usage stats, alerts), ResellerManagement.tsx (reseller CRUD, credits, permissions)
+- **Services**: loadBalancerManager.ts (SSH-based server management), resellerService.ts (credit management, permissions), multiServer.ts (health checks)
 
 ### January 28, 2026 - Batch 2 Complete
 Added Batch 2 backend and frontend features:
