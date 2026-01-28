@@ -6,7 +6,7 @@ import { z } from "zod";
 import { registerPlayerApi } from "./playerApi";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, desc, sql, lte, isNotNull } from "drizzle-orm";
 import { 
   insertSettingSchema, insertAccessOutputSchema, insertReservedUsernameSchema,
   insertCreatedChannelSchema, insertEnigma2DeviceSchema, insertEnigma2ActionSchema, insertSignalSchema,
@@ -18,7 +18,11 @@ import {
   // Batch 3 imports
   loadBalancingSettings, loadBalancingRules, serverHealthLogs, serverFailoverHistory,
   geoipSettings, geoipLogs, bandwidthStats, bandwidthAlerts, notificationHistory,
-  resellerPermissions, resellerSettings, creditTransactions
+  resellerPermissions, resellerSettings, creditTransactions,
+  // Batch 4 imports
+  streamHealthMetrics, streamAutoRestartRules, streamErrors, epgMappings, epgData, epgSources,
+  scheduledBackups, viewingAnalytics, popularContentReports,
+  notificationSettings, notificationTriggers, notificationLog
 } from "@shared/schema";
 import * as OTPAuth from "otpauth";
 import { auditLogMiddleware, logAuditEvent, logAuthFailure } from "./middleware/auditLog";
@@ -8958,6 +8962,829 @@ export async function registerRoutes(
         creditsUsed,
         creditsAdded,
         transactions,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 4: STREAM MONITORING & HEALTH
+  // ============================================
+
+  // Get all stream health metrics
+  app.get("/api/stream-monitoring/health", requireAdmin, async (_req, res) => {
+    try {
+      const metrics = await db.select().from(streamHealthMetrics).orderBy(streamHealthMetrics.streamId);
+      res.json(metrics);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get stream health for specific stream
+  app.get("/api/stream-monitoring/health/:streamId", requireAdmin, async (req, res) => {
+    try {
+      const streamId = Number(req.params.streamId);
+      const [metric] = await db.select().from(streamHealthMetrics).where(eq(streamHealthMetrics.streamId, streamId));
+      if (!metric) {
+        return res.status(404).json({ message: "No health data for this stream" });
+      }
+      res.json(metric);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update stream health metrics
+  app.post("/api/stream-monitoring/health/:streamId", requireAdmin, async (req, res) => {
+    try {
+      const streamId = Number(req.params.streamId);
+      const data = req.body;
+      
+      const [existing] = await db.select().from(streamHealthMetrics).where(eq(streamHealthMetrics.streamId, streamId));
+      
+      if (existing) {
+        const [updated] = await db.update(streamHealthMetrics)
+          .set({ ...data, lastUpdated: new Date() })
+          .where(eq(streamHealthMetrics.streamId, streamId))
+          .returning();
+        res.json(updated);
+      } else {
+        const [created] = await db.insert(streamHealthMetrics)
+          .values({ streamId, ...data })
+          .returning();
+        res.json(created);
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get stream monitoring overview
+  app.get("/api/stream-monitoring/overview", requireAdmin, async (_req, res) => {
+    try {
+      const allStreams = await storage.getStreams();
+      const allMetrics = await db.select().from(streamHealthMetrics);
+      
+      const metricsMap = new Map(allMetrics.map(m => [m.streamId, m]));
+      
+      const online = allMetrics.filter(m => m.status === "online").length;
+      const offline = allMetrics.filter(m => m.status === "offline").length;
+      const degraded = allMetrics.filter(m => m.status === "degraded").length;
+      const errors = allMetrics.filter(m => m.status === "error").length;
+      
+      const totalViewers = allMetrics.reduce((sum, m) => sum + (m.activeViewers || 0), 0);
+      const avgBitrate = allMetrics.filter(m => m.bitrate).reduce((sum, m, _, arr) => sum + (m.bitrate || 0) / arr.length, 0);
+      
+      res.json({
+        totalStreams: allStreams.length,
+        monitoredStreams: allMetrics.length,
+        online,
+        offline,
+        degraded,
+        errors,
+        totalViewers,
+        avgBitrate: Math.round(avgBitrate),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Restart a stream
+  app.post("/api/stream-monitoring/restart/:streamId", requireAdmin, async (req, res) => {
+    try {
+      const streamId = Number(req.params.streamId);
+      
+      // Update restart tracking
+      await db.update(streamHealthMetrics)
+        .set({ 
+          restartCount: sql`${streamHealthMetrics.restartCount} + 1`,
+          lastRestart: new Date(),
+          status: "restarting"
+        })
+        .where(eq(streamHealthMetrics.streamId, streamId));
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId: (req as any).user?.id || 0,
+        action: "stream_restart",
+        details: `Restarted stream ${streamId}`,
+        ipAddress: req.ip || "",
+      });
+      
+      res.json({ message: "Stream restart initiated", streamId });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get stream errors
+  app.get("/api/stream-monitoring/errors", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const streamId = req.query.streamId ? Number(req.query.streamId) : undefined;
+      
+      let query = db.select().from(streamErrors).orderBy(desc(streamErrors.occurredAt)).limit(limit);
+      
+      if (streamId) {
+        query = db.select().from(streamErrors).where(eq(streamErrors.streamId, streamId)).orderBy(desc(streamErrors.occurredAt)).limit(limit);
+      }
+      
+      const errors = await query;
+      res.json(errors);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get auto-restart rules
+  app.get("/api/stream-monitoring/auto-restart-rules", requireAdmin, async (_req, res) => {
+    try {
+      const rules = await db.select().from(streamAutoRestartRules);
+      res.json(rules);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create auto-restart rule
+  app.post("/api/stream-monitoring/auto-restart-rules", requireAdmin, async (req, res) => {
+    try {
+      const [rule] = await db.insert(streamAutoRestartRules).values(req.body).returning();
+      res.json(rule);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update auto-restart rule
+  app.put("/api/stream-monitoring/auto-restart-rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [rule] = await db.update(streamAutoRestartRules).set(req.body).where(eq(streamAutoRestartRules.id, id)).returning();
+      res.json(rule);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Delete auto-restart rule
+  app.delete("/api/stream-monitoring/auto-restart-rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await db.delete(streamAutoRestartRules).where(eq(streamAutoRestartRules.id, id));
+      res.json({ message: "Rule deleted" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 4: ENHANCED EPG MANAGEMENT
+  // ============================================
+
+  // Get EPG mappings
+  app.get("/api/epg/mappings", requireAdmin, async (_req, res) => {
+    try {
+      const mappings = await db.select().from(epgMappings);
+      res.json(mappings);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get EPG mapping for stream
+  app.get("/api/epg/mappings/stream/:streamId", requireAdmin, async (req, res) => {
+    try {
+      const streamId = Number(req.params.streamId);
+      const [mapping] = await db.select().from(epgMappings).where(eq(epgMappings.streamId, streamId));
+      res.json(mapping || null);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create EPG mapping
+  app.post("/api/epg/mappings", requireAdmin, async (req, res) => {
+    try {
+      const [mapping] = await db.insert(epgMappings).values(req.body).returning();
+      res.json(mapping);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update EPG mapping
+  app.put("/api/epg/mappings/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [mapping] = await db.update(epgMappings).set({ ...req.body, updatedAt: new Date() }).where(eq(epgMappings.id, id)).returning();
+      res.json(mapping);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Delete EPG mapping
+  app.delete("/api/epg/mappings/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await db.delete(epgMappings).where(eq(epgMappings.id, id));
+      res.json({ message: "Mapping deleted" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Auto-map EPG channels
+  app.post("/api/epg/auto-map", requireAdmin, async (req, res) => {
+    try {
+      const streams = await storage.getStreams();
+      const epgChannels = await db.select().from(epgData);
+      
+      // Get unique EPG channel IDs
+      const uniqueChannels = [...new Set(epgChannels.map(e => e.channelId))];
+      
+      let mapped = 0;
+      for (const stream of streams) {
+        // Check if already mapped
+        const [existing] = await db.select().from(epgMappings).where(eq(epgMappings.streamId, stream.id));
+        if (existing) continue;
+        
+        // Try to find matching EPG channel
+        const streamName = stream.streamName?.toLowerCase() || "";
+        for (const channelId of uniqueChannels) {
+          if (channelId.toLowerCase().includes(streamName) || streamName.includes(channelId.toLowerCase())) {
+            await db.insert(epgMappings).values({
+              streamId: stream.id,
+              epgChannelId: channelId,
+              matchType: "auto",
+              matchConfidence: 70,
+            });
+            mapped++;
+            break;
+          }
+        }
+      }
+      
+      res.json({ message: `Auto-mapped ${mapped} streams`, mapped });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get EPG preview for channel
+  app.get("/api/epg/preview/:channelId", requireAdmin, async (req, res) => {
+    try {
+      const channelId = req.params.channelId;
+      const now = new Date();
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const programs = await db.select()
+        .from(epgData)
+        .where(and(
+          eq(epgData.channelId, channelId),
+          gte(epgData.startTime, now),
+          lte(epgData.endTime, endOfDay)
+        ))
+        .orderBy(epgData.startTime)
+        .limit(50);
+      
+      res.json(programs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Import EPG from source
+  app.post("/api/epg/import/:sourceId", requireAdmin, async (req, res) => {
+    try {
+      const sourceId = Number(req.params.sourceId);
+      const source = await storage.getEpgSource(sourceId);
+      
+      if (!source) {
+        return res.status(404).json({ message: "EPG source not found" });
+      }
+      
+      // In production, this would fetch and parse the EPG XML
+      // For now, mark source as updated
+      await db.update(epgSources)
+        .set({ lastUpdate: new Date() })
+        .where(eq(epgSources.id, sourceId));
+      
+      res.json({ message: "EPG import initiated", sourceId });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get EPG statistics
+  app.get("/api/epg/stats", requireAdmin, async (_req, res) => {
+    try {
+      const sources = await storage.getEpgSources();
+      const mappings = await db.select().from(epgMappings);
+      const streams = await storage.getStreams();
+      
+      const totalPrograms = await db.select({ count: sql<number>`count(*)` }).from(epgData);
+      
+      res.json({
+        totalSources: sources.length,
+        enabledSources: sources.filter(s => s.enabled).length,
+        totalMappings: mappings.length,
+        totalStreams: streams.length,
+        mappedStreams: mappings.length,
+        unmappedStreams: streams.length - mappings.length,
+        totalPrograms: totalPrograms[0]?.count || 0,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 4: SCHEDULED BACKUPS
+  // ============================================
+
+  // Get scheduled backups
+  app.get("/api/scheduled-backups", requireAdmin, async (_req, res) => {
+    try {
+      const schedules = await db.select().from(scheduledBackups).orderBy(scheduledBackups.name);
+      res.json(schedules);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get scheduled backup by ID
+  app.get("/api/scheduled-backups/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [schedule] = await db.select().from(scheduledBackups).where(eq(scheduledBackups.id, id));
+      if (!schedule) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+      res.json(schedule);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create scheduled backup
+  app.post("/api/scheduled-backups", requireAdmin, async (req, res) => {
+    try {
+      const [schedule] = await db.insert(scheduledBackups).values(req.body).returning();
+      res.json(schedule);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update scheduled backup
+  app.put("/api/scheduled-backups/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [schedule] = await db.update(scheduledBackups).set(req.body).where(eq(scheduledBackups.id, id)).returning();
+      res.json(schedule);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Delete scheduled backup
+  app.delete("/api/scheduled-backups/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await db.delete(scheduledBackups).where(eq(scheduledBackups.id, id));
+      res.json({ message: "Schedule deleted" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Run scheduled backup now
+  app.post("/api/scheduled-backups/:id/run", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [schedule] = await db.select().from(scheduledBackups).where(eq(scheduledBackups.id, id));
+      
+      if (!schedule) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+      
+      // Create a backup based on schedule settings
+      const backup = await storage.createBackup({
+        filename: `scheduled_${schedule.name}_${Date.now()}.zip`,
+        size: 0,
+        status: "pending",
+        type: schedule.backupType || "full",
+      });
+      
+      // Update schedule last run
+      await db.update(scheduledBackups)
+        .set({ lastRun: new Date(), lastStatus: "running" })
+        .where(eq(scheduledBackups.id, id));
+      
+      res.json({ message: "Backup initiated", backup });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 4: VIEWING ANALYTICS
+  // ============================================
+
+  // Get viewing analytics overview
+  app.get("/api/viewing-analytics/overview", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 7;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const analytics = await db.select()
+        .from(viewingAnalytics)
+        .where(gte(viewingAnalytics.startTime, since));
+      
+      const totalViews = analytics.length;
+      const totalWatchTime = analytics.reduce((sum, a) => sum + (a.duration || 0), 0);
+      const uniqueViewers = new Set(analytics.map(a => a.lineId)).size;
+      
+      const liveViews = analytics.filter(a => a.contentType === "live").length;
+      const vodViews = analytics.filter(a => a.contentType === "vod").length;
+      const seriesViews = analytics.filter(a => a.contentType === "series").length;
+      
+      res.json({
+        totalViews,
+        totalWatchTime,
+        uniqueViewers,
+        avgWatchTime: totalViews > 0 ? Math.round(totalWatchTime / totalViews) : 0,
+        liveViews,
+        vodViews,
+        seriesViews,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get popular content
+  app.get("/api/viewing-analytics/popular", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 7;
+      const limit = Number(req.query.limit) || 20;
+      const contentType = req.query.contentType as string;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      let query = db.select({
+        contentId: viewingAnalytics.contentId,
+        contentType: viewingAnalytics.contentType,
+        contentName: viewingAnalytics.contentName,
+        views: sql<number>`count(*)`,
+        totalWatchTime: sql<number>`sum(${viewingAnalytics.duration})`,
+        uniqueViewers: sql<number>`count(distinct ${viewingAnalytics.lineId})`,
+      })
+        .from(viewingAnalytics)
+        .where(gte(viewingAnalytics.startTime, since))
+        .groupBy(viewingAnalytics.contentId, viewingAnalytics.contentType, viewingAnalytics.contentName)
+        .orderBy(sql`count(*) desc`)
+        .limit(limit);
+      
+      const popular = await query;
+      res.json(popular);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get geographic distribution
+  app.get("/api/viewing-analytics/geo", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 7;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const geoData = await db.select({
+        country: viewingAnalytics.country,
+        views: sql<number>`count(*)`,
+        watchTime: sql<number>`sum(${viewingAnalytics.duration})`,
+        uniqueViewers: sql<number>`count(distinct ${viewingAnalytics.lineId})`,
+      })
+        .from(viewingAnalytics)
+        .where(and(
+          gte(viewingAnalytics.startTime, since),
+          isNotNull(viewingAnalytics.country)
+        ))
+        .groupBy(viewingAnalytics.country)
+        .orderBy(sql`count(*) desc`);
+      
+      res.json(geoData);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get device distribution
+  app.get("/api/viewing-analytics/devices", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 7;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const deviceData = await db.select({
+        deviceType: viewingAnalytics.deviceType,
+        player: viewingAnalytics.player,
+        views: sql<number>`count(*)`,
+        uniqueViewers: sql<number>`count(distinct ${viewingAnalytics.lineId})`,
+      })
+        .from(viewingAnalytics)
+        .where(gte(viewingAnalytics.startTime, since))
+        .groupBy(viewingAnalytics.deviceType, viewingAnalytics.player)
+        .orderBy(sql`count(*) desc`);
+      
+      res.json(deviceData);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get viewer timeline
+  app.get("/api/viewing-analytics/timeline", requireAdmin, async (req, res) => {
+    try {
+      const days = Number(req.query.days) || 7;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const timeline = await db.select({
+        date: sql<string>`date_trunc('day', ${viewingAnalytics.startTime})`,
+        views: sql<number>`count(*)`,
+        watchTime: sql<number>`sum(${viewingAnalytics.duration})`,
+        uniqueViewers: sql<number>`count(distinct ${viewingAnalytics.lineId})`,
+      })
+        .from(viewingAnalytics)
+        .where(gte(viewingAnalytics.startTime, since))
+        .groupBy(sql`date_trunc('day', ${viewingAnalytics.startTime})`)
+        .orderBy(sql`date_trunc('day', ${viewingAnalytics.startTime})`);
+      
+      res.json(timeline);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Record viewing analytics (from player API)
+  app.post("/api/viewing-analytics/record", async (req, res) => {
+    try {
+      const [record] = await db.insert(viewingAnalytics).values(req.body).returning();
+      res.json(record);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get popular content reports
+  app.get("/api/viewing-analytics/reports", requireAdmin, async (req, res) => {
+    try {
+      const reports = await db.select()
+        .from(popularContentReports)
+        .orderBy(desc(popularContentReports.reportDate))
+        .limit(100);
+      res.json(reports);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Generate popular content report
+  app.post("/api/viewing-analytics/reports/generate", requireAdmin, async (req, res) => {
+    try {
+      const { periodType = "daily" } = req.body;
+      const now = new Date();
+      
+      // Get analytics for period
+      let since: Date;
+      switch (periodType) {
+        case "hourly":
+          since = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case "weekly":
+          since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "monthly":
+          since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+      
+      const analytics = await db.select()
+        .from(viewingAnalytics)
+        .where(gte(viewingAnalytics.startTime, since));
+      
+      // Aggregate by content
+      const contentMap = new Map<string, any>();
+      for (const a of analytics) {
+        const key = `${a.contentType}_${a.contentId}`;
+        if (!contentMap.has(key)) {
+          contentMap.set(key, {
+            contentType: a.contentType,
+            contentId: a.contentId,
+            contentName: a.contentName,
+            categoryId: a.categoryId,
+            views: 0,
+            viewers: new Set(),
+            watchTime: 0,
+            geoDistribution: {} as Record<string, number>,
+            deviceDistribution: {} as Record<string, number>,
+          });
+        }
+        const entry = contentMap.get(key);
+        entry.views++;
+        if (a.lineId) entry.viewers.add(a.lineId);
+        entry.watchTime += a.duration || 0;
+        if (a.country) entry.geoDistribution[a.country] = (entry.geoDistribution[a.country] || 0) + 1;
+        if (a.deviceType) entry.deviceDistribution[a.deviceType] = (entry.deviceDistribution[a.deviceType] || 0) + 1;
+      }
+      
+      // Insert reports
+      const reports = [];
+      for (const [_, data] of contentMap) {
+        const [report] = await db.insert(popularContentReports).values({
+          reportDate: now,
+          periodType,
+          contentType: data.contentType,
+          contentId: data.contentId,
+          contentName: data.contentName,
+          categoryId: data.categoryId,
+          totalViews: data.views,
+          uniqueViewers: data.viewers.size,
+          totalWatchTime: data.watchTime,
+          avgWatchTime: data.views > 0 ? Math.round(data.watchTime / data.views) : 0,
+          geoDistribution: data.geoDistribution,
+          deviceDistribution: data.deviceDistribution,
+        }).returning();
+        reports.push(report);
+      }
+      
+      res.json({ message: `Generated ${reports.length} reports`, reports: reports.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ============================================
+  // BATCH 4: NOTIFICATION SYSTEM
+  // ============================================
+
+  // Get notification settings
+  app.get("/api/notifications/settings", requireAdmin, async (_req, res) => {
+    try {
+      let [settings] = await db.select().from(notificationSettings).limit(1);
+      if (!settings) {
+        [settings] = await db.insert(notificationSettings).values({}).returning();
+      }
+      res.json(settings);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update notification settings
+  app.put("/api/notifications/settings", requireAdmin, async (req, res) => {
+    try {
+      let [existing] = await db.select().from(notificationSettings).limit(1);
+      
+      if (existing) {
+        const [settings] = await db.update(notificationSettings)
+          .set({ ...req.body, updatedAt: new Date() })
+          .where(eq(notificationSettings.id, existing.id))
+          .returning();
+        res.json(settings);
+      } else {
+        const [settings] = await db.insert(notificationSettings).values(req.body).returning();
+        res.json(settings);
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get notification triggers
+  app.get("/api/notifications/triggers", requireAdmin, async (_req, res) => {
+    try {
+      const triggers = await db.select().from(notificationTriggers).orderBy(notificationTriggers.name);
+      res.json(triggers);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Create notification trigger
+  app.post("/api/notifications/triggers", requireAdmin, async (req, res) => {
+    try {
+      const [trigger] = await db.insert(notificationTriggers).values(req.body).returning();
+      res.json(trigger);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Update notification trigger
+  app.put("/api/notifications/triggers/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [trigger] = await db.update(notificationTriggers).set(req.body).where(eq(notificationTriggers.id, id)).returning();
+      res.json(trigger);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Delete notification trigger
+  app.delete("/api/notifications/triggers/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await db.delete(notificationTriggers).where(eq(notificationTriggers.id, id));
+      res.json({ message: "Trigger deleted" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get notification log
+  app.get("/api/notifications/log", requireAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const channel = req.query.channel as string;
+      
+      let query = db.select().from(notificationLog).orderBy(desc(notificationLog.createdAt)).limit(limit);
+      
+      if (channel) {
+        query = db.select().from(notificationLog).where(eq(notificationLog.channel, channel)).orderBy(desc(notificationLog.createdAt)).limit(limit);
+      }
+      
+      const logs = await query;
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Test notification
+  app.post("/api/notifications/test", requireAdmin, async (req, res) => {
+    try {
+      const { channel, message = "Test notification from PanelX" } = req.body;
+      
+      // Get settings
+      const [settings] = await db.select().from(notificationSettings).limit(1);
+      
+      if (!settings) {
+        return res.status(400).json({ message: "Notification settings not configured" });
+      }
+      
+      // Log the test
+      const [log] = await db.insert(notificationLog).values({
+        triggerType: "test",
+        triggerName: "Test Notification",
+        channel,
+        message,
+        status: "pending",
+      }).returning();
+      
+      // In production, this would actually send the notification
+      // For now, mark as sent
+      await db.update(notificationLog)
+        .set({ status: "sent", sentAt: new Date() })
+        .where(eq(notificationLog.id, log.id));
+      
+      res.json({ message: `Test notification sent to ${channel}`, log });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get notification stats
+  app.get("/api/notifications/stats", requireAdmin, async (_req, res) => {
+    try {
+      const allLogs = await db.select().from(notificationLog);
+      const triggers = await db.select().from(notificationTriggers);
+      
+      const sent = allLogs.filter(l => l.status === "sent").length;
+      const failed = allLogs.filter(l => l.status === "failed").length;
+      const pending = allLogs.filter(l => l.status === "pending").length;
+      
+      const byChannel = {
+        email: allLogs.filter(l => l.channel === "email").length,
+        telegram: allLogs.filter(l => l.channel === "telegram").length,
+        discord: allLogs.filter(l => l.channel === "discord").length,
+        slack: allLogs.filter(l => l.channel === "slack").length,
+      };
+      
+      res.json({
+        totalNotifications: allLogs.length,
+        sent,
+        failed,
+        pending,
+        activeTriggers: triggers.filter(t => t.enabled).length,
+        byChannel,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

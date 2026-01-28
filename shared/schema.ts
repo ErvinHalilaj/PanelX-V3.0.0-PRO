@@ -2798,3 +2798,358 @@ export type InsertEmbeddedLine = typeof embeddedLines.$inferInsert;
 export type VpnIpRange = typeof vpnIpRanges.$inferSelect;
 export type InsertVpnIpRange = typeof vpnIpRanges.$inferInsert;
 
+// ===================================
+// BATCH 4: ADVANCED OPERATIONS & MONITORING
+// ===================================
+
+// Stream Health Metrics (real-time monitoring)
+export const streamHealthMetrics = pgTable("stream_health_metrics", {
+  id: serial("id").primaryKey(),
+  streamId: integer("stream_id").references(() => streams.id),
+  serverId: integer("server_id").references(() => servers.id),
+  
+  // Health status
+  status: text("status").default("unknown"), // online, offline, degraded, error
+  isLive: boolean("is_live").default(false),
+  
+  // Quality metrics
+  bitrate: integer("bitrate"), // kbps
+  framerate: real("framerate"), // fps
+  resolution: text("resolution"), // e.g., "1920x1080"
+  codec: text("codec"), // e.g., "h264", "hevc"
+  
+  // Performance metrics
+  bufferHealth: real("buffer_health"), // percentage
+  dropFrames: integer("drop_frames").default(0),
+  errorCount: integer("error_count").default(0),
+  uptime: integer("uptime").default(0), // seconds since last restart
+  
+  // Response times
+  responseTime: integer("response_time"), // ms
+  lastError: text("last_error"),
+  lastErrorTime: timestamp("last_error_time"),
+  
+  // Connection stats
+  activeViewers: integer("active_viewers").default(0),
+  peakViewers: integer("peak_viewers").default(0),
+  totalViews: integer("total_views").default(0),
+  
+  // Auto-restart tracking
+  restartCount: integer("restart_count").default(0),
+  lastRestart: timestamp("last_restart"),
+  autoRestartEnabled: boolean("auto_restart_enabled").default(true),
+  
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Notification Settings (email, telegram, discord)
+export const notificationSettings = pgTable("notification_settings", {
+  id: serial("id").primaryKey(),
+  
+  // Email settings
+  emailEnabled: boolean("email_enabled").default(false),
+  emailSmtpHost: text("email_smtp_host"),
+  emailSmtpPort: integer("email_smtp_port").default(587),
+  emailSmtpUser: text("email_smtp_user"),
+  emailSmtpPassword: text("email_smtp_password"),
+  emailFromAddress: text("email_from_address"),
+  emailFromName: text("email_from_name"),
+  emailUseTls: boolean("email_use_tls").default(true),
+  
+  // Telegram settings
+  telegramEnabled: boolean("telegram_enabled").default(false),
+  telegramBotToken: text("telegram_bot_token"),
+  telegramChatId: text("telegram_chat_id"),
+  
+  // Discord settings
+  discordEnabled: boolean("discord_enabled").default(false),
+  discordWebhookUrl: text("discord_webhook_url"),
+  
+  // Slack settings
+  slackEnabled: boolean("slack_enabled").default(false),
+  slackWebhookUrl: text("slack_webhook_url"),
+  
+  // General settings
+  notifyOnStreamDown: boolean("notify_on_stream_down").default(true),
+  notifyOnServerDown: boolean("notify_on_server_down").default(true),
+  notifyOnHighCpu: boolean("notify_on_high_cpu").default(true),
+  notifyOnHighMemory: boolean("notify_on_high_memory").default(true),
+  notifyOnLowDisk: boolean("notify_on_low_disk").default(true),
+  notifyOnNewUser: boolean("notify_on_new_user").default(false),
+  notifyOnSubscriptionExpiry: boolean("notify_on_subscription_expiry").default(true),
+  expiryNotifyDays: integer("expiry_notify_days").default(3),
+  notifyOnSecurityAlert: boolean("notify_on_security_alert").default(true),
+  
+  // Thresholds
+  cpuThreshold: integer("cpu_threshold").default(90),
+  memoryThreshold: integer("memory_threshold").default(90),
+  diskThreshold: integer("disk_threshold").default(90),
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Notification Triggers (custom alert rules)
+export const notificationTriggers = pgTable("notification_triggers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Trigger type
+  triggerType: text("trigger_type").notNull(), // stream_down, server_down, threshold, schedule, event
+  
+  // Conditions (JSON for flexible rule definition)
+  conditions: jsonb("conditions").$type<{
+    metric?: string;
+    operator?: string;
+    value?: number;
+    duration?: number;
+    streamId?: number;
+    serverId?: number;
+  }>(),
+  
+  // Actions
+  notifyEmail: boolean("notify_email").default(true),
+  notifyTelegram: boolean("notify_telegram").default(false),
+  notifyDiscord: boolean("notify_discord").default(false),
+  notifySlack: boolean("notify_slack").default(false),
+  
+  // Additional recipients
+  emailRecipients: jsonb("email_recipients").$type<string[]>().default([]),
+  
+  // Cooldown to prevent spam
+  cooldownMinutes: integer("cooldown_minutes").default(15),
+  lastTriggered: timestamp("last_triggered"),
+  
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Notification Log (history of sent notifications)
+export const notificationLog = pgTable("notification_log", {
+  id: serial("id").primaryKey(),
+  
+  // What triggered this
+  triggerId: integer("trigger_id").references(() => notificationTriggers.id),
+  triggerType: text("trigger_type").notNull(),
+  triggerName: text("trigger_name"),
+  
+  // Notification details
+  channel: text("channel").notNull(), // email, telegram, discord, slack
+  recipient: text("recipient"), // email address, chat id, etc.
+  subject: text("subject"),
+  message: text("message").notNull(),
+  
+  // Status
+  status: text("status").default("pending"), // pending, sent, failed
+  errorMessage: text("error_message"),
+  
+  // Related entities
+  streamId: integer("stream_id").references(() => streams.id),
+  serverId: integer("server_id").references(() => servers.id),
+  lineId: integer("line_id").references(() => lines.id),
+  
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// EPG Channel Mappings (link streams to EPG channels)
+export const epgMappings = pgTable("epg_mappings", {
+  id: serial("id").primaryKey(),
+  streamId: integer("stream_id").references(() => streams.id).notNull(),
+  epgChannelId: text("epg_channel_id").notNull(), // EPG XML channel ID
+  sourceId: integer("source_id").references(() => epgSources.id),
+  
+  // Matching info
+  matchType: text("match_type").default("manual"), // manual, auto, fuzzy
+  matchConfidence: real("match_confidence"), // 0-100 for auto matches
+  
+  // Time offset for timezone differences
+  timeOffset: integer("time_offset").default(0), // minutes
+  
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Scheduled Backups
+export const scheduledBackups = pgTable("scheduled_backups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Schedule (cron expression)
+  cronExpression: text("cron_expression").notNull(), // e.g., "0 2 * * *" for daily at 2am
+  timezone: text("timezone").default("UTC"),
+  
+  // What to backup
+  backupType: text("backup_type").default("full"), // full, database, settings, content, users
+  includeMedia: boolean("include_media").default(false),
+  includeEpg: boolean("include_epg").default(true),
+  includeLogs: boolean("include_logs").default(false),
+  
+  // Retention
+  retentionDays: integer("retention_days").default(30),
+  maxBackups: integer("max_backups").default(10),
+  
+  // Storage
+  storageType: text("storage_type").default("local"), // local, s3, ftp
+  storagePath: text("storage_path"),
+  storageConfig: jsonb("storage_config"), // credentials for remote storage
+  
+  // Compression
+  compressionEnabled: boolean("compression_enabled").default(true),
+  compressionLevel: integer("compression_level").default(6), // 1-9
+  
+  // Encryption
+  encryptionEnabled: boolean("encryption_enabled").default(false),
+  encryptionKey: text("encryption_key"),
+  
+  // Status
+  lastRun: timestamp("last_run"),
+  lastStatus: text("last_status"), // success, failed, running
+  lastError: text("last_error"),
+  nextRun: timestamp("next_run"),
+  
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Viewing Analytics (user viewing behavior)
+export const viewingAnalytics = pgTable("viewing_analytics", {
+  id: serial("id").primaryKey(),
+  
+  // Who
+  lineId: integer("line_id").references(() => lines.id),
+  userId: integer("user_id"), // reseller user ID if applicable
+  
+  // What
+  contentType: text("content_type").notNull(), // live, vod, series
+  contentId: integer("content_id").notNull(),
+  contentName: text("content_name"),
+  categoryId: integer("category_id"),
+  
+  // When
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"), // seconds watched
+  
+  // Where
+  country: text("country"),
+  city: text("city"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceType: text("device_type"), // mobile, tablet, desktop, tv, stb
+  
+  // How
+  player: text("player"), // smarters, tivimate, vlc, etc.
+  quality: text("quality"), // SD, HD, FHD, 4K
+  
+  // Engagement
+  bufferingEvents: integer("buffering_events").default(0),
+  seekEvents: integer("seek_events").default(0),
+  completionRate: real("completion_rate"), // percentage for VOD
+  
+  serverId: integer("server_id").references(() => servers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Popular Content Reports (aggregated analytics)
+export const popularContentReports = pgTable("popular_content_reports", {
+  id: serial("id").primaryKey(),
+  
+  // Report period
+  reportDate: timestamp("report_date").notNull(),
+  periodType: text("period_type").notNull(), // hourly, daily, weekly, monthly
+  
+  // Content
+  contentType: text("content_type").notNull(), // live, vod, series
+  contentId: integer("content_id").notNull(),
+  contentName: text("content_name"),
+  categoryId: integer("category_id"),
+  
+  // Metrics
+  totalViews: integer("total_views").default(0),
+  uniqueViewers: integer("unique_viewers").default(0),
+  totalWatchTime: integer("total_watch_time").default(0), // seconds
+  avgWatchTime: integer("avg_watch_time").default(0), // seconds
+  peakConcurrent: integer("peak_concurrent").default(0),
+  
+  // Geographic distribution (JSON)
+  geoDistribution: jsonb("geo_distribution").$type<Record<string, number>>(),
+  
+  // Device distribution (JSON)
+  deviceDistribution: jsonb("device_distribution").$type<Record<string, number>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Stream Auto-Restart Rules
+export const streamAutoRestartRules = pgTable("stream_auto_restart_rules", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  
+  // Apply to
+  applyToAll: boolean("apply_to_all").default(false),
+  streamIds: jsonb("stream_ids").$type<number[]>().default([]),
+  categoryIds: jsonb("category_ids").$type<number[]>().default([]),
+  
+  // Conditions
+  maxDowntimeSeconds: integer("max_downtime_seconds").default(60),
+  maxConsecutiveErrors: integer("max_consecutive_errors").default(3),
+  checkIntervalSeconds: integer("check_interval_seconds").default(30),
+  
+  // Actions
+  restartEnabled: boolean("restart_enabled").default(true),
+  maxRestartAttempts: integer("max_restart_attempts").default(5),
+  restartCooldownMinutes: integer("restart_cooldown_minutes").default(5),
+  notifyOnRestart: boolean("notify_on_restart").default(true),
+  notifyOnFailure: boolean("notify_on_failure").default(true),
+  
+  // Fallback
+  fallbackStreamId: integer("fallback_stream_id").references(() => streams.id),
+  fallbackEnabled: boolean("fallback_enabled").default(false),
+  
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Batch 4 Insert Schemas
+export const insertStreamHealthMetricsSchema = createInsertSchema(streamHealthMetrics).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({ id: true, updatedAt: true });
+export const insertNotificationTriggerSchema = createInsertSchema(notificationTriggers).omit({ id: true, createdAt: true });
+export const insertNotificationLogSchema = createInsertSchema(notificationLog).omit({ id: true, createdAt: true });
+export const insertEpgMappingSchema = createInsertSchema(epgMappings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertScheduledBackupSchema = createInsertSchema(scheduledBackups).omit({ id: true, createdAt: true });
+export const insertViewingAnalyticsSchema = createInsertSchema(viewingAnalytics).omit({ id: true, createdAt: true });
+export const insertPopularContentReportSchema = createInsertSchema(popularContentReports).omit({ id: true, createdAt: true });
+export const insertStreamAutoRestartRuleSchema = createInsertSchema(streamAutoRestartRules).omit({ id: true, createdAt: true });
+
+// Batch 4 Types
+export type StreamHealthMetrics = typeof streamHealthMetrics.$inferSelect;
+export type InsertStreamHealthMetrics = typeof streamHealthMetrics.$inferInsert;
+
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type InsertNotificationSettings = typeof notificationSettings.$inferInsert;
+
+export type NotificationTrigger = typeof notificationTriggers.$inferSelect;
+export type InsertNotificationTrigger = typeof notificationTriggers.$inferInsert;
+
+export type NotificationLog = typeof notificationLog.$inferSelect;
+export type InsertNotificationLog = typeof notificationLog.$inferInsert;
+
+export type EpgMapping = typeof epgMappings.$inferSelect;
+export type InsertEpgMapping = typeof epgMappings.$inferInsert;
+
+export type ScheduledBackup = typeof scheduledBackups.$inferSelect;
+export type InsertScheduledBackup = typeof scheduledBackups.$inferInsert;
+
+export type ViewingAnalytics = typeof viewingAnalytics.$inferSelect;
+export type InsertViewingAnalytics = typeof viewingAnalytics.$inferInsert;
+
+export type PopularContentReport = typeof popularContentReports.$inferSelect;
+export type InsertPopularContentReport = typeof popularContentReports.$inferInsert;
+
+export type StreamAutoRestartRule = typeof streamAutoRestartRules.$inferSelect;
+export type InsertStreamAutoRestartRule = typeof streamAutoRestartRules.$inferInsert;
+
