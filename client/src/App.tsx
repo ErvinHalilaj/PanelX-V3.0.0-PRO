@@ -69,6 +69,14 @@ import SslCertificates from "@/pages/SslCertificates";
 import EmbeddedLines from "@/pages/EmbeddedLines";
 import CatchupSettings from "@/pages/CatchupSettings";
 import OnDemandSettings from "@/pages/OnDemandSettings";
+import LoadBalancing from "@/pages/LoadBalancing";
+import GeoipRestrictions from "@/pages/GeoipRestrictions";
+import BandwidthMonitoring from "@/pages/BandwidthMonitoring";
+import StreamMonitoring from "@/pages/StreamMonitoring";
+import EpgManager from "@/pages/EpgManager";
+import BackupRestore from "@/pages/BackupRestore";
+import AdvancedAnalytics from "@/pages/AdvancedAnalytics";
+import NotificationSettings from "@/pages/NotificationSettings";
 import { AdminAuthProvider, useAdminAuth } from "@/components/AdminAuthProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -135,6 +143,14 @@ function AdminRouter() {
       <Route path="/embedded-lines" component={EmbeddedLines} />
       <Route path="/catchup-settings" component={CatchupSettings} />
       <Route path="/on-demand-settings" component={OnDemandSettings} />
+      <Route path="/load-balancing" component={LoadBalancing} />
+      <Route path="/geoip" component={GeoipRestrictions} />
+      <Route path="/bandwidth" component={BandwidthMonitoring} />
+      <Route path="/stream-monitoring" component={StreamMonitoring} />
+      <Route path="/epg-manager" component={EpgManager} />
+      <Route path="/backup-scheduler" component={BackupRestore} />
+      <Route path="/advanced-analytics" component={AdvancedAnalytics} />
+      <Route path="/notifications" component={NotificationSettings} />
       <Route path="/settings" component={Settings} />
       <Route path="/api" component={ApiInfo} />
       <Route component={NotFound} />

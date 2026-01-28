@@ -120,7 +120,21 @@ Advanced infrastructure and business management:
 - **Bandwidth Monitoring**: Real-time bandwidth stats, alerts, and usage analytics.
 - **Reseller Management**: Full reseller hierarchy, credit management, permissions, and analytics.
 
+### Batch 4 Features - Monitoring, Analytics & Notifications
+Advanced monitoring, analytics, and notification systems:
+- **Stream Monitoring**: Real-time stream health metrics, auto-restart rules, quality monitoring (bitrate, FPS, resolution), error tracking.
+- **Enhanced EPG Management**: Channel mapping with auto-map, EPG preview, import/export, source management.
+- **Scheduled Backups**: Cron-based backup scheduling, retention policies, one-click restore, storage location options.
+- **Advanced Analytics**: Viewing analytics, popular content reports, geographic distribution, device/player analytics, timeline trends.
+- **Multi-Channel Notifications**: Email/Telegram/Discord/Slack notifications, configurable triggers, cooldown management, notification logs.
+
 ## Recent Changes
+
+### January 28, 2026 - Batch 4 Complete
+Added Batch 4 backend and frontend features for monitoring, analytics, and notifications:
+- **Schema**: Added `streamHealthMetrics`, `streamAutoRestartRules`, `epgMappings`, `scheduledBackups`, `viewingAnalytics`, `popularContentReports`, `notificationSettings`, `notificationTriggers`, `notificationLog` tables
+- **Backend**: Stream Monitoring API (`/api/stream-monitoring/*`), Enhanced EPG API (`/api/epg/*`), Scheduled Backups API (`/api/scheduled-backups/*`), Viewing Analytics API (`/api/viewing-analytics/*`), Notifications API (`/api/notifications/*`)
+- **Frontend**: StreamMonitoring.tsx (health metrics, auto-restart rules, error logs), EpgManager.tsx (channel mapping, auto-map, preview), BackupRestore.tsx (scheduled backups, retention, restore), AdvancedAnalytics.tsx (viewing stats, popular content, geo/device distribution), NotificationSettings.tsx (multi-channel config, triggers, logs)
 
 ### January 28, 2026 - Batch 3 Complete
 Added Batch 3 backend and frontend features:
