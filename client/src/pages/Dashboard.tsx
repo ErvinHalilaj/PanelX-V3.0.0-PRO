@@ -1,10 +1,9 @@
 import { Layout } from "@/components/Layout";
 import { BandwidthChart } from "@/components/BandwidthChart";
 import { StreamHealthDashboard } from "@/components/StreamHealthDashboard";
-import { useStats } from "@/hooks/use-stats";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Tv, Users, Wifi, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Shield, Radio, RefreshCw } from "lucide-react";
+import { Activity, Tv, Users, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Radio, Shield } from "lucide-react";
 
 // System metrics type
 interface SystemMetrics {
@@ -93,49 +92,49 @@ function MiniCard({ title, value, icon: Icon, color }: { title: string; value: s
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useStats();
-  
-  // Real-time WebSocket connection - updates every 2 seconds
+  // Real-time WebSocket connection - updates every 2 seconds (no polling!)
   const { 
     connected, 
     dashboardStats, 
     activeConnections: liveConnections,
     bandwidthData,
-    systemMetrics: wsSystemMetrics
+    systemMetrics
   } = useWebSocket();
   
-  // Fallback API fetch for system metrics (only if WebSocket not connected)
-  const { data: apiSystemMetrics } = useQuery<SystemMetrics>({
-    queryKey: ["/api/monitoring/metrics"],
-    refetchInterval: connected ? false : 10000, // Only poll if WebSocket disconnected
-    enabled: !connected,
+  // Initial load only - no refetching (data comes from WebSocket)
+  const { data: initialLines = [], isLoading: linesLoading } = useQuery<LineType[]>({
+    queryKey: ["/api/lines"],
+    staleTime: Infinity, // Never refetch - WebSocket handles updates
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: false,
   });
 
-  // Use WebSocket metrics if available, otherwise API fallback
-  const systemMetrics = wsSystemMetrics || apiSystemMetrics;
-
-  const { data: recentConnections = [] } = useQuery<ActiveConnection[]>({
-    queryKey: ["/api/connections"],
-    refetchInterval: connected ? false : 10000, // Only poll if WebSocket disconnected
+  const { data: initialStreams = [], isLoading: streamsLoading } = useQuery<Stream[]>({
+    queryKey: ["/api/streams"],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnReconnect: false,
   });
 
-  const { data: lines = [] } = useQuery<LineType[]>({
-    queryKey: ["/api/lines"]
-  });
+  // Use WebSocket data for real-time stats
+  const displayConnections = liveConnections;
 
-  const { data: streams = [] } = useQuery<Stream[]>({
-    queryKey: ["/api/streams"]
-  });
+  // Calculate stats from WebSocket OR initial data
+  const totalLines = dashboardStats?.totalLines ?? initialLines.length;
+  const activeLines = dashboardStats?.activeLines ?? initialLines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > new Date())).length;
+  const expiredLines = dashboardStats?.expiredLines ?? initialLines.filter(l => l.expDate && new Date(l.expDate) < new Date()).length;
+  const trialLines = initialLines.filter(l => l.isTrial).length;
+  
+  const totalStreams = dashboardStats?.totalStreams ?? initialStreams.length;
+  const onlineStreams = dashboardStats?.onlineStreams ?? initialStreams.filter(s => s.monitorStatus === 'online').length;
+  const activeConnectionCount = dashboardStats?.activeConnections ?? liveConnections.length;
+  const currentBandwidth = bandwidthData?.total ?? '0.00 KB/s';
 
-  // Use WebSocket data if available, otherwise fallback to API data
-  const displayStats = dashboardStats || stats;
-  const displayConnections = liveConnections.length > 0 ? liveConnections : recentConnections;
+  const isLoading = linesLoading || streamsLoading;
 
-  const expiredLines = lines.filter(l => l.expDate && new Date(l.expDate) < new Date()).length;
-  const trialLines = lines.filter(l => l.isTrial).length;
-  const activeLines = lines.filter(l => l.enabled && (!l.expDate || new Date(l.expDate) > new Date())).length;
-
-  if (isLoading) return (
+  if (isLoading && !connected) return (
     <Layout title="Dashboard">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[1, 2, 3, 4].map(i => (
@@ -164,7 +163,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard 
           title="Active Connections" 
-          value={displayStats?.activeConnections || 0}
+          value={activeConnectionCount}
           icon={Activity}
           color="text-emerald-500 bg-emerald-500"
           subtext={<span className="text-emerald-400">{connected ? 'Live Now' : 'Last known'}</span>}
@@ -172,7 +171,7 @@ export default function Dashboard() {
         />
         <StatsCard 
           title="Total Lines" 
-          value={displayStats?.totalLines || 0}
+          value={totalLines}
           icon={Users}
           color="text-blue-500 bg-blue-500"
           subtext={`${activeLines} active, ${expiredLines} expired`}
@@ -180,17 +179,17 @@ export default function Dashboard() {
         />
         <StatsCard 
           title="Online Streams" 
-          value={displayStats?.onlineStreams || 0}
+          value={onlineStreams}
           icon={Tv}
           color="text-primary bg-primary"
-          subtext={`${stats?.totalStreams || 0} Total Streams`}
+          subtext={`${totalStreams} Total Streams`}
         />
         <StatsCard 
           title="Total Credits" 
-          value={stats?.totalCredits || 0}
+          value={0}
           icon={CreditCard}
           color="text-orange-500 bg-orange-500"
-          subtext={`${stats?.totalUsers || 0} Users`}
+          subtext="0 Users"
         />
       </div>
 
@@ -208,7 +207,7 @@ export default function Dashboard() {
 
       {/* Stream Health Monitoring */}
       <div className="mt-8">
-        <StreamHealthDashboard streams={streams} connected={connected} />
+        <StreamHealthDashboard streams={initialStreams} connected={connected} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -319,10 +318,10 @@ export default function Dashboard() {
             <Users className="w-5 h-5 text-blue-500" /> Recent Activity
           </h3>
           <div className="space-y-4 max-h-[200px] overflow-y-auto">
-            {recentConnections.length === 0 ? (
+            {displayConnections.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-4">No active connections</p>
             ) : (
-              recentConnections.slice(0, 5).map((conn) => (
+              displayConnections.slice(0, 5).map((conn: any) => (
                 <div key={conn.id} className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
                   <div className="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0 animate-pulse" />
                   <div className="flex-1 min-w-0">
