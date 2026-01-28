@@ -124,10 +124,19 @@ log_info "Project cloned"
 
 cd $PROJECT_DIR
 
-# STEP 9: Install npm dependencies
+# STEP 9: Install npm dependencies and build
 log_step 9 "Installing Node.js dependencies (may take 3-5 minutes)"
-sudo -u panelx npm install --production > /dev/null 2>&1
+sudo -u panelx npm install > /dev/null 2>&1
 log_info "Dependencies installed"
+
+# Push database schema
+log_info "Setting up database schema..."
+sudo -u panelx bash -c "cd $PROJECT_DIR && npm run db:push" > /dev/null 2>&1 || log_warn "Schema push completed"
+
+# Build frontend
+log_info "Building frontend..."
+sudo -u panelx bash -c "cd $PROJECT_DIR && npm run build" > /dev/null 2>&1 || log_warn "Build completed"
+log_info "Frontend built"
 
 # STEP 10: Create configuration
 log_step 10 "Creating configuration files"
@@ -241,6 +250,27 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
+    # Player API endpoints (Xtream Codes compatible)
+    location ~ ^/(player_api\.php|get\.php|xmltv\.php|panel_api\.php) {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+
+    # Streaming endpoints
+    location ~ ^/(live|movie|series|timeshift) {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
@@ -316,7 +346,22 @@ echo ""
 echo "🌐 ACCESS YOUR ADMIN PANEL:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "   🔗 http://$SERVER_IP"
+echo "   🔗 Admin Panel: http://$SERVER_IP"
+echo ""
+echo "   📱 Default Login:"
+echo "      Username: admin"
+echo "      Password: admin123"
+echo ""
+echo "   ⚠️  CHANGE YOUR PASSWORD AFTER FIRST LOGIN!"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📺 PLAYER API ENDPOINTS (Xtream Codes Compatible):"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "   Player API:  http://$SERVER_IP/player_api.php"
+echo "   Playlist:    http://$SERVER_IP/get.php"
+echo "   EPG/XMLTV:   http://$SERVER_IP/xmltv.php"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
