@@ -68,8 +68,20 @@ if ! command -v node &> /dev/null || [[ $(node --version | cut -d'v' -f2 | cut -
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
     apt-get install -y nodejs > /dev/null 2>&1
 fi
+
+# Ensure npm is available - refresh PATH
+hash -r
+export PATH="/usr/bin:/usr/local/bin:$PATH"
+
+# Verify npm is available
+if ! command -v npm &> /dev/null; then
+    log_error "npm not found. Trying to install npm separately..."
+    apt-get install -y npm > /dev/null 2>&1 || true
+fi
+
 NODE_VERSION=$(node --version)
-log_info "Node.js installed: $NODE_VERSION"
+NPM_VERSION=$(npm --version 2>/dev/null || echo "not found")
+log_info "Node.js installed: $NODE_VERSION, npm: $NPM_VERSION"
 
 # STEP 3: Install PostgreSQL
 log_step 3 "Installing PostgreSQL"
