@@ -22,6 +22,7 @@
     "install:all": "npm install && npm install tsx dotenv -g"
   },
   "dependencies": {
+    "@hono/vite-cloudflare-pages": "^0.4.3",
     "@hookform/resolvers": "^3.10.0",
     "@octokit/rest": "^22.0.0",
     "@radix-ui/react-accordion": "^1.2.4",
@@ -51,7 +52,6 @@
     "@types/qrcode": "^1.5.6",
     "axios": "^1.13.3",
     "bcryptjs": "^3.0.3",
-    "systeminformation": "^5.23.5",
     "body-parser": "^1.20.3",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.0",
@@ -70,6 +70,7 @@
     "hls.js": "^1.5.19",
     "lucide-react": "^0.468.0",
     "multer": "^1.4.5-lts.1",
+    "nanoid": "^5.1.6",
     "otpauth": "^9.4.1",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
@@ -87,6 +88,7 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^1.7.3",
     "ssh2": "^1.17.0",
+    "systeminformation": "^5.23.5",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
@@ -107,7 +109,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "terser": "^5.46.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.3",
     "vite": "^7.3.0"
   }

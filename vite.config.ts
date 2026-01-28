@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite';
-import pages from '@hono/vite-cloudflare-pages';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  plugins: [pages()],
+  root: 'client',
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './client/src'),
+      '@shared': path.resolve(__dirname, './shared')
+    }
+  },
   build: {
-    outDir: 'dist'
+    outDir: '../dist/public',
+    emptyOutDir: true,
+    target: 'es2020',
+    sourcemap: true,
+    minify: 'esbuild',
+    chunkSizeWarningLimit: 2000
   }
 });
