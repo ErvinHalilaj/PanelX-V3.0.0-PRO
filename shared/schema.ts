@@ -2625,6 +2625,136 @@ export const onDemandSettings = pgTable("on_demand_settings", {
 export const insertCatchupSettingsSchema = createInsertSchema(catchupSettings).omit({ id: true, updatedAt: true });
 export const insertOnDemandSettingsSchema = createInsertSchema(onDemandSettings).omit({ id: true, updatedAt: true });
 
+// ==========================================
+// BATCH 3: GeoIP Settings
+// ==========================================
+
+export const geoipSettings = pgTable("geoip_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(true),
+  defaultAction: text("default_action").default("allow"), // 'allow' or 'block'
+  providerType: text("provider_type").default("maxmind"), // 'maxmind', 'ip-api', 'ipinfo'
+  apiKey: text("api_key"), // For paid providers
+  databasePath: text("database_path"), // For local MaxMind database
+  cacheEnabled: boolean("cache_enabled").default(true),
+  cacheTtlSeconds: integer("cache_ttl_seconds").default(86400), // 24 hours
+  logEnabled: boolean("log_enabled").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const geoipLogs = pgTable("geoip_logs", {
+  id: serial("id").primaryKey(),
+  lineId: integer("line_id").references(() => lines.id),
+  ipAddress: text("ip_address").notNull(),
+  countryCode: text("country_code"),
+  countryName: text("country_name"),
+  city: text("city"),
+  action: text("action").notNull(), // 'allowed', 'blocked'
+  reason: text("reason"), // 'country_blocked', 'country_not_in_whitelist', 'allowed'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==========================================
+// BATCH 3: Reseller Permissions
+// ==========================================
+
+export const resellerPermissions = pgTable("reseller_permissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  resource: text("resource").notNull(), // 'lines', 'streams', 'bouquets', 'users', 'categories', 'series', 'movies'
+  canCreate: boolean("can_create").default(false),
+  canRead: boolean("can_read").default(true),
+  canUpdate: boolean("can_update").default(false),
+  canDelete: boolean("can_delete").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const resellerSettings = pgTable("reseller_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  maxLines: integer("max_lines").default(100),
+  maxSubResellers: integer("max_sub_resellers").default(0),
+  defaultLineDuration: integer("default_line_duration").default(30), // days
+  defaultMaxConnections: integer("default_max_connections").default(1),
+  allowedBouquets: jsonb("allowed_bouquets").$type<number[]>().default([]),
+  creditCostPerLine: integer("credit_cost_per_line").default(1),
+  creditCostPerMonth: integer("credit_cost_per_month").default(1),
+  canCreateTrialLines: boolean("can_create_trial_lines").default(false),
+  trialLineDuration: integer("trial_line_duration").default(1), // days
+  maxTrialLines: integer("max_trial_lines").default(5),
+  customBranding: boolean("custom_branding").default(false),
+  brandingLogo: text("branding_logo"),
+  brandingName: text("branding_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ==========================================
+// BATCH 3: Notification History (for bandwidth alerts)
+// ==========================================
+
+export const notificationHistory = pgTable("notification_history", {
+  id: serial("id").primaryKey(),
+  alertId: integer("alert_id").references(() => bandwidthAlerts.id),
+  type: text("type").notNull(), // 'email', 'webhook', 'sms'
+  recipient: text("recipient").notNull(),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  status: text("status").default("pending"), // 'pending', 'sent', 'failed'
+  sentAt: timestamp("sent_at"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==========================================
+// BATCH 3: Load Balancing Settings
+// ==========================================
+
+export const loadBalancingSettings = pgTable("load_balancing_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(true),
+  strategy: text("strategy").default("least_connections"), // 'round_robin', 'least_connections', 'weighted', 'geographic', 'random'
+  healthCheckEnabled: boolean("health_check_enabled").default(true),
+  healthCheckInterval: integer("health_check_interval").default(30), // seconds
+  healthCheckTimeout: integer("health_check_timeout").default(10), // seconds
+  maxFailuresBeforeRemoval: integer("max_failures_before_removal").default(3),
+  autoFailover: boolean("auto_failover").default(true),
+  stickySessionsEnabled: boolean("sticky_sessions_enabled").default(false),
+  stickySessionTtl: integer("sticky_session_ttl").default(3600), // seconds
+  geoRoutingEnabled: boolean("geo_routing_enabled").default(false),
+  defaultGeoZone: text("default_geo_zone").default("global"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Batch 3 Insert Schemas
+export const insertGeoipSettingsSchema = createInsertSchema(geoipSettings).omit({ id: true, updatedAt: true });
+export const insertGeoipLogSchema = createInsertSchema(geoipLogs).omit({ id: true, createdAt: true });
+export const insertResellerPermissionSchema = createInsertSchema(resellerPermissions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertResellerSettingsSchema = createInsertSchema(resellerSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({ id: true, createdAt: true });
+export const insertLoadBalancingSettingsSchema = createInsertSchema(loadBalancingSettings).omit({ id: true, updatedAt: true });
+
+// Batch 3 Types
+export type GeoipSettings = typeof geoipSettings.$inferSelect;
+export type InsertGeoipSettings = typeof geoipSettings.$inferInsert;
+
+export type GeoipLog = typeof geoipLogs.$inferSelect;
+export type InsertGeoipLog = typeof geoipLogs.$inferInsert;
+
+export type ResellerPermission = typeof resellerPermissions.$inferSelect;
+export type InsertResellerPermission = typeof resellerPermissions.$inferInsert;
+
+export type ResellerSettings = typeof resellerSettings.$inferSelect;
+export type InsertResellerSettings = typeof resellerSettings.$inferInsert;
+
+export type NotificationHistory = typeof notificationHistory.$inferSelect;
+export type InsertNotificationHistory = typeof notificationHistory.$inferInsert;
+
+export type LoadBalancingSettings = typeof loadBalancingSettings.$inferSelect;
+export type InsertLoadBalancingSettings = typeof loadBalancingSettings.$inferInsert;
+
 // Batch 2 Types
 export type CatchupSettings = typeof catchupSettings.$inferSelect;
 export type InsertCatchupSettings = typeof catchupSettings.$inferInsert;
