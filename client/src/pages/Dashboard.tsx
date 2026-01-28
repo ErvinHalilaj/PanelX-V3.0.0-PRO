@@ -4,7 +4,18 @@ import { StreamHealthDashboard } from "@/components/StreamHealthDashboard";
 import { useStats } from "@/hooks/use-stats";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Tv, Users, Wifi, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Shield, Radio } from "lucide-react";
+import { Activity, Tv, Users, Wifi, CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Server, Shield, Radio, RefreshCw } from "lucide-react";
+
+// System metrics type
+interface SystemMetrics {
+  timestamp: string;
+  cpu: { usage: number; cores: number };
+  memory: { total: number; used: number; free: number; usagePercent: number };
+  disk: { total: number; used: number; free: number; usagePercent: number };
+  network: { bytesIn: number; bytesOut: number };
+  streams: { total: number; online: number; offline: number };
+  users: { total: number; active: number; online: number };
+}
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line as RechartsLine, CartesianGrid } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +103,12 @@ export default function Dashboard() {
     bandwidthData 
   } = useWebSocket();
   
+  // Fetch real-time system metrics
+  const { data: systemMetrics, refetch: refetchMetrics } = useQuery<SystemMetrics>({
+    queryKey: ["/api/monitoring/metrics"],
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
   const { data: recentConnections = [] } = useQuery<ActiveConnection[]>({
     queryKey: ["/api/connections"],
     refetchInterval: 10000,
@@ -355,39 +372,69 @@ export default function Dashboard() {
         </Card>
 
         <Card className="bg-card/40 border-white/5">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="w-5 h-5 text-purple-500" /> System Health
             </CardTitle>
+            <button 
+              onClick={() => refetchMetrics()} 
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              title="Refresh stats"
+            >
+              <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            </button>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">CPU Usage</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 rounded-full" style={{ width: "35%" }} />
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      (systemMetrics?.cpu?.usage || 0) > 80 ? 'bg-red-500' : 
+                      (systemMetrics?.cpu?.usage || 0) > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`} 
+                    style={{ width: `${Math.min(systemMetrics?.cpu?.usage || 0, 100)}%` }} 
+                  />
                 </div>
-                <span className="text-sm">35%</span>
+                <span className="text-sm font-medium">{Math.round(systemMetrics?.cpu?.usage || 0)}%</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Memory</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: "52%" }} />
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      (systemMetrics?.memory?.usagePercent || 0) > 90 ? 'bg-red-500' : 
+                      (systemMetrics?.memory?.usagePercent || 0) > 75 ? 'bg-yellow-500' : 'bg-blue-500'
+                    }`} 
+                    style={{ width: `${Math.min(systemMetrics?.memory?.usagePercent || 0, 100)}%` }} 
+                  />
                 </div>
-                <span className="text-sm">52%</span>
+                <span className="text-sm font-medium">{Math.round(systemMetrics?.memory?.usagePercent || 0)}%</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Disk</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full" style={{ width: "28%" }} />
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      (systemMetrics?.disk?.usagePercent || 0) > 90 ? 'bg-red-500' : 
+                      (systemMetrics?.disk?.usagePercent || 0) > 75 ? 'bg-yellow-500' : 'bg-purple-500'
+                    }`} 
+                    style={{ width: `${Math.min(systemMetrics?.disk?.usagePercent || 0, 100)}%` }} 
+                  />
                 </div>
-                <span className="text-sm">28%</span>
+                <span className="text-sm font-medium">{Math.round(systemMetrics?.disk?.usagePercent || 0)}%</span>
               </div>
             </div>
+            {systemMetrics?.cpu?.cores && (
+              <p className="text-xs text-muted-foreground pt-1">
+                {systemMetrics.cpu.cores} CPU cores available
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
