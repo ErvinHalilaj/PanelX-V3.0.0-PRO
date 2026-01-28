@@ -1,0 +1,103 @@
+root@vps3262906:/home/panelx/webapp# sudo -u panelx pm2 logs panelx --lines 50
+[TAILING] Tailing last 50 lines for [panelx] process (change the value with --lines option)
+/home/panelx/logs/error-0.log last 50 lines:
+0|panelx   | 2026-01-28 22:45:33 +00:00: [FFmpeg 5] ERROR: [in#0 @ 0x58935a6738c0] Error opening input: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 22:45:33 +00:00: Error opening input file https://live1.mediadesk.al/cnatvlive.m3u8.
+0|panelx   | 2026-01-28 22:45:33 +00:00: Error opening input files: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 22:46:02 +00:00: [FFmpeg] Timeout waiting for HLS output. Last check: File does not exist yet
+0|panelx   | 2026-01-28 22:46:03 +00:00: [API] Stream start error: Error: HLS output not created within 30000ms
+0|panelx   | 2026-01-28 22:46:03 +00:00:     at FFmpegProcessManager.waitForHLSOutput (/home/panelx/webapp/server/ffmpegManager.ts:375:11)
+0|panelx   | 2026-01-28 22:46:03 +00:00:     at FFmpegProcessManager.startStream (/home/panelx/webapp/server/ffmpegManager.ts:153:5)
+0|panelx   | 2026-01-28 22:46:03 +00:00:     at <anonymous> (/home/panelx/webapp/server/routes.ts:2839:7)
+0|panelx   | 2026-01-28 22:58:59 +00:00: Warning: connect.session() MemoryStore is not
+0|panelx   | 2026-01-28 22:58:59 +00:00: designed for a production environment, as it will leak
+0|panelx   | 2026-01-28 22:58:59 +00:00: memory, and will not scale past a single process.
+0|panelx   | 2026-01-28 23:00:32 +00:00: [FFmpeg 5] ERROR: [https @ 0x55dcb65a1080] HTTP error 403 Forbidden
+0|panelx   | 2026-01-28 23:00:32 +00:00: [FFmpeg 5] ERROR: [in#0 @ 0x55dcb65a08c0] Error opening input: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:00:32 +00:00: Error opening input file https://live1.mediadesk.al/cnatvlive.m3u8.
+0|panelx   | 2026-01-28 23:00:32 +00:00: Error opening input files: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:01:01 +00:00: [FFmpeg] Timeout waiting for HLS output. Last check: File does not exist yet
+0|panelx   | 2026-01-28 23:01:02 +00:00: [API] Stream start error: Error: HLS output not created within 30000ms
+0|panelx   | 2026-01-28 23:01:02 +00:00:     at FFmpegProcessManager.waitForHLSOutput (/home/panelx/webapp/server/ffmpegManager.ts:375:11)
+0|panelx   | 2026-01-28 23:01:02 +00:00:     at FFmpegProcessManager.startStream (/home/panelx/webapp/server/ffmpegManager.ts:153:5)
+0|panelx   | 2026-01-28 23:01:02 +00:00:     at <anonymous> (/home/panelx/webapp/server/routes.ts:2839:7)
+0|panelx   | 2026-01-28 23:01:11 +00:00: [FFmpeg 5] ERROR: [https @ 0x59cb71cc5080] HTTP error 403 Forbidden
+0|panelx   | 2026-01-28 23:01:11 +00:00: [FFmpeg 5] ERROR: [in#0 @ 0x59cb71cc48c0] Error opening input: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:01:11 +00:00: Error opening input file https://live1.mediadesk.al/cnatvlive.m3u8.
+0|panelx   | 2026-01-28 23:01:11 +00:00: Error opening input files: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:01:41 +00:00: [FFmpeg] Timeout waiting for HLS output. Last check: File does not exist yet
+0|panelx   | 2026-01-28 23:01:41 +00:00: [API] Stream start error: Error: HLS output not created within 30000ms
+0|panelx   | 2026-01-28 23:01:41 +00:00:     at FFmpegProcessManager.waitForHLSOutput (/home/panelx/webapp/server/ffmpegManager.ts:375:11)
+0|panelx   | 2026-01-28 23:01:41 +00:00:     at FFmpegProcessManager.startStream (/home/panelx/webapp/server/ffmpegManager.ts:153:5)
+0|panelx   | 2026-01-28 23:01:41 +00:00:     at <anonymous> (/home/panelx/webapp/server/routes.ts:2839:7)
+0|panelx   | 2026-01-28 23:01:55 +00:00: [FFmpeg 5] ERROR: [https @ 0x5e069ff5f080] HTTP error 403 Forbidden
+0|panelx   | 2026-01-28 23:01:55 +00:00: [FFmpeg 5] ERROR: [in#0 @ 0x5e069ff5e8c0] Error opening input: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:01:55 +00:00: Error opening input file https://live1.mediadesk.al/cnatvlive.m3u8.
+0|panelx   | 2026-01-28 23:01:55 +00:00: Error opening input files: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:02:24 +00:00: [FFmpeg] Timeout waiting for HLS output. Last check: File does not exist yet
+0|panelx   | 2026-01-28 23:02:25 +00:00: [API] Stream start error: Error: HLS output not created within 30000ms
+0|panelx   | 2026-01-28 23:02:25 +00:00:     at FFmpegProcessManager.waitForHLSOutput (/home/panelx/webapp/server/ffmpegManager.ts:375:11)
+0|panelx   | 2026-01-28 23:02:25 +00:00:     at FFmpegProcessManager.startStream (/home/panelx/webapp/server/ffmpegManager.ts:153:5)
+0|panelx   | 2026-01-28 23:02:25 +00:00:     at <anonymous> (/home/panelx/webapp/server/routes.ts:2839:7)
+0|panelx   | 2026-01-28 23:06:45 +00:00: Warning: connect.session() MemoryStore is not
+0|panelx   | 2026-01-28 23:06:45 +00:00: designed for a production environment, as it will leak
+0|panelx   | 2026-01-28 23:06:45 +00:00: memory, and will not scale past a single process.
+0|panelx   | 2026-01-28 23:07:29 +00:00: [FFmpeg 5] ERROR: HTTP error 403 Forbidden
+0|panelx   | 2026-01-28 23:07:29 +00:00: [FFmpeg 5] ERROR: [in#0 @ 0x5ee1419b1940] Error opening input: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:07:29 +00:00: Error opening input file https://live1.mediadesk.al/cnatvlive.m3u8.
+0|panelx   | 2026-01-28 23:07:29 +00:00: Error opening input files: Server returned 403 Forbidden (access denied)
+0|panelx   | 2026-01-28 23:08:28 +00:00: [FFmpeg] Timeout waiting for HLS output. Last check: File does not exist yet
+0|panelx   | 2026-01-28 23:08:29 +00:00: [API] Stream start error: Error: HLS output not created within 60000ms
+0|panelx   | 2026-01-28 23:08:29 +00:00:     at FFmpegProcessManager.waitForHLSOutput (/home/panelx/webapp/server/ffmpegManager.ts:394:11)
+0|panelx   | 2026-01-28 23:08:29 +00:00:     at FFmpegProcessManager.startStream (/home/panelx/webapp/server/ffmpegManager.ts:153:5)
+0|panelx   | 2026-01-28 23:08:29 +00:00:     at <anonymous> (/home/panelx/webapp/server/routes.ts:2839:7)
+
+/home/panelx/logs/out-0.log last 50 lines:
+0|panelx   | 5...
+0|panelx   | 2026-01-28 23:01:10 +00:00: [FFmpeg] Command: ffmpeg -hide_banner -loglevel info -i https://live1.mediadesk.al/cnatvlive.m3u8 -c:v copy -c:a copy -f hls -hls_time 10 -hls_list_size 6 -hls_flags delete_segments+append_list -hls_segment_filename /home/panelx/webapp/streams/stream_5_%03d.ts -hls_segment_type mpegts -hls_base_url /streams/ /home/panelx/webapp/streams/stream_5.m3u8
+0|panelx   | 2026-01-28 23:01:11 +00:00: [FFmpeg 5] Process exited with code 8, signal null
+0|panelx   | 2026-01-28 23:01:41 +00:00: 11:01:41 PM [express] POST /api/streams/5/start 500 in 30248ms :: {"message":"HLS output not created within 30000ms"}
+0|panelx   | 2026-01-28 23:01:54 +00:00: [FFmpeg] Starting stream 5...
+0|panelx   | 2026-01-28 23:01:54 +00:00: [FFmpeg] Command: ffmpeg -hide_banner -loglevel info -i https://live1.mediadesk.al/cnatvlive.m3u8 -c:v copy -c:a copy -f hls -hls_time 10 -hls_list_size 6 -hls_flags delete_segments+append_list -hls_segment_filename /home/panelx/webapp/streams/stream_5_%03d.ts -hls_segment_type mpegts -hls_base_url /streams/ /home/panelx/webapp/streams/stream_5.m3u8
+0|panelx   | 2026-01-28 23:01:55 +00:00: [FFmpeg 5] Process exited with code 8, signal null
+0|panelx   | 2026-01-28 23:02:20 +00:00: 11:02:20 PM [express] GET /api/streams/5/proxy 200 in 418ms
+0|panelx   | 2026-01-28 23:02:25 +00:00: 11:02:25 PM [express] POST /api/streams/5/start 500 in 30211ms :: {"message":"HLS output not created within 30000ms"}
+0|panelx   | 2026-01-28 23:03:02 +00:00: 11:03:02 PM [express] GET /api/monitoring/metrics 200 in 3ms :: {"timestamp":"2026-01-28T23:02:46.816Z","cpu":{"usage":2.27,"cores":2},"memory":{"total":6213877760,"used":4635754496,"free":1578123264,"usagePercent":74.6},"disk":{"total":127704760320,"used":13368520704,"free":114336239616,"usagePercent":10.47},"network":{"bytesIn":2651317993,"bytesOut":15545918},"streams":{"total":100,"online":85,"offline":15},"users":{"total":500,"active":350,"online":120}}
+0|panelx   | 2026-01-28 23:03:02 +00:00: 11:03:02 PM [express] GET /api/connections 304 in 7ms :: []
+0|panelx   | 2026-01-28 23:06:40 +00:00: [FFmpeg] Shutting down all processes...
+0|panelx   | 2026-01-28 23:06:40 +00:00: [FFmpeg] Cleanup complete
+0|panelx   | 2026-01-28 23:06:45 +00:00: ✅ Database connected successfully at 2026-01-28T23:06:45.593Z
+0|panelx   | 2026-01-28 23:06:45 +00:00: [Static] Serving static files from: /home/panelx/webapp/dist/public
+0|panelx   | 2026-01-28 23:06:45 +00:00: 11:06:45 PM [express] WebSocket server initialized for real-time monitoring
+0|panelx   | 2026-01-28 23:06:45 +00:00: 11:06:45 PM [express] DVR manager initialized for recording functionality
+0|panelx   | 2026-01-28 23:06:45 +00:00: 11:06:45 PM [express] serving on port 5000
+0|panelx   | 2026-01-28 23:06:45 +00:00: [DVR] Recordings directory: ./recordings
+0|panelx   | 2026-01-28 23:06:46 +00:00: WebSocket client connected: _dB7Bz5yR2x8v9AAAAAB
+0|panelx   | 2026-01-28 23:06:52 +00:00: WebSocket client disconnected: _dB7Bz5yR2x8v9AAAAAB
+0|panelx   | 2026-01-28 23:06:58 +00:00: 11:06:58 PM [express] GET /api/auth/me 401 in 7ms :: {"message":"Not authenticated"}
+0|panelx   | 2026-01-28 23:07:01 +00:00: 11:07:01 PM [express] POST /api/auth/login 200 in 17ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+0|panelx   | 2026-01-28 23:07:01 +00:00: 11:07:01 PM [express] GET /api/auth/me 304 in 8ms :: {"id":1,"username":"admin","role":"admin","credits":1000}
+0|panelx   | 2026-01-28 23:07:01 +00:00: 11:07:01 PM [express] GET /api/stats 304 in 26ms :: {"totalStreams":1,"totalLines":3,"activeConnections":0,"onlineStreams":0,"totalUsers":2,"totalCredits":"1100","expiredLines":1,"trialLines":1}
+0|panelx   | 2026-01-28 23:07:02 +00:00: 11:07:02 PM [express] GET /api/monitoring/metrics 200 in 209ms
+0|panelx   | 2026-01-28 23:07:02 +00:00: 11:07:02 PM [express] GET /api/lines 304 in 12ms :: [{"id":1,"username":"testuser1","password":"test123","memberId":2,"expDate":"2026-02-28T22:41:39.586Z","adminNotes":null,"resellerNotes":null,"maxConnections":2,"isTrial":false,"bouquets":[2],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-28T22:41:39.590Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null},{"id":2,"username":"testuser2","password":"test456","memberId":2,"expDate":"2026-02-28T22:41:39.586Z","adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":true,"bouquets":[1],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-28T22:41:39.598Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null},{"id":3,"username":"expireduser","password":"expired123","memberId":2,"expDate":"2026-01-23T22:41:39.586Z","adminNotes":null,"resellerNotes":null,"maxConnections":1,"isTrial":false,"bouquets":[1],"allowedOutputs":["m3u8","ts"],"createdAt":"2026-01-28T22:41:39.603Z","enabled":true,"lastActivity":null,"forcedCountry":null,"allowedIps":[],"lockedDeviceId":null,"lockedMac":null,"allowedCountries":[],"ispLock":null,"forcedServerId":null,"allowedUserAgents":[],"bypassUaCheck":false,"packageId":null,"playToken":null,"parentResellerIdd":null,"adminEnabled":true,"allowedDomains":[],"fingerprintEnabled":false,"fingerprintId":null}]
+0|panelx   | 2026-01-28 23:07:02 +00:00: 11:07:02 PM [express] GET /api/streams 304 in 26ms :: [{"id":5,"name":"cna","streamType":"live","sourceUrl":"https://live1.mediadesk.al/cnatvlive.m3u8","backupUrls":[],"categoryId":4,"transcodeProfileId":null,"serverId":null,"streamIcon":"","epgChannelId":null,"notes":"","isDirect":false,"isMonitored":true,"monitorStatus":"offline","lastChecked":null,"createdAt":"2026-01-28T22:45:22.892Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":true,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":"","externalPush":null,"customFfmpeg":"","readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":true,"probesizeOndemand":0,"allowRecord":true,"customSid":"","streamOrder":0}]
+0|panelx   | 2026-01-28 23:07:02 +00:00: 11:07:02 PM [express] GET /api/connections 304 in 8ms :: []
+0|panelx   | 2026-01-28 23:07:02 +00:00: WebSocket client connected: b-QCGRIeHY8RfUnWAAAD
+0|panelx   | 2026-01-28 23:07:12 +00:00: 11:07:12 PM [express] GET /api/monitoring/metrics 200 in 5ms :: {"timestamp":"2026-01-28T23:07:02.136Z","cpu":{"usage":4.35,"cores":2},"memory":{"total":6213877760,"used":4583247872,"free":1630629888,"usagePercent":73.76},"disk":{"total":127704760320,"used":13369249792,"free":114335510528,"usagePercent":10.47},"network":{"bytesIn":2652221791,"bytesOut":18679617},"streams":{"total":100,"online":85,"offline":15},"users":{"total":500,"active":350,"online":120}}
+0|panelx   | 2026-01-28 23:07:12 +00:00: 11:07:12 PM [express] GET /api/connections 304 in 7ms :: []
+0|panelx   | 2026-01-28 23:07:22 +00:00: 11:07:22 PM [express] GET /api/monitoring/metrics 304 in 3ms :: {"timestamp":"2026-01-28T23:07:02.136Z","cpu":{"usage":4.35,"cores":2},"memory":{"total":6213877760,"used":4583247872,"free":1630629888,"usagePercent":73.76},"disk":{"total":127704760320,"used":13369249792,"free":114335510528,"usagePercent":10.47},"network":{"bytesIn":2652221791,"bytesOut":18679617},"streams":{"total":100,"online":85,"offline":15},"users":{"total":500,"active":350,"online":120}}
+0|panelx   | 2026-01-28 23:07:22 +00:00: 11:07:22 PM [express] GET /api/connections 304 in 6ms :: []
+0|panelx   | 2026-01-28 23:07:26 +00:00: WebSocket client disconnected: b-QCGRIeHY8RfUnWAAAD
+0|panelx   | 2026-01-28 23:07:26 +00:00: 11:07:26 PM [express] GET /api/servers 304 in 12ms :: []
+0|panelx   | 2026-01-28 23:07:26 +00:00: 11:07:26 PM [express] GET /api/categories 304 in 14ms :: [{"id":1,"categoryName":"Sports","categoryType":"live","parentId":null},{"id":2,"categoryName":"News","categoryType":"live","parentId":null},{"id":3,"categoryName":"Movies","categoryType":"movie","parentId":null},{"id":4,"categoryName":"Entertainment","categoryType":"live","parentId":null},{"id":5,"categoryName":"TV Shows","categoryType":"series","parentId":null}]
+0|panelx   | 2026-01-28 23:07:26 +00:00: 11:07:26 PM [express] GET /api/transcode-profiles 304 in 22ms :: []
+0|panelx   | 2026-01-28 23:07:26 +00:00: 11:07:26 PM [express] GET /api/streams 304 in 17ms :: [{"id":5,"name":"cna","streamType":"live","sourceUrl":"https://live1.mediadesk.al/cnatvlive.m3u8","backupUrls":[],"categoryId":4,"transcodeProfileId":null,"serverId":null,"streamIcon":"","epgChannelId":null,"notes":"","isDirect":false,"isMonitored":true,"monitorStatus":"offline","lastChecked":null,"createdAt":"2026-01-28T22:45:22.892Z","tvArchiveEnabled":false,"tvArchiveDuration":0,"tvArchiveServerId":null,"autoRestart":true,"restartAttempts":0,"lastRestartAt":null,"onDemand":true,"autoRestartHours":0,"delayMinutes":0,"rtmpOutput":"","externalPush":null,"customFfmpeg":"","readNative":false,"streamAll":false,"removeSubtitles":false,"genTimestamps":true,"probesizeOndemand":0,"allowRecord":true,"customSid":"","streamOrder":0}]
+0|panelx   | 2026-01-28 23:07:28 +00:00: [FFmpeg] Starting stream 5...
+0|panelx   | 2026-01-28 23:07:28 +00:00: [FFmpeg] Command: ffmpeg -hide_banner -loglevel warning -y -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -timeout 10000000 -i https://live1.mediadesk.al/cnatvlive.m3u8 -c:v copy -c:a copy -f hls -hls_time 10 -hls_list_size 6 -hls_flags delete_segments+append_list -hls_segment_filename /home/panelx/webapp/streams/stream_5_%03d.ts -hls_segment_type mpegts -hls_base_url /streams/ /home/panelx/webapp/streams/stream_5.m3u8
+0|panelx   | 2026-01-28 23:07:29 +00:00: [FFmpeg 5] Process exited with code 8, signal null
+0|panelx   | 2026-01-28 23:08:01 +00:00: [Monitoring] Alert triggered: Multiple Streams Offline
+0|panelx   | 2026-01-28 23:08:01 +00:00: [Alert] Webhook triggered for: Multiple Streams Offline
+0|panelx   | 2026-01-28 23:08:29 +00:00: 11:08:29 PM [express] POST /api/streams/5/start 500 in 60249ms :: {"message":"HLS output not created within 60000ms"}
+
+^C
+root@vps3262906:/home/panelx/webapp#
