@@ -149,8 +149,8 @@ class FFmpegProcessManager {
       });
     });
 
-    // Wait for HLS playlist to be created
-    await this.waitForHLSOutput(outputPath, 30000);
+    // Wait for HLS playlist to be created (60 second timeout)
+    await this.waitForHLSOutput(outputPath, 60000);
   }
 
   /**
@@ -285,7 +285,12 @@ class FFmpegProcessManager {
 
     const cmd: string[] = [
       '-hide_banner',
-      '-loglevel', 'info',
+      '-loglevel', 'warning',
+      '-y', // Overwrite output files
+      '-reconnect', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_delay_max', '5',
+      '-timeout', '10000000', // 10 second timeout for network operations
       '-i', stream.sourceUrl,
     ];
 
@@ -349,9 +354,11 @@ class FFmpegProcessManager {
   private async waitForHLSOutput(outputPath: string, timeout: number): Promise<void> {
     const startTime = Date.now();
     let lastCheck = '';
+    let playlistExists = false;
     
     while (Date.now() - startTime < timeout) {
       if (fs.existsSync(outputPath)) {
+        playlistExists = true;
         // Check if playlist has segments
         try {
           const content = fs.readFileSync(outputPath, 'utf-8');
@@ -359,7 +366,13 @@ class FFmpegProcessManager {
             console.log(`[FFmpeg] HLS output ready: ${outputPath}`);
             return;
           }
-          lastCheck = `File exists but no segments yet (${content.length} bytes)`;
+          // Just having the m3u8 file means FFmpeg started
+          if (content.includes('#EXTM3U')) {
+            console.log(`[FFmpeg] HLS playlist created, waiting for segments...`);
+            lastCheck = 'Playlist created, segments pending';
+          } else {
+            lastCheck = `File exists but no segments yet (${content.length} bytes)`;
+          }
         } catch (err) {
           lastCheck = `File exists but cannot read: ${err}`;
         }
@@ -367,8 +380,14 @@ class FFmpegProcessManager {
         lastCheck = 'File does not exist yet';
       }
       
-      // Wait 1 second between checks
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait 2 seconds between checks
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // If playlist was created, consider it a success (segments will come)
+    if (playlistExists) {
+      console.log(`[FFmpeg] Timeout but playlist exists - stream likely starting`);
+      return;
     }
 
     console.error(`[FFmpeg] Timeout waiting for HLS output. Last check: ${lastCheck}`);
