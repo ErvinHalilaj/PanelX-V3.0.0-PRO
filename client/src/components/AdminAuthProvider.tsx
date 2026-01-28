@@ -145,7 +145,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
-                    className="h-11 bg-muted/50 border-white/10 focus:border-primary"
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -158,7 +158,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
-                    className="h-11 bg-muted/50 border-white/10 focus:border-primary"
+                    className="h-11"
                   />
                 </div>
                 <Button 
