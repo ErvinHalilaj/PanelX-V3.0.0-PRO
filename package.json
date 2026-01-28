@@ -50,6 +50,7 @@
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.19",
     "@types/qrcode": "^1.5.6",
+    "@types/ssh2": "^1.15.5",
     "axios": "^1.13.3",
     "bcryptjs": "^3.0.3",
     "body-parser": "^1.20.3",
