@@ -139,11 +139,27 @@ cd $PROJECT_DIR
 # STEP 9: Install npm dependencies and build
 log_step 9 "Installing Node.js dependencies (may take 3-5 minutes)"
 
+# Find npm location
+NPM_BIN=$(which npm 2>/dev/null || echo "/usr/bin/npm")
+NODE_BIN=$(which node 2>/dev/null || echo "/usr/bin/node")
+
+# If npm still not found, try common locations
+if [ ! -x "$NPM_BIN" ]; then
+    for loc in /usr/bin/npm /usr/local/bin/npm /opt/nodejs/bin/npm; do
+        if [ -x "$loc" ]; then
+            NPM_BIN="$loc"
+            break
+        fi
+    done
+fi
+
+log_info "Using npm at: $NPM_BIN"
+
 # Run npm install as root first, then fix permissions
 cd $PROJECT_DIR
-npm install --legacy-peer-deps 2>&1 | tail -5 || {
+$NPM_BIN install --legacy-peer-deps 2>&1 | tail -5 || {
     log_warn "First npm install attempt failed, trying with --force..."
-    npm install --force 2>&1 | tail -5 || {
+    $NPM_BIN install --force 2>&1 | tail -5 || {
         log_error "npm install failed. Check network and try again."
         exit 1
     }
@@ -155,11 +171,11 @@ log_info "Dependencies installed"
 
 # Push database schema
 log_info "Setting up database schema..."
-sudo -u panelx bash -c "cd $PROJECT_DIR && DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx npm run db:push" 2>&1 | tail -3 || log_warn "Schema push completed"
+sudo -u panelx bash -c "cd $PROJECT_DIR && DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx $NPM_BIN run db:push" 2>&1 | tail -3 || log_warn "Schema push completed"
 
 # Build frontend
 log_info "Building frontend..."
-sudo -u panelx bash -c "cd $PROJECT_DIR && npm run build" 2>&1 | tail -3 || log_warn "Build completed"
+sudo -u panelx bash -c "cd $PROJECT_DIR && $NPM_BIN run build" 2>&1 | tail -3 || log_warn "Build completed"
 log_info "Frontend built"
 
 # STEP 10: Create configuration
@@ -183,8 +199,8 @@ log_info "Configuration created"
 # STEP 11: Install and configure PM2
 log_step 11 "Setting up process manager"
 
-# Install PM2 globally
-npm install -g pm2 > /dev/null 2>&1
+# Install PM2 globally using the npm we found earlier
+$NPM_BIN install -g pm2 2>&1 | tail -3
 
 # Add PM2 to PATH permanently
 echo 'export PATH=$PATH:/usr/local/bin:/usr/bin' >> /etc/profile
