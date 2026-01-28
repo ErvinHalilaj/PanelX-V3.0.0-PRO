@@ -126,16 +126,28 @@ cd $PROJECT_DIR
 
 # STEP 9: Install npm dependencies and build
 log_step 9 "Installing Node.js dependencies (may take 3-5 minutes)"
-sudo -u panelx npm install > /dev/null 2>&1
+
+# Run npm install as root first, then fix permissions
+cd $PROJECT_DIR
+npm install --legacy-peer-deps 2>&1 | tail -5 || {
+    log_warn "First npm install attempt failed, trying with --force..."
+    npm install --force 2>&1 | tail -5 || {
+        log_error "npm install failed. Check network and try again."
+        exit 1
+    }
+}
+
+# Fix ownership of all files
+chown -R panelx:panelx $PROJECT_DIR
 log_info "Dependencies installed"
 
 # Push database schema
 log_info "Setting up database schema..."
-sudo -u panelx bash -c "cd $PROJECT_DIR && npm run db:push" > /dev/null 2>&1 || log_warn "Schema push completed"
+sudo -u panelx bash -c "cd $PROJECT_DIR && DATABASE_URL=postgresql://panelx:panelx123@localhost:5432/panelx npm run db:push" 2>&1 | tail -3 || log_warn "Schema push completed"
 
 # Build frontend
 log_info "Building frontend..."
-sudo -u panelx bash -c "cd $PROJECT_DIR && npm run build" > /dev/null 2>&1 || log_warn "Build completed"
+sudo -u panelx bash -c "cd $PROJECT_DIR && npm run build" 2>&1 | tail -3 || log_warn "Build completed"
 log_info "Frontend built"
 
 # STEP 10: Create configuration
