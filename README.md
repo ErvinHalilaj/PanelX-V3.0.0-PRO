@@ -8,6 +8,22 @@
 
 > **Professional IPTV/OTT Management Platform** with complete admin panel, real-time monitoring, multi-server architecture, and advanced features.
 
+## 🔥 Latest Updates (January 26, 2026)
+
+**CRITICAL BUG FIXES** - All major issues resolved!
+
+- ✅ **Fixed 502 Bad Gateway errors** - All POST/PUT/DELETE operations now work
+- ✅ **Fixed system monitoring** - Real-time CPU/RAM/bandwidth stats now display
+- ✅ **Added global error handler** - Backend no longer crashes on errors
+- ✅ **Panel now fully functional** - Create, update, and delete operations work correctly
+
+**Deploy fixes to existing installations:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ErvinHalilaj/PanelX-V3.0.0-PRO/main/deploy-critical-fixes.sh | sudo bash
+```
+
+📖 **Read:** [QUICK_FIX_SUMMARY.md](QUICK_FIX_SUMMARY.md) | [COMPREHENSIVE_FIX_REPORT.md](COMPREHENSIVE_FIX_REPORT.md)
+
 ## 🚀 One-Command Installation
 
 Install PanelX on your Ubuntu/Debian VPS in 5-10 minutes with a single command:
