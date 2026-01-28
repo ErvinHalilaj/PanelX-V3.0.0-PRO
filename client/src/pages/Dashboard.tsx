@@ -95,23 +95,28 @@ function MiniCard({ title, value, icon: Icon, color }: { title: string; value: s
 export default function Dashboard() {
   const { data: stats, isLoading } = useStats();
   
-  // Real-time WebSocket connection
+  // Real-time WebSocket connection - updates every 2 seconds
   const { 
     connected, 
     dashboardStats, 
     activeConnections: liveConnections,
-    bandwidthData 
+    bandwidthData,
+    systemMetrics: wsSystemMetrics
   } = useWebSocket();
   
-  // Fetch real-time system metrics
-  const { data: systemMetrics, refetch: refetchMetrics } = useQuery<SystemMetrics>({
+  // Fallback API fetch for system metrics (only if WebSocket not connected)
+  const { data: apiSystemMetrics } = useQuery<SystemMetrics>({
     queryKey: ["/api/monitoring/metrics"],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: connected ? false : 10000, // Only poll if WebSocket disconnected
+    enabled: !connected,
   });
+
+  // Use WebSocket metrics if available, otherwise API fallback
+  const systemMetrics = wsSystemMetrics || apiSystemMetrics;
 
   const { data: recentConnections = [] } = useQuery<ActiveConnection[]>({
     queryKey: ["/api/connections"],
-    refetchInterval: 10000,
+    refetchInterval: connected ? false : 10000, // Only poll if WebSocket disconnected
   });
 
   const { data: lines = [] } = useQuery<LineType[]>({
@@ -376,13 +381,10 @@ export default function Dashboard() {
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="w-5 h-5 text-purple-500" /> System Health
             </CardTitle>
-            <button 
-              onClick={() => refetchMetrics()} 
-              className="p-1 rounded hover:bg-white/10 transition-colors"
-              title="Refresh stats"
-            >
-              <RefreshCw className="w-4 h-4 text-muted-foreground" />
-            </button>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-xs text-muted-foreground">{connected ? 'Live' : 'Offline'}</span>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">

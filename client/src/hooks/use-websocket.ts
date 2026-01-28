@@ -37,12 +37,37 @@ interface BandwidthData {
   timestamp: string;
 }
 
+interface SystemMetrics {
+  timestamp: string;
+  cpu: {
+    usage: number;
+    cores: number;
+  };
+  memory: {
+    total: number;
+    used: number;
+    free: number;
+    usagePercent: number;
+  };
+  disk: {
+    total: number;
+    used: number;
+    free: number;
+    usagePercent: number;
+  };
+  network: {
+    bytesIn: number;
+    bytesOut: number;
+  };
+}
+
 export function useWebSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [activeConnections, setActiveConnections] = useState<ActiveConnection[]>([]);
   const [bandwidthData, setBandwidthData] = useState<BandwidthData | null>(null);
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -94,7 +119,11 @@ export function useWebSocket() {
     // Listen for stream status updates
     socketInstance.on('stream:status', (data: { streamId: number; status: string; viewerCount?: number }) => {
       console.log('Stream status update:', data);
-      // You can add a callback here if needed
+    });
+
+    // Listen for system metrics updates (CPU, Memory, Disk)
+    socketInstance.on('system:metrics', (data: SystemMetrics) => {
+      setSystemMetrics(data);
     });
 
     setSocket(socketInstance);
@@ -127,6 +156,7 @@ export function useWebSocket() {
     dashboardStats,
     activeConnections,
     bandwidthData,
+    systemMetrics,
     requestDashboard,
     requestConnections,
     requestBandwidth

@@ -1,6 +1,7 @@
 import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Storage } from './storage';
+import * as si from 'systeminformation';
 
 interface ConnectionInfo {
   lineId: number;
@@ -65,12 +66,60 @@ export class WebSocketManager {
   }
 
   private startPeriodicUpdates() {
-    // Send updates every 5 seconds
+    // Send updates every 2 seconds for real-time feel
     this.updateInterval = setInterval(() => {
       this.broadcastDashboardUpdate();
       this.broadcastConnectionsUpdate();
       this.broadcastBandwidthUpdate();
-    }, 5000);
+      this.broadcastSystemMetrics();
+    }, 2000);
+  }
+
+  // System metrics (CPU, Memory, Disk)
+  private async broadcastSystemMetrics() {
+    try {
+      const metrics = await this.getSystemMetrics();
+      this.io.emit('system:metrics', metrics);
+    } catch (error) {
+      console.error('Error broadcasting system metrics:', error);
+    }
+  }
+
+  private async getSystemMetrics() {
+    const [cpu, mem, disk, networkStats] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.fsSize(),
+      si.networkStats()
+    ]);
+
+    const primaryDisk = disk[0] || { size: 0, used: 0, available: 0 };
+    const totalNetIn = networkStats.reduce((acc, iface) => acc + (iface.rx_bytes || 0), 0);
+    const totalNetOut = networkStats.reduce((acc, iface) => acc + (iface.tx_bytes || 0), 0);
+
+    return {
+      timestamp: new Date().toISOString(),
+      cpu: {
+        usage: cpu.currentLoad,
+        cores: cpu.cpus.length
+      },
+      memory: {
+        total: mem.total,
+        used: mem.used,
+        free: mem.free,
+        usagePercent: (mem.used / mem.total) * 100
+      },
+      disk: {
+        total: primaryDisk.size,
+        used: primaryDisk.used,
+        free: primaryDisk.available,
+        usagePercent: primaryDisk.use || 0
+      },
+      network: {
+        bytesIn: totalNetIn,
+        bytesOut: totalNetOut
+      }
+    };
   }
 
   // Dashboard statistics
