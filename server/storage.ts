@@ -85,6 +85,7 @@ export interface IStorage {
 
   // Credit Transactions
   getCreditTransactions(userId?: number): Promise<CreditTransaction[]>;
+  createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction>;
 
   // Stats
   getStats(): Promise<{

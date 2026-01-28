@@ -117,10 +117,11 @@ class ResellerService {
       email: email || `${username}@reseller.local`,
       password: hashedPassword,
       role: 'reseller',
-      credits: initialCredits,
-      maxCredits,
+      credits: user.credits || 0,
+      maxCredits: user.maxCredits || maxCredits,
       isActive: true,
       parentId: parentResellerId,
+      createdBy: 0, // Admin or system
     });
 
     const resellerAccount: ResellerAccount = {

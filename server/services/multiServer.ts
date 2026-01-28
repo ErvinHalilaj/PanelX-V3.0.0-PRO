@@ -92,7 +92,7 @@ export async function recordServerHealth(
     await db
       .update(servers)
       .set({
-        status: status === 'offline' ? 'offline' : 'online',
+        status: (status as string) === 'offline' ? 'offline' : 'online',
         cpuUsage: metrics.cpuUsage,
         memoryUsage: metrics.memoryUsage,
         bandwidth: metrics.bandwidth,

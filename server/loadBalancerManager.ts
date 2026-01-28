@@ -65,7 +65,7 @@ class LoadBalancerManager {
           
           console.log(`[LoadBalancer] Executing: ${cmd}`);
 
-          ssh.exec(cmd, (err, stream) => {
+          ssh.exec(cmd, (err: any, stream: any) => {
             if (err) {
               ssh.end();
               return reject(err);
@@ -120,7 +120,7 @@ class LoadBalancerManager {
         }
       });
 
-      ssh.on('error', (err) => {
+      ssh.on('error', (err: any) => {
         console.error(`[LoadBalancer] SSH connection error:`, err);
         reject(err);
       });
@@ -179,7 +179,7 @@ class LoadBalancerManager {
         });
       });
 
-      ssh.on('error', (err) => {
+      ssh.on('error', (err: any) => {
         console.error(`[LoadBalancer] SSH connection error:`, err);
         reject(err);
       });

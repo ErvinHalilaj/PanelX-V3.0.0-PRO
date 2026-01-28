@@ -164,7 +164,7 @@ export default function GeoipRestrictions() {
 
   if (settingsLoading) {
     return (
-      <Layout>
+      <Layout title="GeoIP Restrictions">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
@@ -173,7 +173,7 @@ export default function GeoipRestrictions() {
   }
 
   return (
-    <Layout>
+    <Layout title="GeoIP Restrictions">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

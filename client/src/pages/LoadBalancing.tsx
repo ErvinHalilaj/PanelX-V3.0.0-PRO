@@ -198,7 +198,7 @@ export default function LoadBalancing() {
 
   if (settingsLoading) {
     return (
-      <Layout>
+      <Layout title="Load Balancing">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
@@ -207,7 +207,7 @@ export default function LoadBalancing() {
   }
 
   return (
-    <Layout>
+    <Layout title="Load Balancing">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

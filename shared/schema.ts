@@ -10,8 +10,12 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
   role: text("role").default("admin"), // admin, reseller
   credits: integer("credits").default(0),
+  maxCredits: integer("max_credits").default(0),
+  parentId: integer("parent_id"),
+  isActive: boolean("is_active").default(true),
   notes: text("notes"),
   enabled: boolean("enabled").default(true),
   // Two-Factor Authentication
@@ -19,6 +23,7 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorBackupCodes: jsonb("two_factor_backup_codes"), // Array of hashed backup codes
   lastTwoFactorCheck: timestamp("last_two_factor_check"),
+  createdBy: integer("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

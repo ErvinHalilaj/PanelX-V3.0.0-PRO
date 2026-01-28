@@ -150,7 +150,7 @@ export default function BandwidthMonitoring() {
 
   if (overviewLoading) {
     return (
-      <Layout>
+      <Layout title="Bandwidth Monitoring">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
@@ -159,7 +159,7 @@ export default function BandwidthMonitoring() {
   }
 
   return (
-    <Layout>
+    <Layout title="Bandwidth Monitoring">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

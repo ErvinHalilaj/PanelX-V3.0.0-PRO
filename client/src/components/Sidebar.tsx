@@ -135,6 +135,9 @@ export function Sidebar() {
     { icon: Webhook, label: "Webhooks", href: "/webhooks" },
     { icon: Globe, label: "Client Portal", href: "/portal" },
     { icon: Code, label: "API Info", href: "/api" },
+    { icon: Globe, label: "GeoIP Restrictions", href: "/geoip" },
+    { icon: Activity, label: "Bandwidth Monitoring", href: "/bandwidth" },
+    { icon: Zap, label: "Load Balancing", href: "/load-balancing" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 
