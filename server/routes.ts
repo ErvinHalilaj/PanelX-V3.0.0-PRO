@@ -5518,24 +5518,50 @@ export async function registerRoutes(
 
   app.put(api.lines.update.path, requireAuth, async (req, res) => {
     try {
+      console.log('[Lines Update] Request body:', JSON.stringify(req.body, null, 2));
+      
       // Convert expDate string to Date object if provided
       if (req.body.expDate && typeof req.body.expDate === 'string') {
         req.body.expDate = new Date(req.body.expDate);
       }
+      
       const input = api.lines.update.input.parse(req.body);
-      const line = await storage.updateLine(Number(req.params.id), input);
+      console.log('[Lines Update] Parsed input:', JSON.stringify(input, null, 2));
+      
+      // Filter out undefined values to avoid Drizzle "No values to set" error
+      const updateData: any = {};
+      for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) {
+          updateData[key] = value;
+        }
+      }
+      
+      console.log('[Lines Update] Update data after filtering:', JSON.stringify(updateData, null, 2));
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No fields to update" });
+      }
+      
+      const line = await storage.updateLine(Number(req.params.id), updateData);
+      console.log('[Lines Update] Success:', line.id);
       res.json(line);
     } catch (err) {
+      console.error('[Lines Update] Error:', err);
       if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
+        return res.status(400).json({ message: err.errors[0].message, errors: err.errors });
       }
       return res.status(500).json({ message: err instanceof Error ? err.message : "Internal server error" });
     }
   });
 
   app.delete(api.lines.delete.path, requireAuth, async (req, res) => {
-    await storage.deleteLine(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteLine(Number(req.params.id));
+      res.status(204).send();
+    } catch (err) {
+      console.error('[Lines Delete] Error:', err);
+      return res.status(500).json({ message: err instanceof Error ? err.message : "Failed to delete line" });
+    }
   });
 
   // Bulk operations for lines
