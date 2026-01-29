@@ -280,6 +280,10 @@ if [ ! -d "$PROJECT_DIR/node_modules/otpauth" ]; then
     sudo -u panelx npm install otpauth
 fi
 
+# Install critical Radix UI components explicitly (prevents build failures)
+log_info "Ensuring all Radix UI components are installed..."
+sudo -u panelx npm install @radix-ui/react-scroll-area @radix-ui/react-checkbox @radix-ui/react-select 2>&1 | tail -3
+
 # Also install tsx globally as fallback
 npm install -g tsx 2>&1 | tail -2
 
