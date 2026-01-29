@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
-import type { Storage } from './storage';
+import type { IStorage } from './storage';
 import { getWebSocketManager } from './websocket';
 
 interface ActiveConnection {
@@ -29,7 +29,7 @@ interface BandwidthStats {
 }
 
 class StreamProxyManager {
-  private storage: Storage;
+  private storage: IStorage;
   private activeConnections: Map<string, ActiveConnection> = new Map();
   private globalBandwidth: BandwidthStats = {
     totalBytes: 0,
@@ -41,7 +41,7 @@ class StreamProxyManager {
   private streamBandwidth: Map<number, BandwidthStats> = new Map();
   private bandwidthInterval: NodeJS.Timeout | null = null;
 
-  constructor(storage: Storage) {
+  constructor(storage: IStorage) {
     this.storage = storage;
     this.startBandwidthTracking();
   }
@@ -210,9 +210,8 @@ class StreamProxyManager {
       lineId,
       streamId,
       ipAddress: clientIp,
-      userAgent,
-      serverUrl: 'local'
-    }).catch(err => console.error('Failed to log connection:', err));
+      userAgent
+    }).catch((err: Error) => console.error('Failed to log connection:', err));
 
     const wsManager = getWebSocketManager();
     if (wsManager) {
@@ -481,7 +480,7 @@ class StreamProxyManager {
 
 let proxyManager: StreamProxyManager | null = null;
 
-export function initializeStreamProxy(storage: Storage): StreamProxyManager {
+export function initializeStreamProxy(storage: IStorage): StreamProxyManager {
   if (!proxyManager) {
     proxyManager = new StreamProxyManager(storage);
   }

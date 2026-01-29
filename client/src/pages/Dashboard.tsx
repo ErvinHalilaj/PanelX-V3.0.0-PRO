@@ -22,27 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import type { Line as LineType, ActiveConnection, Stream } from "@shared/schema";
 
-// Sample data - Replace with real API data when analytics endpoints are implemented
-const SAMPLE_bandwidthData = [
-  { time: "00:00", bandwidth: 450 },
-  { time: "04:00", bandwidth: 230 },
-  { time: "08:00", bandwidth: 890 },
-  { time: "12:00", bandwidth: 1200 },
-  { time: "16:00", bandwidth: 1500 },
-  { time: "20:00", bandwidth: 1800 },
-  { time: "23:59", bandwidth: 1100 },
-];
-
-// Sample data - Replace with real API data when analytics endpoints are implemented  
-const SAMPLE_connectionsData = [
-  { hour: "12:00", connections: 45 },
-  { hour: "13:00", connections: 52 },
-  { hour: "14:00", connections: 48 },
-  { hour: "15:00", connections: 78 },
-  { hour: "16:00", connections: 92 },
-  { hour: "17:00", connections: 85 },
-  { hour: "Now", connections: 67 },
-];
+// No longer using sample data - real-time WebSocket data is used throughout
 
 // Sample data - Will use real stream counts when implemented
 const SAMPLE_contentDistribution = [
@@ -98,7 +78,9 @@ export default function Dashboard() {
     dashboardStats, 
     activeConnections: liveConnections,
     bandwidthData,
-    systemMetrics
+    systemMetrics,
+    bandwidthHistory,
+    connectionHistory
   } = useWebSocket();
   
   // Initial load only - no refetching (data comes from WebSocket)
@@ -202,12 +184,12 @@ export default function Dashboard() {
 
       {/* Bandwidth Monitoring Charts */}
       <div className="mt-8">
-        <BandwidthChart bandwidthData={bandwidthData} connected={connected} />
+        <BandwidthChart bandwidthData={bandwidthData || undefined} connected={connected} />
       </div>
 
       {/* Stream Health Monitoring */}
       <div className="mt-8">
-        <StreamHealthDashboard streams={initialStreams} connected={connected} />
+        <StreamHealthDashboard streams={initialStreams.map(s => ({ ...s, monitorStatus: s.monitorStatus || 'unknown' }))} connected={connected} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -215,39 +197,50 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" /> Bandwidth Usage
+              {connected && <span className="ml-2 text-xs text-emerald-500 font-normal flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />LIVE</span>}
             </h3>
-            <select className="bg-background border border-white/10 rounded-lg text-sm px-3 py-1.5 text-muted-foreground" data-testid="select-bandwidth-range">
-              <option>Last 24 Hours</option>
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-            </select>
+            <Badge variant="outline" className="gap-1">
+              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`} />
+              {connected ? '2s updates' : 'Offline'}
+            </Badge>
           </div>
           <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={SAMPLE_bandwidthData}>
-                <defs>
-                  <linearGradient id="colorBw" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="time" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}M`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="bandwidth" 
-                  stroke="#06b6d4" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorBw)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {bandwidthHistory.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Waiting for bandwidth data...</p>
+                  <p className="text-xs mt-1">Start streaming to see real-time stats</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={bandwidthHistory}>
+                  <defs>
+                    <linearGradient id="colorBw" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="time" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value.toFixed(1)} MB/s`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(value: number) => [`${value.toFixed(2)} MB/s`, 'Bandwidth']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="bandwidth" 
+                    stroke="#06b6d4" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorBw)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -290,26 +283,37 @@ export default function Dashboard() {
         <div className="bg-card/40 border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-emerald-500" /> Connection Activity
+            {connected && <span className="ml-2 text-xs text-emerald-500 font-normal flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />LIVE</span>}
           </h3>
           <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={SAMPLE_connectionsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="hour" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <RechartsLine 
-                  type="monotone" 
-                  dataKey="connections" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={{ fill: "#10b981", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {connectionHistory.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Waiting for connection data...</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={connectionHistory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="time" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(value: number) => [value, 'Connections']}
+                  />
+                  <RechartsLine 
+                    type="monotone" 
+                    dataKey="connections" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    dot={{ fill: "#10b981", strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 

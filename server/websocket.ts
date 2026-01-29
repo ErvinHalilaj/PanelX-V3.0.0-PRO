@@ -1,6 +1,6 @@
 import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import type { Storage } from './storage';
+import type { IStorage } from './storage';
 import * as si from 'systeminformation';
 import { getStreamProxyManager } from './streamProxy';
 
@@ -19,11 +19,11 @@ interface ConnectionInfo {
 
 export class WebSocketManager {
   private io: SocketIOServer;
-  private storage: Storage;
+  private storage: IStorage;
   private activeConnections: Map<string, ConnectionInfo> = new Map();
   private updateInterval: NodeJS.Timeout | null = null;
 
-  constructor(httpServer: HTTPServer, storage: Storage) {
+  constructor(httpServer: HTTPServer, storage: IStorage) {
     this.storage = storage;
     
     // Initialize Socket.IO with CORS
@@ -150,8 +150,8 @@ export class WebSocketManager {
     ]);
 
     const onlineStreams = streams.filter(s => s.monitorStatus === 'online').length;
-    const activeLines = lines.filter(l => l.enabled && !this.isExpired(l.expirationDate)).length;
-    const expiredLines = lines.filter(l => this.isExpired(l.expirationDate)).length;
+    const activeLines = lines.filter(l => l.enabled && !this.isExpired(l.expDate)).length;
+    const expiredLines = lines.filter(l => this.isExpired(l.expDate)).length;
 
     // Get real stats from stream proxy
     const proxyManager = getStreamProxyManager();
@@ -193,22 +193,18 @@ export class WebSocketManager {
   }
 
   private async getActiveConnections() {
-    // Get connections from storage (you'll need to track these in connection_history table)
+    // Get connections from storage - use database schema field names
     const connections = await this.storage.getActiveConnections();
     
     return connections.map(conn => ({
       id: conn.id,
-      username: conn.username,
-      streamName: conn.streamName,
-      streamType: conn.streamType,
-      ip: conn.ip,
-      country: conn.country,
-      city: conn.city,
-      isp: conn.isp,
-      userAgent: conn.userAgent,
-      connectedAt: conn.connectedAt,
-      duration: Math.floor((Date.now() - new Date(conn.connectedAt).getTime()) / 1000),
-      bytesTransferred: conn.bytesTransferred || 0
+      lineId: conn.lineId,
+      streamId: conn.streamId,
+      ip: conn.ipAddress || 'Unknown',
+      userAgent: conn.userAgent || 'Unknown',
+      connectedAt: conn.startedAt?.toISOString() || new Date().toISOString(),
+      duration: conn.startedAt ? Math.floor((Date.now() - new Date(conn.startedAt).getTime()) / 1000) : 0,
+      bytesTransferred: 0
     }));
   }
 
@@ -359,7 +355,7 @@ export class WebSocketManager {
 // Singleton instance
 let wsManager: WebSocketManager | null = null;
 
-export function initializeWebSocket(httpServer: HTTPServer, storage: Storage): WebSocketManager {
+export function initializeWebSocket(httpServer: HTTPServer, storage: IStorage): WebSocketManager {
   if (!wsManager) {
     wsManager = new WebSocketManager(httpServer, storage);
   }

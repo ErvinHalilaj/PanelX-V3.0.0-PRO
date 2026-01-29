@@ -30,9 +30,19 @@ interface ActiveConnection {
 
 interface BandwidthData {
   total: string;
+  totalBytes?: number;
+  perSecond?: number;
   perStream: Array<{
     streamId: number;
     bandwidth: string;
+    bytesPerSecond?: number;
+    viewers?: number;
+  }>;
+  history?: Array<{
+    timestamp: string;
+    bytes: number;
+    bytesPerSecond: number;
+    bandwidth?: string;
   }>;
   timestamp: string;
 }
@@ -68,7 +78,31 @@ export function useWebSocket() {
   const [activeConnections, setActiveConnections] = useState<ActiveConnection[]>([]);
   const [bandwidthData, setBandwidthData] = useState<BandwidthData | null>(null);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
+  const [bandwidthHistory, setBandwidthHistory] = useState<Array<{ time: string; bandwidth: number; connections: number }>>([]);
+  const [connectionHistory, setConnectionHistory] = useState<Array<{ time: string; connections: number }>>([]);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  // Track bandwidth and connection history when data updates
+  useEffect(() => {
+    if (bandwidthData || dashboardStats) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      
+      // Parse bandwidth to MB/s
+      const bwValue = bandwidthData?.perSecond ? bandwidthData.perSecond / (1024 * 1024) : 0;
+      const connCount = dashboardStats?.activeConnections || 0;
+      
+      setBandwidthHistory(prev => {
+        const newData = [...prev, { time: timeStr, bandwidth: bwValue, connections: connCount }];
+        return newData.slice(-30); // Keep last 30 data points (1 minute at 2s intervals)
+      });
+      
+      setConnectionHistory(prev => {
+        const newData = [...prev, { time: timeStr, connections: connCount }];
+        return newData.slice(-30);
+      });
+    }
+  }, [bandwidthData?.timestamp, dashboardStats?.timestamp]);
 
   useEffect(() => {
     // Connect to WebSocket server
@@ -103,16 +137,19 @@ export function useWebSocket() {
 
     // Listen for dashboard updates
     socketInstance.on('dashboard:update', (data: DashboardStats) => {
+      console.log('[WebSocket] Dashboard update:', data.activeConnections, 'connections,', data.totalBandwidth);
       setDashboardStats(data);
     });
 
     // Listen for connections updates
     socketInstance.on('connections:update', (data: ActiveConnection[]) => {
+      console.log('[WebSocket] Connections update:', data.length, 'active connections');
       setActiveConnections(data);
     });
 
     // Listen for bandwidth updates
     socketInstance.on('bandwidth:update', (data: BandwidthData) => {
+      console.log('[WebSocket] Bandwidth update:', data.total, 'perSecond:', data.perSecond);
       setBandwidthData(data);
     });
 
@@ -157,6 +194,8 @@ export function useWebSocket() {
     activeConnections,
     bandwidthData,
     systemMetrics,
+    bandwidthHistory,
+    connectionHistory,
     requestDashboard,
     requestConnections,
     requestBandwidth
