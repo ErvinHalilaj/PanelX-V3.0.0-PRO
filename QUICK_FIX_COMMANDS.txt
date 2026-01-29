@@ -1,0 +1,67 @@
+# 🚀 Quick Fix Commands - Run These on Your VPS
+
+## Run these commands in order:
+
+### 1. Fix Git Permissions (as root/sudo)
+```bash
+sudo chown -R panelx:panelx /home/panelx/webapp
+```
+
+### 2. Upgrade Node.js to v20 (as root/sudo)
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt-get install -y nodejs
+node -v  # Should show v20.x.x
+```
+
+### 3. Deploy Fixes (as panelx user)
+```bash
+cd /home/panelx/webapp
+git fetch origin main
+git reset --hard origin/main
+rm -rf node_modules package-lock.json
+npm install
+npm install @radix-ui/react-scroll-area @radix-ui/react-checkbox @radix-ui/react-select
+npm run build
+pm2 delete panelx
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+### 4. Verify
+```bash
+pm2 logs panelx --lines 30
+curl http://localhost:5000/api/auth/check
+```
+
+### 5. Test in Browser
+- Open: http://69.169.102.47
+- Login: admin / admin123
+- Test line editing
+- Test bouquet stream selection
+
+---
+
+## If Node.js upgrade doesn't work:
+
+```bash
+# Remove old Node.js first
+sudo apt-get remove -y nodejs
+sudo apt-get autoremove -y
+
+# Install fresh
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt-get install -y nodejs
+
+# Verify
+node -v
+```
+
+---
+
+## 📚 Full Documentation:
+- **MANUAL_DEPLOYMENT_FIX.md** - Complete step-by-step guide
+- **emergency-deploy-fix.sh** - Automated script (if you prefer)
+
+## 🔗 GitHub:
+https://github.com/ErvinHalilaj/PanelX-V3.0.0-PRO
